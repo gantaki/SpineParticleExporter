@@ -1842,7 +1842,7 @@ function bakeParticleAnimation(settings: ParticleSettings): BakedFrame[] {
       for (const [id, particleData] of prewarmParticles) {
         // Check if this particle is from prewarm (not present in current frame)
         if (!currentFrame.has(id)) {
-          // Calculate how much life the particle should have lost
+          // Calculate how much life the particle should have lost from start
           const timeElapsed = i * dt;
           const adjustedLife = particleData.life - timeElapsed;
 
@@ -1853,6 +1853,25 @@ function bakeParticleAnimation(settings: ParticleSettings): BakedFrame[] {
               life: adjustedLife
             });
           }
+        }
+      }
+    }
+
+    // Add prewarm particles at the end (for smooth loop transition)
+    if (isLooping && prewarmParticles.size > 0) {
+      for (const [id, particleData] of prewarmParticles) {
+        // Time remaining until end of animation
+        const timeUntilEnd = duration - (i * dt);
+
+        // If near the end and particle should be visible for loop transition
+        // (particle exists at frame 0, so it should exist at end too)
+        if (timeUntilEnd <= particleData.life && !particlesSnapshot.has(id)) {
+          // Add particle with life = time until end
+          // This creates smooth transition: end of cycle -> start of next cycle
+          particlesSnapshot.set(id, {
+            ...particleData,
+            life: timeUntilEnd
+          });
         }
       }
     }
