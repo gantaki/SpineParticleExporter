@@ -1772,28 +1772,39 @@ function bakeParticleAnimation(settings: ParticleSettings): BakedFrame[] {
   const frames: BakedFrame[] = [];
   const system = new ParticleSystem(settings);
 
-  // Store prewarm particles for loop start
-  const prewarmParticles = new Map<number, any>();
+  // Store prewarm animation frames for loop
+  const prewarmFrames: Map<number, Map<number, any>> = new Map();
 
-  // Apply prewarm if enabled
+  // Apply prewarm if enabled and capture full animation
   if (settings.emitter.prewarm && settings.emitter.looping) {
-    system.prewarm();
+    const dt = 1 / settings.fps;
+    const prewarmSteps = Math.ceil(settings.duration * settings.fps);
 
-    // Save prewarm particles state (they'll be added to frame 0)
-    for (const p of system.particles) {
-      prewarmParticles.set(p.id, {
-        x: p.x - settings.emitter.position.x,
-        y: p.y - settings.emitter.position.y,
-        rotation: p.rotation * 180 / Math.PI,
-        scale: p.scale,
-        scaleX: p.scaleX,
-        scaleY: p.scaleY,
-        alpha: p.alpha,
-        color: { ...p.color },
-        life: p.life,
-        maxLife: p.maxLife
-      });
+    // Simulate prewarm and capture every frame
+    for (let i = 0; i < prewarmSteps; i++) {
+      system.update(dt, true); // skipTimeReset = true during prewarm
+
+      const particlesSnapshot = new Map<number, any>();
+      for (const p of system.particles) {
+        particlesSnapshot.set(p.id, {
+          x: p.x - settings.emitter.position.x,
+          y: p.y - settings.emitter.position.y,
+          rotation: p.rotation * 180 / Math.PI,
+          scale: p.scale,
+          scaleX: p.scaleX,
+          scaleY: p.scaleY,
+          alpha: p.alpha,
+          color: { ...p.color },
+          life: p.life,
+          maxLife: p.maxLife
+        });
+      }
+      prewarmFrames.set(i, particlesSnapshot);
     }
+
+    // Reset time but keep particles for main simulation
+    system.time = settings.emitter.startDelay;
+    system.hasPrewarmed = true;
   }
 
   const dt = 1 / settings.fps;
@@ -1837,21 +1848,32 @@ function bakeParticleAnimation(settings: ParticleSettings): BakedFrame[] {
     const currentFrame = allFrames.get(i) || new Map();
     const particlesSnapshot = new Map<number, any>(currentFrame);
 
-    // Add prewarm particles at the start (for looping animations)
-    if (isLooping && prewarmParticles.size > 0) {
-      for (const [id, particleData] of prewarmParticles) {
-        // Check if this particle is from prewarm (not present in current frame)
-        if (!currentFrame.has(id)) {
-          // Calculate how much life the particle should have lost
-          const timeElapsed = i * dt;
-          const adjustedLife = particleData.life - timeElapsed;
+    // Add prewarm particles (for looping animations)
+    if (isLooping && prewarmFrames.size > 0) {
+      // Get prewarm frame for current position
+      const prewarmFrame = prewarmFrames.get(i);
 
-          // Only add if particle is still alive
-          if (adjustedLife > 0) {
-            particlesSnapshot.set(id, {
-              ...particleData,
-              life: adjustedLife
-            });
+      if (prewarmFrame) {
+        for (const [id, particleData] of prewarmFrame) {
+          // Add prewarm particle if not already present in simulation
+          if (!currentFrame.has(id)) {
+            particlesSnapshot.set(id, particleData);
+          }
+        }
+      }
+
+      // Also add prewarm particles at the END for smooth loop transition
+      // Calculate which prewarm frame corresponds to the end of cycle
+      const framesFromEnd = frameCount - i - 1;
+      if (framesFromEnd >= 0 && framesFromEnd < prewarmFrames.size) {
+        const endPrewarmFrame = prewarmFrames.get(prewarmFrames.size - 1 - framesFromEnd);
+
+        if (endPrewarmFrame) {
+          for (const [id, particleData] of endPrewarmFrame) {
+            // Add prewarm particle at end if not already present
+            if (!particlesSnapshot.has(id)) {
+              particlesSnapshot.set(id, particleData);
+            }
           }
         }
       }
@@ -1970,10 +1992,10 @@ function smoothAngles(angles: number[], windowSize: number = 3): number[] {
 }
 
 function isParticleVisible(particle: any): boolean {
-  // Particle is hidden if scale < 0.05 OR alpha < 1/255
-  // Visible if scale >= 0.05 AND alpha >= 1/255 (0.00392 in normalized form)
-  const MIN_ALPHA = 1 / 255; // 1 out of 255 in Spine color range
-  return particle && particle.alpha >= MIN_ALPHA && particle.scale >= 0.05;
+  // Particle is visible based only on alpha
+  // Alpha >= 1/255 (0.00392 in normalized form, 1 out of 255 in Spine color range)
+  const MIN_ALPHA = 1 / 255;
+  return particle && particle.alpha >= MIN_ALPHA;
 }
 
 function generateSpineJSON(frames: BakedFrame[], settings: ParticleSettings): string {
