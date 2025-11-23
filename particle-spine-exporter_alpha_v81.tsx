@@ -104,6 +104,9 @@ interface ParticleSettings {
   randomRotationMin: number;
   randomRotationMax: number;
 
+  randomSpinMin: number;
+  randomSpinMax: number;
+
   exportSettings: ExportSettings;
 }
 
@@ -117,6 +120,7 @@ interface Particle {
   maxLife: number;
   baseSpeed: number;
   rotation: number;
+  baseSpin: number;
   scale: number;
   scaleX: number;
   scaleY: number;
@@ -174,7 +178,7 @@ const DEFAULT_SETTINGS: ParticleSettings = {
     angleSpread: 30,
     speedMin: 100,
     speedMax: 200,
-    rate: 50,
+    rate: 10,
     maxParticles: 500,
     
     emissionType: 'continuous',
@@ -231,6 +235,9 @@ const DEFAULT_SETTINGS: ParticleSettings = {
 
   randomRotationMin: 0,
   randomRotationMax: 0,
+
+  randomSpinMin: 0,
+  randomSpinMax: 0,
 
   exportSettings: {
     exportTranslate: true,
@@ -988,7 +995,7 @@ const Timeline: React.FC<{
   const [isDragging, setIsDragging] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
 
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const progress = duration > 0 ? Math.min((currentTime / duration) * 100, 100) : 0;
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     setIsDragging(true);
@@ -1200,6 +1207,12 @@ class ParticleSystem {
         this.burstCycleIndex = 0;
         this.lastBurstTime = em.startDelay;
       }
+    } else if (!em.looping && !skipTimeReset) {
+      // When not looping, cap time at duration
+      const maxTime = em.startDelay + this.settings.duration;
+      if (this.time > maxTime) {
+        this.time = maxTime;
+      }
     }
     
     // Check if we're in the active emission period (after start delay)
@@ -1326,7 +1339,7 @@ class ParticleSystem {
       p.y += p.vy * speedMultiplier * dt;
       
       const spinSpeed = evaluateCurve(this.settings.spinOverLifetime, t);
-      p.rotation += spinSpeed * dt;
+      p.rotation += (spinSpeed + p.baseSpin) * dt;
       
       const angularVelocity = evaluateCurve(this.settings.angularVelocityOverLifetime, t);
       p.rotation += angularVelocity * dt;
@@ -1432,8 +1445,12 @@ class ParticleSystem {
     const speed = em.speedMin + Math.random() * (em.speedMax - em.speedMin);
     
     // Random initial rotation
-    const randomRotation = this.settings.randomRotationMin + 
+    const randomRotation = this.settings.randomRotationMin +
       Math.random() * (this.settings.randomRotationMax - this.settings.randomRotationMin);
+
+    // Random initial spin speed
+    const randomSpin = this.settings.randomSpinMin +
+      Math.random() * (this.settings.randomSpinMax - this.settings.randomSpinMin);
 
     const particle: Particle = {
       id: this.nextParticleId++,
@@ -1445,6 +1462,7 @@ class ParticleSystem {
       maxLife: 0,
       baseSpeed: speed,
       rotation: randomRotation * Math.PI / 180, // Convert to radians
+      baseSpin: randomSpin,
       scale: 1,
       scaleX: 1,
       scaleY: 1,
@@ -1999,7 +2017,7 @@ function generateSpineJSON(frames: BakedFrame[], settings: ParticleSettings): st
         }
 
         if (settings.exportSettings.exportTranslate && (isFirstFrame || isLastFrame || visibilityChanged || prevPos === null || shouldCreateKey(prevPos, currentPos, POSITION_THRESHOLD))) {
-          translateKeys.push({ time: Math.round(frame.time * 1000) / 1000, x: Math.round(currentPos.x * 100) / 100, y: Math.round(currentPos.y * 100) / 100 });
+          translateKeys.push({ time: Math.round(frame.time * 1000) / 1000, x: Math.round(currentPos.x * 100) / 100, y: Math.round(-currentPos.y * 100) / 100 });
           prevPos = currentPos;
         }
 
@@ -2051,7 +2069,7 @@ function generateSpineJSON(frames: BakedFrame[], settings: ParticleSettings): st
         
         if (visibilityChanged && wasVisible) {
           const time = Math.round(frame.time * 1000) / 1000;
-          if (settings.exportSettings.exportTranslate && prevPos) translateKeys.push({ time, x: Math.round(prevPos.x * 100) / 100, y: Math.round(prevPos.y * 100) / 100 });
+          if (settings.exportSettings.exportTranslate && prevPos) translateKeys.push({ time, x: Math.round(prevPos.x * 100) / 100, y: Math.round(-prevPos.y * 100) / 100 });
           if (settings.exportSettings.exportRotate && prevRotation !== null) rotateKeys.push({ time, angle: Math.round(prevRotation * 100) / 100 });
           if (settings.exportSettings.exportScale && prevScale !== null) scaleKeys.push({ time, x: 0, y: 0 });
         }
@@ -3023,24 +3041,6 @@ const ParticleSpineExporter: React.FC = () => {
                   </div>
                   <p className="text-[10px] text-slate-500 mt-1">Initial rotation range for each particle</p>
                 </div>
-
-                <label className="flex items-center gap-2">
-                  <input type="checkbox" checked={settings.nonUniformScale} onChange={e => updateSettings({ ...settings, nonUniformScale: e.target.checked })} className="rounded" />
-                  <span className="text-xs text-slate-300">Non-uniform Scale</span>
-                </label>
-
-                {settings.nonUniformScale && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="block">
-                      <span className="text-xs text-slate-300">Ratio X</span>
-                      <input type="number" min="0.1" max="3" step="0.1" value={settings.scaleRatioX} onChange={e => updateSettings({ ...settings, scaleRatioX: Number(e.target.value) })} className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs" />
-                    </label>
-                    <label className="block">
-                      <span className="text-xs text-slate-300">Ratio Y</span>
-                      <input type="number" min="0.1" max="3" step="0.1" value={settings.scaleRatioY} onChange={e => updateSettings({ ...settings, scaleRatioY: Number(e.target.value) })} className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs" />
-                    </label>
-                  </div>
-                )}
               </div>
             </CollapsibleSection>
 
@@ -3203,14 +3203,53 @@ const ParticleSpineExporter: React.FC = () => {
                   min={0} 
                   max={2} 
                 />
-                <CurveEditor 
-                  label="Attraction" 
-                  curve={settings.attractionOverLifetime} 
-                  onChange={curve => updateSettings({ ...settings, attractionOverLifetime: curve })} 
+                <CurveEditor
+                  label="Attraction"
+                  curve={settings.attractionOverLifetime}
+                  onChange={curve => updateSettings({ ...settings, attractionOverLifetime: curve })}
                   onReset={() => updateSettings({ ...settings, attractionOverLifetime: DEFAULT_CURVE_PRESETS.attraction })}
-                  min={-500} 
-                  max={500} 
+                  min={-500}
+                  max={500}
                 />
+
+                <div className="space-y-2 pt-2 border-t border-slate-700">
+                  <CurveEditor
+                    label="Spin (Rotation Speed)"
+                    curve={settings.spinOverLifetime}
+                    onChange={curve => updateSettings({ ...settings, spinOverLifetime: curve })}
+                    onReset={() => updateSettings({ ...settings, spinOverLifetime: DEFAULT_CURVE_PRESETS.spin })}
+                    min={-720}
+                    max={720}
+                  />
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="text-xs text-slate-300">Random Spin Min (°/s)</span>
+                      <input
+                        type="number"
+                        min="-720"
+                        max="720"
+                        step="10"
+                        value={settings.randomSpinMin}
+                        onChange={e => updateSettings({ ...settings, randomSpinMin: Number(e.target.value) })}
+                        className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs text-slate-300">Random Spin Max (°/s)</span>
+                      <input
+                        type="number"
+                        min="-720"
+                        max="720"
+                        step="10"
+                        value={settings.randomSpinMax}
+                        onChange={e => updateSettings({ ...settings, randomSpinMax: Number(e.target.value) })}
+                        className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                      />
+                    </label>
+                  </div>
+                  <p className="text-[10px] text-slate-500 mt-1">Random initial rotation speed added to each particle (degrees per second)</p>
+                </div>
               </div>
             </CollapsibleSection>
 
@@ -3236,7 +3275,7 @@ const ParticleSpineExporter: React.FC = () => {
                   <input
                     type="checkbox"
                     checked={settings.exportSettings.exportTranslate}
-                    onChange={(e) => updateSettings({ exportSettings: { ...settings.exportSettings, exportTranslate: e.target.checked } })}
+                    onChange={(e) => updateSettings({ ...settings, exportSettings: { ...settings.exportSettings, exportTranslate: e.target.checked } })}
                     className="rounded"
                   />
                   <span>Export Translate</span>
@@ -3245,7 +3284,7 @@ const ParticleSpineExporter: React.FC = () => {
                   <input
                     type="checkbox"
                     checked={settings.exportSettings.exportRotate}
-                    onChange={(e) => updateSettings({ exportSettings: { ...settings.exportSettings, exportRotate: e.target.checked } })}
+                    onChange={(e) => updateSettings({ ...settings, exportSettings: { ...settings.exportSettings, exportRotate: e.target.checked } })}
                     className="rounded"
                   />
                   <span>Export Rotate</span>
@@ -3254,7 +3293,7 @@ const ParticleSpineExporter: React.FC = () => {
                   <input
                     type="checkbox"
                     checked={settings.exportSettings.exportScale}
-                    onChange={(e) => updateSettings({ exportSettings: { ...settings.exportSettings, exportScale: e.target.checked } })}
+                    onChange={(e) => updateSettings({ ...settings, exportSettings: { ...settings.exportSettings, exportScale: e.target.checked } })}
                     className="rounded"
                   />
                   <span>Export Scale</span>
@@ -3263,7 +3302,7 @@ const ParticleSpineExporter: React.FC = () => {
                   <input
                     type="checkbox"
                     checked={settings.exportSettings.exportColor}
-                    onChange={(e) => updateSettings({ exportSettings: { ...settings.exportSettings, exportColor: e.target.checked } })}
+                    onChange={(e) => updateSettings({ ...settings, exportSettings: { ...settings.exportSettings, exportColor: e.target.checked } })}
                     className="rounded"
                   />
                   <span>Export Color</span>
@@ -3276,7 +3315,7 @@ const ParticleSpineExporter: React.FC = () => {
                     <input
                       type="number"
                       value={settings.exportSettings.positionThreshold}
-                      onChange={(e) => updateSettings({ exportSettings: { ...settings.exportSettings, positionThreshold: parseFloat(e.target.value) || 0 } })}
+                      onChange={(e) => updateSettings({ ...settings, exportSettings: { ...settings.exportSettings, positionThreshold: parseFloat(e.target.value) || 0 } })}
                       step="0.1"
                       min="0"
                       max="50"
@@ -3288,7 +3327,7 @@ const ParticleSpineExporter: React.FC = () => {
                     <input
                       type="number"
                       value={settings.exportSettings.rotationThreshold}
-                      onChange={(e) => updateSettings({ exportSettings: { ...settings.exportSettings, rotationThreshold: parseFloat(e.target.value) || 0 } })}
+                      onChange={(e) => updateSettings({ ...settings, exportSettings: { ...settings.exportSettings, rotationThreshold: parseFloat(e.target.value) || 0 } })}
                       step="0.1"
                       min="0"
                       max="180"
@@ -3300,7 +3339,7 @@ const ParticleSpineExporter: React.FC = () => {
                     <input
                       type="number"
                       value={settings.exportSettings.scaleThreshold}
-                      onChange={(e) => updateSettings({ exportSettings: { ...settings.exportSettings, scaleThreshold: parseFloat(e.target.value) || 0 } })}
+                      onChange={(e) => updateSettings({ ...settings, exportSettings: { ...settings.exportSettings, scaleThreshold: parseFloat(e.target.value) || 0 } })}
                       step="0.01"
                       min="0"
                       max="2"
@@ -3312,7 +3351,7 @@ const ParticleSpineExporter: React.FC = () => {
                     <input
                       type="number"
                       value={settings.exportSettings.colorThreshold}
-                      onChange={(e) => updateSettings({ exportSettings: { ...settings.exportSettings, colorThreshold: parseFloat(e.target.value) || 0 } })}
+                      onChange={(e) => updateSettings({ ...settings, exportSettings: { ...settings.exportSettings, colorThreshold: parseFloat(e.target.value) || 0 } })}
                       step="1"
                       min="0"
                       max="255"
