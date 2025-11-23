@@ -1970,8 +1970,9 @@ function smoothAngles(angles: number[], windowSize: number = 3): number[] {
 }
 
 function isParticleVisible(particle: any): boolean {
-  // Particle is visible if scale >= 0.05 AND alpha >= 1
-  return particle && particle.alpha >= 1 && particle.scale >= 0.05;
+  // Particle is hidden if scale is too small OR alpha is nearly zero
+  // Visible if scale >= 0.05 AND alpha > 0.01
+  return particle && particle.alpha > 0.01 && particle.scale >= 0.05;
 }
 
 function generateSpineJSON(frames: BakedFrame[], settings: ParticleSettings): string {
