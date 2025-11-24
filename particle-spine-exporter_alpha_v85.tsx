@@ -9,14 +9,6 @@
  * - Added a dedicated third column for export settings and info
  * - Color Over Lifetime is now housed inside Curves Over Lifetime
  * - Curve graphs now expand to the full width of their containers
- *
- * Previous Changes (v81):
- * - Fixed timeline scrubber going to infinity when Loop is off
- * - Fixed crashes when toggling export timeline parameters or changing Threshold values
- * - Flipped Y coordinate in Spine export (emitter orientation corrected)
- * - Changed default emission rate from 50 to 10 particles per second
- * - Removed non-uniform scale settings from UI
- * - Moved spin settings to 'Over Lifetime' panel with randomization options
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
