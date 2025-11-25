@@ -1,0 +1,14 @@
+# Demo project (can be recreated with setup-demo.sh)
+particle-exporter-demo/
+
+# Node modules
+node_modules/
+
+# Build outputs
+dist/
+build/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
