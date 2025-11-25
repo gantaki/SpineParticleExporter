@@ -8,6 +8,7 @@
  * - Curve editors auto-rescale from a default -1 to 1 view and stay stable when resetting complex curves
  * - Noise force reshaped for sharper jitter while speed controls moved into particle settings with gravity off by default
  * - Color timeline fills its container, opening the picker automatically on selection with random spin toggles removed
+ * - Exposes the component on window for drop-in standalone HTML usage
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
@@ -3823,3 +3824,8 @@ const ParticleSpineExporter: React.FC = () => {
 };
 
 export default ParticleSpineExporter;
+
+// Provide a global hook for standalone HTML usage without a bundler
+if (typeof window !== 'undefined') {
+  (window as any).ParticleSpineExporter = ParticleSpineExporter;
+}
