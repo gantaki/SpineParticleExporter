@@ -1,11 +1,11 @@
 # CLAUDE.md - SpineParticleExporter
 
-**Last Updated:** 2025-11-24
-**Current Version:** v85
+**Last Updated:** 2025-11-25
+**Current Version:** v97 (Modular)
 
 ## Project Overview
 
-SpineParticleExporter is a self-contained React/TypeScript web application that converts particle system animations into Spine 4.2 skeletal animation format. It's designed for game developers and animators who need to create particle effects for use in game engines that support Spine animations.
+SpineParticleExporter is a React/TypeScript web application that converts particle system animations into Spine 4.2 skeletal animation format. It's designed for game developers and animators who need to create particle effects for use in game engines that support Spine animations.
 
 ### Core Capabilities
 
@@ -30,533 +30,699 @@ SpineParticleExporter is a self-contained React/TypeScript web application that 
 
 ### Repository Characteristics
 
-- **Self-Contained Component**: Entire application in single TSX files
-- **No Build Pipeline**: Designed to integrate into existing build systems
-- **Versioned Iterations**: Keeps 1-2 latest versions (v84, v85 currently)
-- **Clean History**: Old versions deleted after merging to keep repo minimal
+- **Modular Architecture** (v97+): Code split into 6 logical modules for maintainability
+- **Dual Distribution**: Modular for development, standalone for production
+- **Build System**: Automated scripts to generate standalone versions
+- **Versioned Iterations**: Keeps latest versions (v96 monolithic, v97 modular currently)
 
-## Codebase Structure
+---
 
-### File Organization
+## Codebase Structure (v97)
 
+### 🎯 Two Distribution Methods
+
+#### 1. **Modular Structure** (for development)
 ```
-SpineParticleExporter/
-├── particle-spine-exporter_alpha_v84.tsx    # Previous stable version
-└── particle-spine-exporter_alpha_v85.tsx    # Current version (3,565 lines)
-```
-
-### Code Architecture (v85)
-
-The TSX files follow a consistent modular structure:
-
-#### 1. Header & Metadata (Lines 1-12)
-```typescript
-// particle-spine-exporter_alpha_v85.tsx
-// Version v85 - Date: November 23, 2025
-// Changes: UI layout updates, color editor moved to curves section
+particle-spine-exporter-v97/
+├── types.ts           (~300 lines)  - Type definitions and constants
+├── utils.ts           (~150 lines)  - Utility functions
+├── core.ts            (~700 lines)  - ParticleSystem simulation engine
+├── export.ts          (~1200 lines) - Export functionality
+├── components.tsx     (~1000 lines) - React UI components
+├── index.tsx          (~800 lines)  - Main component
+└── README.md                        - Module documentation
 ```
 
-#### 2. Type Definitions (Lines 17-160)
-
-**Core Types:**
-- `Vec2`: 2D vector `{x: number, y: number}`
-- `Color`: RGBA color `{r, g, b, a}` (0-1 range)
-- `CurvePoint`: Curve keyframe `{time, value}`
-- `Curve`: Animation curve `{points: CurvePoint[], smooth: boolean}`
-- `ColorPoint`: Color keyframe `{time, color: Color}`
-- `ColorGradient`: Color timeline `{points: ColorPoint[]}`
-
-**Settings Types:**
-- `EmitterSettings`: Shape, position, emission parameters
-- `ParticleSettings`: Lifetime, physics, visual properties
-- `ExportSettings`: Spine format configuration
-
-**Runtime Types:**
-- `Particle`: Live particle instance with position, velocity, age
-- `BakedFrame`: Captured particle states at specific time
-- `AtlasRegion`: Texture atlas sprite metadata
-
-#### 3. Default Configurations (Lines 170-272)
-
-**Curve Presets:**
-```typescript
-DEFAULT_CURVE_PRESETS = {
-  sizeOverLifetime: [{time:0, value:0.2}, {time:0.5, value:1}, {time:1, value:0}],
-  speedOverLifetime: [{time:0, value:1}, {time:1, value:0.5}],
-  weightOverLifetime: [{time:0, value:0}, {time:1, value:1}],
-  spinOverLifetime: [{time:0, value:0}, {time:1, value:1}],
-  // ... more presets
-}
+#### 2. **Standalone Version** (for distribution)
+```
+particle-spine-exporter_alpha_v97.tsx  (~4175 lines)
 ```
 
-**Default Settings:**
-- Initial particle system configuration
-- Reasonable starting values for all parameters
+Generated via: `npm run build`
 
-#### 4. Utility Functions (Lines 274-345)
+### 🔧 Build Tools
 
-- `simpleNoise(x)`: 1D Perlin-like noise
-- `noise2D(x, y)`: 2D Perlin-like noise for spatial variation
-- `evaluateCurve(curve, t)`: Interpolate curve value at time t
-- `evaluateColorGradient(gradient, t)`: Interpolate color at time t
+```
+build-standalone.js    - Combines modules into single file
+split-to-modules.js    - Splits monolithic file into modules
+setup-demo.sh          - Creates Vite dev environment
+package.json           - NPM scripts and dependencies
+```
 
-#### 5. React UI Components (Lines 347-1180)
+---
 
-**ColorPicker** (Lines 347-495)
+## Module Architecture (v97)
+
+### 📦 Module Breakdown
+
+#### `types.ts` (~300 lines)
+**Purpose:** All TypeScript type definitions, interfaces, and configuration constants
+
+**Key Exports:**
+- `Vec2`, `Color` - Basic types
+- `CurvePoint`, `Curve` - Animation curve types
+- `ColorPoint`, `ColorGradient` - Color animation types
+- `EmitterSettings` - Emitter configuration
+- `ParticleSettings` - Complete particle system settings
+- `ExportSettings` - Export configuration
+- `Particle` - Runtime particle data
+- `BakedFrame`, `AtlasRegion` - Export pipeline types
+- `DEFAULT_CURVE_PRESETS` - Preset curves for common animations
+- `DEFAULT_SETTINGS` - Default particle system configuration
+
+**Characteristics:**
+- No runtime logic, pure type definitions
+- All interfaces and constants in one place
+- Easy to extend with new properties
+- Single source of truth for configuration
+
+#### `utils.ts` (~150 lines)
+**Purpose:** Pure utility functions for math, noise, and curve evaluation
+
+**Key Functions:**
+- `simpleNoise(x, y)` - 2D Perlin-like noise generation
+- `noise2D(x, y, time)` - Time-varying 2D noise vector
+- `clamp01(value)` - Clamp value to [0, 1] range
+- `sampleRange(range)` - Random value from min/max range
+- `copyCurve(curve)` - Deep copy curve data
+- `evaluateCurve(curve, t)` - Interpolate curve value at time t
+- `evaluateColorGradient(gradient, t)` - Interpolate color at time t
+
+**Characteristics:**
+- Pure functions, no side effects
+- No dependencies on React or other modules
+- Fully testable in isolation
+- Mathematical operations only
+
+#### `core.ts` (~700 lines)
+**Purpose:** ParticleSystem class - the simulation engine
+
+**Key Class: `ParticleSystem`**
+
+**Properties:**
+- `settings: ParticleSettings` - Configuration
+- `particles: Particle[]` - Active particles array
+- `time: number` - Current simulation time
+- `particleIdCounter: number` - Unique particle IDs
+
+**Core Methods:**
+- `update(dt: number)` - Advance simulation by time delta
+- `spawnParticle()` - Create new particle with initial properties
+- `updateParticle(p: Particle, dt: number)` - Apply physics and lifetime
+- `reset()` - Clear all particles and reset state
+- `draw(ctx: CanvasRenderingContext2D, time: number)` - Render to canvas
+
+**Emission Logic:**
+- Shape-based spawning (point, circle, rectangle, rounded rect, line)
+- Emission modes (area, edge)
+- Emission types (continuous, burst, duration)
+- Rate/count-based emission control
+
+**Physics Pipeline (per particle per frame):**
+1. Apply gravity to velocity
+2. Apply drag (velocity damping)
+3. Apply noise forces (turbulence)
+4. Apply attraction (to point or circle edge)
+5. Apply vortex (tangential and radial forces)
+6. Update position from velocity
+7. Update rotation from angular velocity
+8. Update age and check lifetime
+
+**Characteristics:**
+- Self-contained simulation logic
+- No UI dependencies
+- Canvas rendering built-in
+- Prewarm support for looping animations
+
+#### `export.ts` (~1200 lines)
+**Purpose:** All export functionality - sprites, atlases, baking, Spine JSON generation
+
+**Key Functions:**
+
+**Sprite Generation:**
+- `createParticleSprite(type, size)` - Generate particle textures
+  - Types: circle, star, polygon, glow
+  - Returns Canvas element with rendered sprite
+
+**Atlas Packing:**
+- `createParticleAtlas(spriteCanvas)` - Pack sprites into texture atlas
+  - Returns canvas and region metadata
+
+**Animation Baking:**
+- `bakeParticleAnimation(settings)` - Simulate and capture animation
+  - Runs full timeline at target FPS
+  - Captures particle states at each frame
+  - Returns baked frames and prewarm frames
+
+**Preview Rendering:**
+- `renderBakedPreview(frames, settings)` - Generate preview image
+
+**Atlas File Generation:**
+- `generateAtlasFile(atlasCanvas, region)` - Create Spine atlas text file
+
+**Spine JSON Generation:**
+- `generateSpineJSON(frames, prewarmFrames, settings)` - Convert to Spine 4.2 format
+  - Creates bone hierarchy
+  - Generates keyframe animations
+  - Optimizes redundant keyframes
+  - Supports separate loop/prewarm animations
+
+**Keyframe Optimization:**
+- Position threshold: 12.0 pixels
+- Rotation threshold: 20.0 degrees
+- Scale threshold: 0.2
+- Color threshold: 100 (0-255 range)
+- Always keeps first and last keyframes
+
+**ZIP Packaging:**
+- `SimpleZip` class - Custom ZIP implementation
+  - No external dependencies
+  - CRC32 checksum calculation
+  - Binary ZIP generation
+
+**Helper Functions:**
+- `shouldCreateKey()` - Determine if keyframe needed
+- `normalizeAngle()` - Handle angle wrapping
+- `smoothAngles()` - Reduce angle jitter
+- `isParticleVisible()` - Check if particle should be included
+- `downloadBlob()` - Trigger browser download
+
+**Characteristics:**
+- Heavy computational logic
+- No React dependencies
+- Pure data transformation
+- Self-contained export pipeline
+
+#### `components.tsx` (~1000 lines)
+**Purpose:** All React UI components for the editor interface
+
+**Key Components:**
+
+**`ColorPicker`**
 - HSV color wheel with saturation/value square
 - Alpha slider
 - Canvas-based interactive color selection
+- Props: `color`, `onChange`
 
-**ColorGradientEditor** (Lines 497-706)
+**`ColorGradientEditor`**
 - Timeline-based color keyframe editor
 - Add/remove/edit color stops
 - Visual gradient preview bar
+- Draggable time handles
+- Props: `gradient`, `onChange`
 
-**CurveEditor** (Lines 708-1005)
+**`CurveEditor`**
 - Interactive graph with draggable points
 - Add points with click, remove with right-click
 - Linear vs smooth interpolation toggle
 - Full-width responsive layout
+- Grid background with axis labels
+- Props: `curve`, `label`, `onChange`
 
-**CollapsibleSection** (Lines 1007-1032)
-- Expandable/collapsible UI sections
-- Chevron icon indicators
-
-**Timeline** (Lines 1034-1178)
+**`Timeline`**
 - Playback controls (play/pause/reset)
-- Scrubber for manual time control
+- Time scrubber for manual control
 - Loop toggle
+- Real-time preview updates
+- Props: `isPlaying`, `currentTime`, `duration`, `onPlayPause`, `onReset`, `onSeek`, `looping`, `onLoopToggle`
 
-#### 6. ParticleSystem Class (Lines 1185-1673)
+**`RangeInput`**
+- Min/max value editor
+- Synchronized number inputs
+- Prevents invalid ranges (min > max)
+- Props: `label`, `min`, `max`, `range`, `step`, `onChange`
 
-**Core Methods:**
-- `update(dt)`: Advance simulation by time delta
-- `spawnParticle()`: Create new particle with initial properties
-- `updateParticle(p, dt)`: Apply physics and update particle state
-- `reset()`: Clear all particles and reset emitter
-- `draw(ctx, time)`: Render particles to canvas
+**`CollapsibleSection`**
+- Expandable/collapsible UI panels
+- Chevron icon indicators
+- Props: `title`, `defaultOpen`, `children`
 
-**Emission Logic:**
-- Shape-based spawning (point, circle, rectangle, line)
-- Mode handling (continuous, burst, duration)
-- Rate/count-based emission
+**Helper Function:**
+- `hslToRgb()` - HSL to RGB color conversion
 
-**Physics Simulation:**
-- Gravity acceleration
-- Drag (velocity dampening)
-- Noise-based turbulence
-- Attraction to point/circle
-- Vortex/spiral forces
+**Characteristics:**
+- Pure UI components
+- No business logic
+- Controlled components (props + callbacks)
+- Reusable across projects
 
-**Prewarm Feature:**
-- Simulates N seconds instantly before playback
-- Ensures looping animations start with particles visible
-
-#### 7. Export Pipeline (Lines 1676-2276)
-
-**createParticleSprite(settings)**
-- Generates particle textures: circle, star, polygon, glow
-- Returns Canvas element with rendered sprite
-
-**createParticleAtlas(sprites)**
-- Packs multiple sprites into single texture
-- Returns atlas data with region coordinates
-
-**bakeParticleAnimation(settings, duration, fps)**
-- Simulates full animation timeline
-- Captures particle states at each frame
-- Returns array of `BakedFrame` objects
-
-**generateSpineJSON(baked, atlas, settings)**
-- Converts baked frames to Spine 4.2 format
-- Creates slots, skins, attachments
-- Optimizes keyframes (removes redundant frames)
-- Thresholds: 0.01 for position, 0.001 for scale/rotation, 0.01 for color
-
-#### 8. SimpleZip Class (Lines 2278-2401)
-
-Custom ZIP implementation for packaging exports:
-- CRC32 checksum calculation
-- File entry management
-- Binary ZIP generation
-- No external dependencies
-
-#### 9. Main Component (Lines 2418-3565)
-
-**ParticleSpineExporter** - Root React component
+#### `index.tsx` (~800 lines)
+**Purpose:** Main `ParticleSpineExporter` component - ties everything together
 
 **State Management:**
-- `emitterSettings`, `particleSettings`, `exportSettings`
-- `isPlaying`, `currentTime`, `duration`
-- Canvas refs and animation frame tracking
+- `settings: ParticleSettings` - Current particle system configuration
+- `isPlaying: boolean` - Playback state
+- `currentTime: number` - Current timeline position
+- `canvasRef`, `systemRef` - Refs for canvas and ParticleSystem
 
-**Three-Column Layout (v85):**
-1. **Left Column**: Viewport with canvas and timeline
+**Three-Column Layout:**
+1. **Left Column**: Canvas viewport + timeline controls
 2. **Middle Column**: Emitter and particle settings
-3. **Right Column**: Export settings and info
+3. **Right Column**: Export settings and actions
 
 **Canvas Rendering:**
 - RequestAnimationFrame loop
 - Real-time particle simulation
 - Visual feedback for emitter shapes
+- Vortex point visualization
+
+**Settings UI Sections:**
+- Emitter settings (position, shape, emission)
+- Particle lifetime
+- Physics forces (gravity, drag, noise, attraction, vortex)
+- Size/scale curves
+- Speed/weight curves
+- Rotation (spawn angle, spin, angular velocity)
+- Color gradient editor
+- Export settings (thresholds, channels)
 
 **Export Functionality:**
-- Bakes animation at specified FPS
-- Generates Spine JSON and texture atlas
-- Creates downloadable ZIP file
+- Bake animation at specified FPS
+- Generate Spine JSON and texture atlas
+- Create ZIP package
+- Download to user's machine
 - Error handling and user feedback
 
-## Development Workflows
-
-### Version Management
-
-- **Current Approach**: Keep latest 1-2 versions in repository
-- **Version Naming**: `particle-spine-exporter_alpha_vXX.tsx` (e.g., v85)
-- **Old Versions**: Delete after successful merge to keep repo clean
-- **Version History**: Document changes in file header comments
-
-### Making Changes
-
-1. **Always Read First**: Never propose changes without reading the file
-2. **Understand Context**: Review current version's header comments for recent changes
-3. **Maintain Structure**: Follow the established 9-section architecture
-4. **Test Interactively**: Changes should be testable in browser environment
-
-### Testing Considerations
-
-Since there's no test suite:
-- Manual testing required for UI changes
-- Verify particle physics visually in canvas
-- Test export by importing into Spine editor
-- Check all curve editor interactions
-- Validate ZIP file generation
-
-### Git Workflow
-
-**Branch Naming:**
-- AI assistant branches: `claude/claude-md-{session-id}`
-- Feature branches: Descriptive names
-- Always develop on designated branch
-
-**Commit Guidelines:**
-- Clear, concise messages describing user-facing changes
-- Examples: "v85 UI layout updates", "Fix curve interpolation bug"
-- Group related changes in single commit
-
-**Push Protocol:**
-- Always use: `git push -u origin <branch-name>`
-- Branch must start with `claude/` for AI assistant work
-- Retry up to 4 times with exponential backoff on network errors (2s, 4s, 8s, 16s)
-
-## Key Conventions
-
-### Code Style
-
-**TypeScript:**
-- Strict typing throughout
-- Interface-based type definitions
-- Explicit return types for complex functions
-
-**React Patterns:**
-- Functional components with hooks
-- Immutable state updates (spread operators)
-- UseEffect for canvas animation loops
-- UseRef for canvas and DOM references
-
-**Naming Conventions:**
-- PascalCase: Components, types, classes (`ParticleSystem`, `CurveEditor`)
-- camelCase: Functions, variables (`evaluateCurve`, `currentTime`)
-- UPPER_SNAKE_CASE: Constants (`DEFAULT_CURVE_PRESETS`)
-
-**Formatting:**
-- No semicolons (consistent omission)
-- Template literals for strings
-- Destructuring for props and objects
-
-### State Management
-
-**Immutability Pattern:**
-```typescript
-// Correct
-setParticleSettings(prev => ({
-  ...prev,
-  lifetime: { ...prev.lifetime, min: value }
-}))
-
-// Incorrect (mutation)
-particleSettings.lifetime.min = value
-setParticleSettings(particleSettings)
-```
-
-**Normalized Time Values:**
-- All curve/gradient times use range [0, 1]
-- Convert to actual seconds using duration when needed
-- Ensures curves work with any animation length
-
-### Physics Conventions
-
-**Units:**
-- Position: Canvas pixels
-- Velocity: Pixels per second
-- Acceleration: Pixels per second squared
-- Time: Seconds (normalized to 0-1 for curves)
-
-**Coordinate System:**
-- Origin: Top-left corner
-- X-axis: Left to right
-- Y-axis: Top to bottom
-- Gravity typically positive Y value (down)
-
-### Export Conventions
-
-**Spine Format:**
-- Version: 4.2.x compatible
-- Skeleton name: "particle-effect"
-- Bone hierarchy: root → emitter → particle bones
-- Keyframe optimization enabled by default
-
-**Texture Atlas:**
-- PNG format
-- Power-of-2 dimensions when possible
-- Maximum 2048x2048 (configurable)
-- Padding between sprites to prevent bleeding
-
-**File Naming:**
-- JSON: `{name}.json`
-- Atlas: `{name}.atlas.txt`
-- Texture: `{name}.png`
-- ZIP: `{name}.zip`
-
-## Architecture Patterns
-
-### Curve System
-
-**Purpose:** Animates particle properties over their lifetime
-
-**Structure:**
-- Array of `CurvePoint` with time (0-1) and value
-- Smooth or linear interpolation
-- Interactive graph editor for visual editing
-
-**Evaluation:**
-```typescript
-evaluateCurve(curve, t):
-  - Find surrounding points at time t
-  - Interpolate between points (linear or cubic)
-  - Return computed value
-```
-
-**Common Curves:**
-- Size: Fade in, peak, fade out
-- Speed: Start fast, slow down
-- Weight: Increase over time (fall faster)
-- Spin: Constant or accelerating rotation
-- Alpha: Fade in/out transparency
-
-### Particle Simulation
-
-**Lifecycle:**
-1. **Spawn**: Create particle at emitter with initial properties
-2. **Update**: Apply physics forces, update position/velocity
-3. **Evaluate**: Apply curves for size, color, rotation
-4. **Render**: Draw to canvas with current properties
-5. **Death**: Remove when age > lifetime
-
-**Physics Pipeline (per frame):**
-```
-1. Apply gravity to velocity
-2. Apply drag (velocity *= 1 - drag * dt)
-3. Apply noise forces (turbulence)
-4. Apply attraction (to point or circle edge)
-5. Apply vortex (tangential and radial forces)
-6. Update position (position += velocity * dt)
-7. Update age (age += dt)
-```
-
-### Export Pipeline
-
-**Baking Process:**
-1. **Reset**: Clear particle system, apply prewarm if looping
-2. **Simulate**: Step through timeline at target FPS
-3. **Capture**: Record all particle states at each frame
-4. **Convert**: Transform to Spine bone keyframes
-5. **Optimize**: Remove redundant keyframes within thresholds
-6. **Package**: Bundle JSON, atlas, and textures into ZIP
-
-**Keyframe Optimization:**
-- Position threshold: 0.01 pixels
-- Scale threshold: 0.001
-- Rotation threshold: 0.001 degrees
-- Color threshold: 0.01 (RGBA)
-- Keeps first and last keyframes always
-
-### UI State Synchronization
-
-**Pattern:**
-```typescript
-// State change → Update system → Trigger re-render
-const handleSettingChange = (newValue) => {
-  setSettings(newValue)           // Update React state
-  if (systemRef.current) {
-    systemRef.current.settings = newValue  // Sync runtime
-  }
-}
-```
-
-**Canvas Rendering:**
-- Separate from React render cycle
-- RequestAnimationFrame loop
-- Refs for canvas and system instances
-- Cleanup on component unmount
-
-## Important Constants & Thresholds
-
-### Physics Constants
-
-```typescript
-// Particle System
-MAX_PARTICLES = 10000              // Hard limit to prevent memory issues
-DEFAULT_LIFETIME = 2.0             // Seconds
-DEFAULT_SPAWN_RATE = 50            // Particles per second
-
-// Forces
-DEFAULT_GRAVITY = 200              // Pixels/second²
-DEFAULT_DRAG = 0.1                 // Velocity damping factor
-DEFAULT_NOISE_STRENGTH = 50        // Noise force magnitude
-
-// Vortex
-VORTEX_TANGENTIAL_FORCE = 100      // Rotational force
-VORTEX_RADIAL_FORCE = 50           // Inward/outward force
-```
-
-### Export Thresholds
-
-```typescript
-// Keyframe Optimization
-POSITION_THRESHOLD = 0.01          // Pixels
-SCALE_THRESHOLD = 0.001            // Scale factor
-ROTATION_THRESHOLD = 0.001         // Degrees
-COLOR_THRESHOLD = 0.01             // RGBA components
-
-// Texture Atlas
-MAX_ATLAS_SIZE = 2048              // Maximum texture dimension
-SPRITE_PADDING = 2                 // Pixels between sprites
-DEFAULT_PARTICLE_SIZE = 64         // Base sprite size
-```
-
-### UI Constants
-
-```typescript
-// Timeline
-DEFAULT_DURATION = 3.0             // Seconds
-MIN_DURATION = 0.1                 // Minimum animation length
-MAX_DURATION = 60.0                // Maximum animation length
-
-// Canvas
-CANVAS_WIDTH = 600                 // Default viewport width
-CANVAS_HEIGHT = 400                // Default viewport height
-BACKGROUND_COLOR = '#1a1a1a'       // Dark gray
-
-// Curve Editor
-MIN_CURVE_POINTS = 2               // Minimum for valid curve
-CURVE_POINT_RADIUS = 6             // Hit detection radius
-CURVE_LINE_WIDTH = 2               // Stroke width
-```
-
-## Magic Numbers to Avoid Changing
-
-These values are carefully tuned for optimal results:
-
-- **Noise seed variation**: `simpleNoise(x * 0.01)` - The 0.01 multiplier controls noise frequency
-- **Cubic interpolation smoothness**: Hermite tangent calculation in `evaluateCurve()`
-- **Vortex angle calculation**: `Math.atan2(dy, dx)` for spiral forces
-- **Prewarm step size**: `1/60` seconds (60 FPS simulation during prewarm)
-- **Color interpolation**: Linear RGB interpolation (not HSV) for predictable results
-- **Canvas composite operation**: `'lighter'` blend mode for additive particle rendering
-
-## Common Tasks
-
-### Adding a New Curve
-
-1. Define curve in `ParticleSettings` type
-2. Add to `DEFAULT_CURVE_PRESETS`
-3. Add UI editor in main component
-4. Apply in `ParticleSystem.updateParticle()` or `draw()` methods
-
-### Adding a New Emitter Shape
-
-1. Add shape type to `EmitterSettings.shape` union
-2. Add shape parameters to `EmitterSettings`
-3. Implement spawn logic in `ParticleSystem.spawnParticle()`
-4. Add UI controls in main component
-5. Add visual preview in canvas rendering
-
-### Adding a New Force Type
-
-1. Add force settings to `ParticleSettings`
-2. Implement force calculation in `ParticleSystem.updateParticle()`
-3. Add UI controls with range sliders
-4. Document force units and expected ranges
-
-### Optimizing Export
-
-1. Adjust keyframe thresholds in `generateSpineJSON()`
-2. Reduce FPS for less critical animations
-3. Limit particle count
-4. Simplify curves (fewer points)
-5. Use smaller texture sizes
-
-## Debugging Tips
-
-### Canvas Issues
-- Check canvas ref is connected: `canvasRef.current !== null`
-- Verify RAF loop is running: Check `animationFrameIdRef.current`
-- Inspect particle count: Log `particles.length` in update loop
-
-### Physics Problems
-- Add visual debug rendering: Draw velocity vectors, force indicators
-- Log particle properties: Position, velocity, age
-- Verify time step: Ensure `dt` is in seconds, not milliseconds
-
-### Export Problems
-- Check baked frame count: Should match `duration * fps`
-- Verify atlas generation: Inspect returned region coordinates
-- Test ZIP structure: Use external tool to validate ZIP format
-- Import to Spine: Best way to validate complete export pipeline
-
-## Version History
-
-- **v50** (Early versions): Basic particle system, simple emission
-- **v71-v83**: Added curves, emission modes, physics forces, sprite types
-- **v84**: Stable version with full feature set
-- **v85** (Nov 23, 2025): UI layout reorganization - 3-column layout, color editor moved to curves section
-
-## Future Considerations
-
-When extending this codebase, consider:
-
-- **Performance**: Large particle counts (>5000) may cause frame drops
-- **Browser Compatibility**: Canvas API and RAF are universal, but test on target browsers
-- **Memory Management**: Ensure particles are properly cleaned up
-- **File Size**: Large animations with high FPS create big JSON files
-- **Integration**: Component expects to run in environment with React, TypeScript, Tailwind
-- **Build System**: May need Vite/Webpack configuration when integrating into projects
-
-## AI Assistant Guidelines
-
-When working on this codebase:
-
-1. **Always read the file first** - Don't propose changes blindly
-2. **Check version number** - Ensure you're editing the correct file
-3. **Maintain structure** - Keep the 9-section architecture intact
-4. **Test assumptions** - Particle physics can be unintuitive, verify behavior
-5. **Document changes** - Update header comments with version and changes
-6. **Consider performance** - Canvas rendering is expensive, optimize where possible
-7. **Preserve magic numbers** - Don't change physics constants without understanding impact
-8. **Follow immutability** - All React state updates must be immutable
-9. **Use proper types** - TypeScript strict mode is implied, maintain type safety
-10. **Think about integration** - This is a component, not a standalone app
+**Characteristics:**
+- Application state management
+- UI layout and organization
+- Event handlers and user interactions
+- Integrates all other modules
 
 ---
 
-**Note:** This is a living document. Update it when making significant architectural changes or adding new patterns to the codebase.
+## Development Workflows
+
+### 🎯 Choosing Development Mode
+
+**Use Modular Structure When:**
+- Adding new features
+- Refactoring existing code
+- Working in a team (fewer merge conflicts)
+- Need to quickly find specific functionality
+- Want better code organization
+
+**Use Standalone When:**
+- Quick bug fixes (1-2 lines)
+- Distributing to users
+- Integrating into existing projects
+- No build tools available
+
+### 📝 Modular Development Workflow
+
+#### Making Changes
+
+1. **Identify the Module:**
+   - UI changes? → `components.tsx`
+   - Particle physics? → `core.ts`
+   - Export logic? → `export.ts`
+   - Types/constants? → `types.ts`
+   - Math/utilities? → `utils.ts`
+   - Main app logic? → `index.tsx`
+
+2. **Edit the Module:**
+   ```bash
+   # Navigate to modular directory
+   cd particle-spine-exporter-v97/
+
+   # Edit the relevant file
+   vim core.ts  # or your preferred editor
+   ```
+
+3. **Build Standalone:**
+   ```bash
+   # From repository root
+   npm run build
+   ```
+
+   This generates `particle-spine-exporter_alpha_v97.tsx`
+
+4. **Test:**
+   - Use the demo environment: `./setup-demo.sh`
+   - Or integrate into your React project
+
+#### Adding New Features
+
+**Example: Adding a new curve parameter**
+
+1. **Update `types.ts`:**
+   ```typescript
+   interface ParticleSettings {
+     // ... existing properties
+     myNewCurveOverLifetime: Curve;
+     myNewCurveRange: RangeValue;
+   }
+
+   // Add to DEFAULT_CURVE_PRESETS
+   const DEFAULT_CURVE_PRESETS = {
+     // ... existing presets
+     myNewCurve: { points: [...], interpolation: 'linear' }
+   };
+
+   // Add to DEFAULT_SETTINGS
+   const DEFAULT_SETTINGS = {
+     // ... existing settings
+     myNewCurveOverLifetime: DEFAULT_CURVE_PRESETS.myNewCurve,
+     myNewCurveRange: { min: 0, max: 1 }
+   };
+   ```
+
+2. **Apply in `core.ts`:**
+   ```typescript
+   updateParticle(p: Particle, dt: number) {
+     // ... existing code
+
+     // Evaluate your new curve
+     const curveValue = evaluateCurve(
+       this.settings.myNewCurveOverLifetime,
+       p.life / p.maxLife
+     );
+     const myNewValue = p.baseMyNewValue * curveValue;
+
+     // Apply the value
+     // ... your logic here
+   }
+   ```
+
+3. **Add UI in `index.tsx`:**
+   ```tsx
+   <CollapsibleSection title="My New Feature">
+     <CurveEditor
+       curve={settings.myNewCurveOverLifetime}
+       label="My New Curve"
+       onChange={(curve) => updateSetting('myNewCurveOverLifetime', curve)}
+     />
+     <RangeInput
+       label="My New Range"
+       min={0}
+       max={10}
+       step={0.1}
+       range={settings.myNewCurveRange}
+       onChange={(range) => updateSetting('myNewCurveRange', range)}
+     />
+   </CollapsibleSection>
+   ```
+
+4. **Build and test:**
+   ```bash
+   npm run build
+   # Test in demo environment or your project
+   ```
+
+### 🔄 Converting Between Formats
+
+#### Monolithic → Modular
+```bash
+npm run split
+```
+
+This reads `particle-spine-exporter_alpha_v96.tsx` and creates modular structure.
+
+#### Modular → Standalone
+```bash
+npm run build
+```
+
+This reads modules and creates `particle-spine-exporter_alpha_v97.tsx`.
+
+### 🧪 Testing Workflow
+
+Since there's no automated test suite:
+
+1. **Visual Testing:**
+   - Run demo environment: `./setup-demo.sh`
+   - Create particle systems with various settings
+   - Verify visual output matches expectations
+
+2. **Export Testing:**
+   - Export to Spine JSON
+   - Import into Spine Editor (https://esotericsoftware.com/)
+   - Verify animation playback
+   - Check texture atlas
+
+3. **Edge Cases:**
+   - Test with 0 particles
+   - Test with max particles (500+)
+   - Test extreme curve values
+   - Test all emission modes
+   - Test all particle shapes
+   - Test loop + prewarm combinations
+
+4. **Cross-Browser:**
+   - Chrome/Edge (Chromium)
+   - Firefox
+   - Safari (Canvas rendering differences)
+
+---
+
+## Version History
+
+### Major Versions
+
+- **v50-v83**: Early iterations, monolithic structure
+- **v84-v85**: Stable monolithic versions
+- **v86-v95**: Continuous improvements, bug fixes, new features
+- **v96** (2025-11-25): Latest monolithic version
+  - Loop + Prewarm animations named "loop" and "prewarm"
+  - Duplicate frame 0 at end for seamless looping
+  - Prewarm animation only includes bones with offset data
+  - 4135 lines, single file
+- **v97** (2025-11-25): **Current version - Modular refactor**
+  - Split into 6 modules for maintainability
+  - Added build system for standalone generation
+  - All v96 functionality preserved
+  - 4175 lines total (across 6 files)
+
+### v97 Changes Log
+
+**Major Changes:**
+- Refactored monolithic v96 into modular structure
+- Created 6 logical modules: types, utils, core, export, components, index
+- Added `build-standalone.js` for automated standalone generation
+- Added `split-to-modules.js` for converting monolithic to modular
+- Added `setup-demo.sh` for quick development environment
+- Created comprehensive documentation (V97-USAGE.md)
+- Added .gitignore for build artifacts
+
+**Functionality:**
+- ✅ All v96 features preserved
+- ✅ No breaking changes
+- ✅ Identical export output
+- ✅ Same UI/UX
+
+**Benefits:**
+- ✅ Easier navigation (150-1200 lines per file vs 4135 in one)
+- ✅ Better code organization
+- ✅ Clearer separation of concerns
+- ✅ Reduced merge conflicts in team development
+- ✅ Faster development iteration
+
+---
+
+## Git Workflow for AI Assistant
+
+### Branch Naming
+
+**For AI Assistant:**
+- Format: `claude/<description>-<session-id>`
+- Example: `claude/refactor-code-structure-01TP67eowUrag6BveJukedyP`
+- Session ID must match for push to succeed
+
+**For Features:**
+- Format: `feature/<description>`
+- Example: `feature/add-triangle-emitter`
+
+### Commit Guidelines
+
+**Good Commit Messages:**
+```
+Add triangle emitter shape
+
+- Implemented triangle spawn logic in core.ts
+- Added triangleSize parameter to EmitterSettings
+- Added UI controls in index.tsx
+- Updated types and defaults
+```
+
+**Bad Commit Messages:**
+```
+"Update files"
+"Fix bug"
+"WIP"
+```
+
+### Push Protocol
+
+```bash
+# Always use -u flag
+git push -u origin <branch-name>
+
+# Branch must start with 'claude/' for AI assistant work
+
+# On network failure: Retry up to 4 times with exponential backoff
+# 2s, 4s, 8s, 16s
+```
+
+### When to Commit
+
+**Always Commit When:**
+- User explicitly asks to commit
+- Completing a feature or fix
+- Before switching tasks
+- After building standalone version
+
+**Never Commit:**
+- Work in progress (unless user requests)
+- Broken code
+- Without testing first
+- node_modules or build artifacts (use .gitignore)
+
+### What to Include
+
+**Do Commit:**
+- Source code changes (modular files)
+- Built standalone version (v97.tsx)
+- Documentation updates (CLAUDE.md, README.md)
+- Build scripts (build-standalone.js)
+- Configuration (package.json, tsconfig.json)
+
+**Don't Commit:**
+- node_modules/
+- dist/ or build/ folders
+- .DS_Store, Thumbs.db
+- IDE-specific files (.vscode/, .idea/)
+- Demo project (particle-exporter-demo/) - user can recreate with setup-demo.sh
+
+---
+
+## AI Assistant Best Practices
+
+### When Making Changes
+
+1. **Always read first** - Never propose changes to code you haven't read
+2. **Check version** - Ensure you're editing the correct file (v97 modules vs standalone)
+3. **Maintain structure** - Keep modular architecture intact
+4. **Follow patterns** - Use existing code patterns (immutability, pure functions)
+5. **Test assumptions** - Particle physics can be unintuitive
+6. **Document changes** - Update comments and CLAUDE.md if needed
+7. **Build after editing** - Always run `npm run build` after module changes
+8. **Commit appropriately** - Clear messages, logical grouping
+
+### Communication
+
+- **Be concise** - Users are developers, technical language is fine
+- **Show code examples** - Demonstrate solutions with code snippets
+- **Explain tradeoffs** - Multiple solutions? Explain pros/cons
+- **Ask when unclear** - Don't guess at user intent
+- **Confirm before major changes** - Refactoring, architecture changes
+- **Provide context** - File locations, line numbers, function names
+
+### Problem Solving
+
+1. **Understand the problem** - Ask clarifying questions
+2. **Locate relevant code** - Identify which module(s) to change
+3. **Plan the solution** - Outline steps before coding
+4. **Implement incrementally** - Small changes, test frequently
+5. **Verify the fix** - Test edge cases, check for regressions
+6. **Document the solution** - Update comments, docs if needed
+
+### Common Pitfalls to Avoid
+
+- ❌ Don't modify magic numbers without understanding their purpose
+- ❌ Don't break immutability patterns in React state
+- ❌ Don't add external dependencies without discussion
+- ❌ Don't remove features without explicit request
+- ❌ Don't commit broken code
+- ❌ Don't skip building standalone after module changes
+- ❌ Don't guess at physics formulas (vectors, angles, etc.)
+- ❌ Don't over-engineer simple fixes
+
+---
+
+## Quick Reference
+
+### File Locations
+
+```
+particle-spine-exporter-v97/types.ts       - Types and constants
+particle-spine-exporter-v97/utils.ts       - Utility functions
+particle-spine-exporter-v97/core.ts        - ParticleSystem class
+particle-spine-exporter-v97/export.ts      - Export pipeline
+particle-spine-exporter-v97/components.tsx - UI components
+particle-spine-exporter-v97/index.tsx      - Main component
+
+particle-spine-exporter_alpha_v97.tsx      - Standalone (generated)
+
+build-standalone.js                        - Build script
+split-to-modules.js                        - Split script
+setup-demo.sh                              - Demo environment setup
+package.json                               - NPM configuration
+V97-USAGE.md                               - User documentation
+```
+
+### Common Commands
+
+```bash
+# Build standalone from modules
+npm run build
+
+# Split monolithic into modules
+npm run split
+
+# Create demo environment
+./setup-demo.sh
+
+# Start demo dev server
+cd particle-exporter-demo && npm run dev
+
+# Open demo in browser
+http://localhost:3000
+```
+
+### Key Interfaces
+
+```typescript
+// Core types
+Vec2: { x: number; y: number }
+Color: { r: number; g: number; b: number; a: number }
+Curve: { points: CurvePoint[]; interpolation: 'linear' | 'smooth' }
+ColorGradient: { points: ColorPoint[] }
+
+// Configuration
+ParticleSettings: { emitter, lifetime, forces, curves, export, ... }
+EmitterSettings: { position, shape, rate, mode, ... }
+ExportSettings: { thresholds, enabled channels, ... }
+
+// Runtime
+Particle: { position, velocity, life, properties, ... }
+BakedFrame: { time, particles: Map<id, data> }
+```
+
+### Important Functions
+
+```typescript
+// Utils
+evaluateCurve(curve, t): number
+evaluateColorGradient(gradient, t): Color
+simpleNoise(x, y): number
+noise2D(x, y, time): Vec2
+
+// Core
+ParticleSystem.update(dt): void
+ParticleSystem.spawnParticle(): void
+ParticleSystem.draw(ctx, time): void
+
+// Export
+bakeParticleAnimation(settings): { frames, prewarmFrames }
+generateSpineJSON(frames, prewarmFrames, settings): string
+createParticleAtlas(sprite): { canvas, region }
+```
+
+---
+
+**End of CLAUDE.md**
+
+This document is the source of truth for AI assistants working on SpineParticleExporter.
+Keep it updated as the codebase evolves.
+
+Last updated: 2025-11-25 by Claude (Anthropic AI Assistant)
