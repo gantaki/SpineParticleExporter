@@ -14,387 +14,45 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Download, Play, RotateCcw, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw } from 'lucide-react';
-
-interface Vec2 { x: number; y: number; }
-interface Color { r: number; g: number; b: number; a: number; }
-
-interface CurvePoint {
-  time: number;
-  value: number;
-}
-
-interface Curve {
-  points: CurvePoint[];
-  interpolation: 'linear' | 'smooth';
-}
-
-interface RangeValue {
-  min: number;
-  max: number;
-}
-
-interface ColorPoint {
-  time: number;
-  color: Color;
-}
-
-interface ColorGradient {
-  points: ColorPoint[];
-}
-
-interface EmitterSettings {
-  position: Vec2;
-  shape: 'point' | 'circle' | 'rectangle' | 'roundedRect' | 'line';
-  shapeRadius: number;
-  shapeWidth: number;
-  shapeHeight: number;
-  roundRadius: number;
-  lineLength: number;
-  emissionMode: 'area' | 'edge';
-  angle: number;
-  angleSpread: number;
-  rate: number;
-  maxParticles: number;
-  
-  emissionType: 'continuous' | 'burst' | 'duration';
-  burstCount: number;
-  burstCycles: number;
-  burstInterval: number;
-  durationStart: number;
-  durationEnd: number;
-  
-  looping: boolean;
-  prewarm: boolean;
-  startDelay: number;
-}
-
-interface ExportSettings {
-  exportTranslate: boolean;
-  exportRotate: boolean;
-  exportScale: boolean;
-  exportColor: boolean;
-
-  positionThreshold: number;
-  rotationThreshold: number;
-  scaleThreshold: number;
-  colorThreshold: number;
-}
-
-interface ParticleSettings {
-  emitter: EmitterSettings;
-  lifeTimeMin: number;
-  lifeTimeMax: number;
-
-  gravityOverLifetime: Curve;
-  gravityRange: RangeValue;
-  dragOverLifetime: Curve;
-  dragRange: RangeValue;
-
-  sizeXOverLifetime: Curve;
-  sizeXRange: RangeValue;
-  sizeYOverLifetime: Curve;
-  sizeYRange: RangeValue;
-  initialSpeedRange: RangeValue;
-  speedOverLifetime: Curve;
-  speedRange: RangeValue;
-  weightOverLifetime: Curve;
-  weightRange: RangeValue;
-  spinOverLifetime: Curve;
-  spinRange: RangeValue;
-  attractionOverLifetime: Curve;
-  attractionRange: RangeValue;
-
-  noiseStrengthOverLifetime: Curve;
-  noiseStrengthRange: RangeValue;
-  noiseFrequencyRange: RangeValue;
-  noiseSpeedRange: RangeValue;
-
-  angularVelocityOverLifetime: Curve;
-  angularVelocityRange: RangeValue;
-
-  vortexStrengthOverLifetime: Curve;
-  vortexStrengthRange: RangeValue;
-  vortexPoint: Vec2;
-  showVortexVisualization: boolean;
-  scaleRatioX: number;
-  scaleRatioY: number;
-
-  colorOverLifetime: ColorGradient;
-
-  duration: number;
-  fps: number;
-  frameSize: number;
-
-  attractionPoint: Vec2;
-
-  particleSprite: 'circle' | 'star' | 'polygon' | 'glow' | 'custom';
-  customSpriteData: string | null;
-
-  spawnAngleMode: 'alignMotion' | 'specific' | 'random' | 'range';
-  spawnAngle: number;
-  spawnAngleMin: number;
-  spawnAngleMax: number;
-
-  exportSettings: ExportSettings;
-}
-
-interface Particle {
-  id: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  baseSpeed: number;
-  rotation: number;
-  baseSpinRate: number;
-  baseAngularVelocity: number;
-  baseGravity: number;
-  baseDrag: number;
-  baseNoiseStrength: number;
-  baseNoiseFrequency: number;
-  baseNoiseSpeed: number;
-  baseAttraction: number;
-  baseVortexStrength: number;
-  baseSpeedScale: number;
-  baseWeight: number;
-  baseSizeX: number;
-  baseSizeY: number;
-  scale: number;
-  scaleX: number;
-  scaleY: number;
-  color: Color;
-  alpha: number;
-}
-
-interface BakedFrame {
-  time: number;
-  particles: Map<number, {
-    x: number;
-    y: number;
-    rotation: number;
-    scale: number;
-    scaleX: number;
-    scaleY: number;
-    alpha: number;
-    color: Color;
-  }>;
-}
-
-interface AtlasRegion {
-  name: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  atlasIndex: number;
-}
-
-const DEFAULT_CURVE_PRESETS: { [key: string]: Curve } = {
-  sizeX: { points: [{ time: 0, value: 1.0 }, { time: 1, value: 0.2 }], interpolation: 'linear' },
-  sizeY: { points: [{ time: 0, value: 1.0 }, { time: 1, value: 0.2 }], interpolation: 'linear' },
-  speed: { points: [{ time: 0, value: 1.0 }, { time: 1, value: 1.0 }], interpolation: 'linear' },
-  weight: { points: [{ time: 0, value: 1.0 }, { time: 1, value: 1.0 }], interpolation: 'linear' },
-  spin: { points: [{ time: 0, value: 0 }, { time: 1, value: 0 }], interpolation: 'linear' },
-  attraction: { points: [{ time: 0, value: 0 }, { time: 1, value: 0 }], interpolation: 'linear' },
-  noise: { points: [{ time: 0, value: 0 }, { time: 1, value: 0 }], interpolation: 'linear' },
-  angularVelocity: { points: [{ time: 0, value: 0 }, { time: 1, value: 0 }], interpolation: 'linear' },
-  vortex: { points: [{ time: 0, value: 0 }, { time: 1, value: 0 }], interpolation: 'linear' },
-  gravity: { points: [{ time: 0, value: 1 }, { time: 1, value: 1 }], interpolation: 'linear' },
-  drag: { points: [{ time: 0, value: 1 }, { time: 1, value: 1 }], interpolation: 'linear' },
-};
-
-const DEFAULT_SETTINGS: ParticleSettings = {
-  emitter: {
-    position: { x: 256, y: 256 },
-    shape: 'point',
-    shapeRadius: 20,
-    shapeWidth: 100,
-    shapeHeight: 100,
-    roundRadius: 20,
-    lineLength: 100,
-    emissionMode: 'area',
-    angle: -90,
-    angleSpread: 30,
-    rate: 10,
-    maxParticles: 500,
-    
-    emissionType: 'continuous',
-    burstCount: 50,
-    burstCycles: 1,
-    burstInterval: 0.5,
-    durationStart: 0,
-    durationEnd: 2,
-    
-    looping: true,
-    prewarm: false,
-    startDelay: 0,
-  },
-  lifeTimeMin: 0.5,
-  lifeTimeMax: 1.5,
-
-  gravityOverLifetime: DEFAULT_CURVE_PRESETS.gravity,
-  gravityRange: { min: 0, max: 0 },
-  dragOverLifetime: DEFAULT_CURVE_PRESETS.drag,
-  dragRange: { min: 0.98, max: 0.98 },
-
-  sizeXOverLifetime: DEFAULT_CURVE_PRESETS.sizeX,
-  sizeXRange: { min: 1, max: 1 },
-  sizeYOverLifetime: DEFAULT_CURVE_PRESETS.sizeY,
-  sizeYRange: { min: 1, max: 1 },
-  initialSpeedRange: { min: 100, max: 200 },
-  speedOverLifetime: DEFAULT_CURVE_PRESETS.speed,
-  speedRange: { min: 1, max: 1 },
-  weightOverLifetime: DEFAULT_CURVE_PRESETS.weight,
-  weightRange: { min: 1, max: 1 },
-  spinOverLifetime: DEFAULT_CURVE_PRESETS.spin,
-  spinRange: { min: 0, max: 0 },
-  attractionOverLifetime: DEFAULT_CURVE_PRESETS.attraction,
-  attractionRange: { min: 0, max: 0 },
-
-  noiseStrengthOverLifetime: DEFAULT_CURVE_PRESETS.noise,
-  noiseStrengthRange: { min: 0, max: 0 },
-  noiseFrequencyRange: { min: 0.02, max: 0.08 },
-  noiseSpeedRange: { min: 2.0, max: 4.0 },
-
-  angularVelocityOverLifetime: DEFAULT_CURVE_PRESETS.angularVelocity,
-  angularVelocityRange: { min: 0, max: 0 },
-
-  vortexStrengthOverLifetime: DEFAULT_CURVE_PRESETS.vortex,
-  vortexStrengthRange: { min: 0, max: 0 },
-  vortexPoint: { x: 256, y: 256 },
-  showVortexVisualization: false,
-  scaleRatioX: 1.0,
-  scaleRatioY: 1.0,
-  
-  colorOverLifetime: {
-    points: [
-      { time: 0, color: { r: 255, g: 255, b: 255, a: 255 } },
-      { time: 1, color: { r: 255, g: 255, b: 255, a: 0 } }
-    ]
-  },
-  
-  duration: 2.0,
-  fps: 30,
-  frameSize: 512,
-  
-  attractionPoint: { x: 256, y: 256 },
-  
-  particleSprite: 'circle',
-  customSpriteData: null,
-
-  spawnAngleMode: 'alignMotion',
-  spawnAngle: 0,
-  spawnAngleMin: -45,
-  spawnAngleMax: 45,
-
-  exportSettings: {
-    exportTranslate: true,
-    exportRotate: true,
-    exportScale: true,
-    exportColor: true,
-
-    positionThreshold: 12.0,
-    rotationThreshold: 20.0,
-    scaleThreshold: 0.2,
-    colorThreshold: 100,
-  },
-};
-
-function simpleNoise(x: number, y: number): number {
-  const n = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
-  return n - Math.floor(n);
-}
-
-function noise2D(x: number, y: number, time: number): Vec2 {
-  const steppedTime = Math.floor(time * 3);
-  const coarse = simpleNoise(x * 1.37 + steppedTime * 11.17, y * 1.37 - steppedTime * 7.41);
-  const spikes = Math.pow(simpleNoise(x * 4.11 + time * 6.73, y * 4.11 - time * 5.29), 3);
-  const flicker = (simpleNoise(x * 0.63 + steppedTime * 3.19, y * 0.63 - steppedTime * 2.71) * 2 - 1) * 0.35;
-
-  const baseAngle = (coarse * 2 - 1) * Math.PI + flicker * Math.PI;
-  const pulse = Math.abs(Math.sin((time + coarse) * 6)) * 0.35;
-  const strength = Math.min(2, 0.35 + spikes * 1.4 + pulse + Math.abs(flicker));
-
-  return {
-    x: Math.cos(baseAngle) * strength,
-    y: Math.sin(baseAngle) * strength
-  };
-}
-
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
-
-function sampleRange(range: RangeValue): number {
-  return range.min + Math.random() * (range.max - range.min);
-}
-
-function copyCurve(curve: Curve): Curve {
-  return {
-    interpolation: curve.interpolation,
-    points: curve.points.map(p => ({ time: p.time, value: p.value }))
-  };
-}
-
-function evaluateCurve(curve: Curve, t: number): number {
-  t = Math.max(0, Math.min(1, t));
-  
-  const points = [...curve.points].sort((a, b) => a.time - b.time);
-  
-  if (points.length === 0) return 0;
-  if (points.length === 1) return points[0].value;
-  
-  let i = 0;
-  while (i < points.length - 1 && points[i + 1].time < t) {
-    i++;
-  }
-  
-  if (i >= points.length - 1) return points[points.length - 1].value;
-  
-  const p1 = points[i];
-  const p2 = points[i + 1];
-  
-  const localT = (t - p1.time) / (p2.time - p1.time);
-  
-  if (curve.interpolation === 'linear') {
-    return p1.value + (p2.value - p1.value) * localT;
-  } else {
-    const smoothT = localT < 0.5 
-      ? 2 * localT * localT 
-      : 1 - Math.pow(-2 * localT + 2, 2) / 2;
-    return p1.value + (p2.value - p1.value) * smoothT;
-  }
-}
-
-function evaluateColorGradient(gradient: ColorGradient, t: number): Color {
-  t = Math.max(0, Math.min(1, t));
-  
-  const points = [...gradient.points].sort((a, b) => a.time - b.time);
-  
-  if (points.length === 0) return { r: 255, g: 255, b: 255, a: 255 };
-  if (points.length === 1) return { ...points[0].color };
-  
-  let i = 0;
-  while (i < points.length - 1 && points[i + 1].time < t) {
-    i++;
-  }
-  
-  if (i >= points.length - 1) return { ...points[points.length - 1].color };
-  
-  const p1 = points[i];
-  const p2 = points[i + 1];
-  
-  const localT = (t - p1.time) / (p2.time - p1.time);
-  
-  return {
-    r: Math.round(p1.color.r + (p2.color.r - p1.color.r) * localT),
-    g: Math.round(p1.color.g + (p2.color.g - p1.color.g) * localT),
-    b: Math.round(p1.color.b + (p2.color.b - p1.color.b) * localT),
-    a: Math.round(p1.color.a + (p2.color.a - p1.color.a) * localT),
-  };
-}
+import {
+  AtlasRegion,
+  BakedFrame,
+  Color,
+  ColorGradient,
+  ColorPoint,
+  Curve,
+  CurvePoint,
+  EmitterSettings,
+  ExportSettings,
+  Particle,
+  ParticleSettings,
+  RangeValue,
+  Vec2
+} from './src/types';
+import {
+  DEFAULT_CURVE_PRESETS,
+  DEFAULT_SETTINGS,
+  FPS_OPTIONS,
+  GRID_STEP,
+  PARTICLE_FALLBACK_SIZE,
+  PLAYBACK_SPEED_OPTIONS,
+  SPRITE_RENDER_SIZE,
+  TIMELINE_HEIGHT,
+  TIMELINE_MARKERS
+} from './src/config';
+import {
+  clamp01,
+  copyCurve,
+  evaluateColorGradient,
+  evaluateCurve,
+  hslToRgb,
+  isParticleVisible,
+  noise2D,
+  normalizeAngle,
+  sampleRange,
+  shouldCreateKey,
+  smoothAngles
+} from './src/utils';
 
 const ColorPicker: React.FC<{
   color: Color;
@@ -495,37 +153,6 @@ const ColorPicker: React.FC<{
     </div>
   );
 };
-
-function hslToRgb(h: number, s: number, l: number): { r: number; g: number; b: number } {
-  s = s / 100;
-  l = l / 100;
-  
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs((h / 60) % 2 - 1));
-  const m = l - c / 2;
-  
-  let r = 0, g = 0, b = 0;
-  
-  if (h >= 0 && h < 60) {
-    r = c; g = x; b = 0;
-  } else if (h >= 60 && h < 120) {
-    r = x; g = c; b = 0;
-  } else if (h >= 120 && h < 180) {
-    r = 0; g = c; b = x;
-  } else if (h >= 180 && h < 240) {
-    r = 0; g = x; b = c;
-  } else if (h >= 240 && h < 300) {
-    r = x; g = 0; b = c;
-  } else if (h >= 300 && h < 360) {
-    r = c; g = 0; b = x;
-  }
-  
-  return {
-    r: Math.round((r + m) * 255),
-    g: Math.round((g + m) * 255),
-    b: Math.round((b + m) * 255)
-  };
-}
 
 const ColorGradientEditor: React.FC<{
   gradient: ColorGradient;
@@ -1198,11 +825,9 @@ const Timeline: React.FC<{
           onChange={e => onSpeedChange(parseFloat(e.target.value))}
           className="px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
         >
-          <option value="0.25">0.25x</option>
-          <option value="0.5">0.5x</option>
-          <option value="1">1x</option>
-          <option value="2">2x</option>
-          <option value="4">4x</option>
+          {PLAYBACK_SPEED_OPTIONS.map(option => (
+            <option key={option} value={option}>{`${option}x`}</option>
+          ))}
         </select>
 
         <div className="flex-1 text-center text-xs font-mono text-slate-300">
@@ -1227,15 +852,16 @@ const Timeline: React.FC<{
           className="px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
           title="FPS"
         >
-          <option value="24">24fps</option>
-          <option value="30">30fps</option>
-          <option value="60">60fps</option>
+          {FPS_OPTIONS.map(option => (
+            <option key={option} value={option}>{`${option}fps`}</option>
+          ))}
         </select>
       </div>
 
       <div
         ref={timelineRef}
-        className="relative h-8 bg-slate-900 rounded cursor-pointer"
+        className="relative bg-slate-900 rounded cursor-pointer"
+        style={{ height: TIMELINE_HEIGHT }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -1248,7 +874,7 @@ const Timeline: React.FC<{
 
         {/* Time markers */}
         <div className="absolute inset-0 flex items-center px-2">
-          {[0, 0.25, 0.5, 0.75, 1].map(t => (
+          {TIMELINE_MARKERS.map(t => (
             <div
               key={t}
               className="absolute w-px h-full bg-slate-600"
@@ -1726,7 +1352,7 @@ class ParticleSystem {
       ctx.save();
       ctx.strokeStyle = 'rgba(100, 100, 100, 0.3)';
       ctx.lineWidth = 1 / zoom;
-      const gridStep = 50;
+      const gridStep = GRID_STEP;
 
       // Calculate visible area
       const visibleLeft = -offsetX / zoom;
@@ -1767,7 +1393,7 @@ class ParticleSystem {
       ctx.globalAlpha = p.alpha;
       
       if (spriteCanvas) {
-        const size = 16;
+        const size = SPRITE_RENDER_SIZE;
         
         // Create a temporary canvas for colored sprite
         const tempCanvas = document.createElement('canvas');
@@ -1786,7 +1412,7 @@ class ParticleSystem {
         // Draw colored sprite to main canvas
         ctx.drawImage(tempCanvas, -size, -size, size * 2, size * 2);
       } else {
-        const size = 8;
+        const size = PARTICLE_FALLBACK_SIZE;
         ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
         ctx.beginPath();
         ctx.arc(0, 0, size, 0, Math.PI * 2);
@@ -2231,49 +1857,6 @@ function generateAtlasFile(atlasCanvas: HTMLCanvasElement, region: AtlasRegion):
   atlasText += `  index: -1\n`;
 
   return atlasText;
-}
-
-function shouldCreateKey(prevValue: number | { x: number; y: number }, currentValue: number | { x: number; y: number }, threshold: number): boolean {
-  if (typeof prevValue === 'number' && typeof currentValue === 'number') {
-    return Math.abs(currentValue - prevValue) > threshold;
-  }
-
-  if (typeof prevValue === 'object' && typeof currentValue === 'object') {
-    const dx = currentValue.x - prevValue.x;
-    const dy = currentValue.y - prevValue.y;
-    return Math.sqrt(dx * dx + dy * dy) > threshold;
-  }
-
-  return true;
-}
-
-function normalizeAngle(angle: number, prevAngle: number): number {
-  while (angle - prevAngle > 180) angle -= 360;
-  while (angle - prevAngle < -180) angle += 360;
-  return angle;
-}
-
-function smoothAngles(angles: number[], windowSize: number = 3): number[] {
-  const result: number[] = [];
-  const half = Math.floor(windowSize / 2);
-  
-  for (let i = 0; i < angles.length; i++) {
-    const start = Math.max(0, i - half);
-    const end = Math.min(angles.length, i + half + 1);
-    const window = angles.slice(start, end);
-    
-    const sorted = [...window].sort((a, b) => a - b);
-    result[i] = sorted[Math.floor(sorted.length / 2)];
-  }
-  
-  return result;
-}
-
-function isParticleVisible(particle: any): boolean {
-  // Particle is visible based only on alpha
-  // Alpha >= 1/255 (0.00392 in normalized form, 1 out of 255 in Spine color range)
-  const MIN_ALPHA = 1 / 255;
-  return particle && particle.alpha >= MIN_ALPHA;
 }
 
 function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], settings: ParticleSettings): string {
