@@ -169,16 +169,7 @@ interface Particle {
 
 interface BakedFrame {
   time: number;
-  particles: Map<number, {
-    x: number;
-    y: number;
-    rotation: number;
-    scale: number;
-    scaleX: number;
-    scaleY: number;
-    alpha: number;
-    color: Color;
-  }>;
+  particles: Map<number, Particle>;
 }
 
 interface AtlasRegion {
@@ -2621,7 +2612,7 @@ const ParticleSpineExporter: React.FC = () => {
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const systemRef = useRef<ParticleSystem | null>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const spriteInputRef = useRef<HTMLInputElement>(null);
   const lastFrameTimeRef = useRef<number>(0);
@@ -2643,23 +2634,12 @@ const ParticleSpineExporter: React.FC = () => {
     
     for (let i = 0; i <= frameCount; i++) {
       const time = i * dt;
-      const particlesSnapshot = new Map<number, any>();
-      
+      const particlesSnapshot = new Map<number, Particle>();
+
       for (const p of system.particles) {
         particlesSnapshot.set(p.id, {
-          x: p.x,
-          y: p.y,
-          vx: p.vx,
-          vy: p.vy,
-          rotation: p.rotation,
-          scale: p.scale,
-          scaleX: p.scaleX,
-          scaleY: p.scaleY,
-          alpha: p.alpha,
-          color: { ...p.color },
-          life: p.life,
-          maxLife: p.maxLife,
-          baseSpeed: p.baseSpeed
+          ...p,
+          color: { ...p.color }
         });
       }
       
@@ -2689,20 +2669,9 @@ const ParticleSpineExporter: React.FC = () => {
     
     for (const [id, data] of frame.particles) {
       systemRef.current.particles.push({
+        ...data,
         id,
-        x: data.x,
-        y: data.y,
-        vx: data.vx,
-        vy: data.vy,
-        rotation: data.rotation,
-        scale: data.scale,
-        scaleX: data.scaleX,
-        scaleY: data.scaleY,
-        alpha: data.alpha,
-        color: data.color,
-        life: data.life,
-        maxLife: data.maxLife,
-        baseSpeed: data.baseSpeed
+        color: { ...data.color }
       });
     }
     
@@ -2796,7 +2765,7 @@ const ParticleSpineExporter: React.FC = () => {
     animationRef.current = requestAnimationFrame(animate);
 
     return () => {
-      if (animationRef.current) {
+      if (animationRef.current !== null) {
         cancelAnimationFrame(animationRef.current);
       }
     };
