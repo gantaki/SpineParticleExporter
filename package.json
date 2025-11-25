@@ -1,0 +1,17 @@
+{
+  "name": "particle-spine-exporter",
+  "version": "97.0.0",
+  "description": "Particle to Spine Exporter - Modular v97",
+  "scripts": {
+    "build": "node build-standalone.js",
+    "split": "node split-to-modules.js"
+  },
+  "keywords": [
+    "particle",
+    "spine",
+    "animation",
+    "exporter"
+  ],
+  "author": "",
+  "license": "MIT"
+}
