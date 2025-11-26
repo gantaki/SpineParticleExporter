@@ -130,8 +130,13 @@
     window.LucideReact = iconComponents;
   </script>
 
-  <!-- Load the standalone TSX file -->
-  <script type="text/babel" src="./particle-spine-exporter_alpha_v98.tsx"></script>
+  <!-- Load the standalone TSX file with TypeScript + React presets -->
+  <script
+    type="text/babel"
+    data-presets="typescript,react"
+    data-plugins="transform-typescript"
+    src="./particle-spine-exporter_alpha_v98.tsx"
+  ></script>
 
   <!-- Mount the React app -->
   <script type="text/babel">
