@@ -14,10 +14,8 @@
  * - Current emitter highlighted in viewport
  */
 
-// React from CDN (defined in standalone.html)
-const { useState, useRef, useEffect, useCallback } = React;
-// Lucide icons from window.LucideReact (defined in standalone.html)
-const { Download, Play, RotateCcw, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } = window.LucideReact || {};
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Download, Play, RotateCcw, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } from 'lucide-react';
 
 // ============================================================
 // TYPES AND INTERFACES
@@ -4461,7 +4459,4 @@ const ParticleSpineExporter: React.FC = () => {
   );
 };
 
-// Make component globally available for standalone.html
-if (typeof window !== 'undefined') {
-  window.ParticleSpineExporter = ParticleSpineExporter;
-}
+export default ParticleSpineExporter;
