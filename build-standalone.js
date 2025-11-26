@@ -81,14 +81,22 @@ if (headerMatch) {
 }
 
 // Add React imports (from index.tsx)
-const reactImportsMatch = indexContent.match(/^import React[\s\S]*?from 'react';/m);
-const lucideImportsMatch = indexContent.match(/^import {[^}]+}\s+from\s+'lucide-react';/m);
+const reactImportsMatch = indexContent.match(/^import React(?:,\s*{([^}]+)})?\s+from 'react';/m);
+const lucideImportsMatch = indexContent.match(/^import {([^}]+)}\s+from\s+'lucide-react';/m);
 
 if (reactImportsMatch) {
-  standalone += reactImportsMatch[0] + '\n';
+  // Replace React import with global destructuring for browser compatibility
+  const hooks = reactImportsMatch[1] ? reactImportsMatch[1].trim() : '';
+  standalone += `// React from CDN (defined in standalone.html)\n`;
+  if (hooks) {
+    standalone += `const { ${hooks} } = React;\n`;
+  }
 }
 if (lucideImportsMatch) {
-  standalone += lucideImportsMatch[0] + '\n';
+  // Replace lucide-react import with window.LucideReact destructuring for browser compatibility
+  const iconNames = lucideImportsMatch[1].trim();
+  standalone += `// Lucide icons from window.LucideReact (defined in standalone.html)\n`;
+  standalone += `const { ${iconNames} } = window.LucideReact || {};\n`;
 }
 standalone += '\n';
 

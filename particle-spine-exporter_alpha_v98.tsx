@@ -14,8 +14,10 @@
  * - Current emitter highlighted in viewport
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, Play, RotateCcw, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } from 'lucide-react';
+// React from CDN (defined in standalone.html)
+const { useState, useRef, useEffect, useCallback } = React;
+// Lucide icons from window.LucideReact (defined in standalone.html)
+const { Download, Play, RotateCcw, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } = window.LucideReact || {};
 
 // ============================================================
 // TYPES AND INTERFACES
