@@ -63,14 +63,22 @@ particle-spine-exporter_alpha_v98.tsx  (~4463 lines)
 
 Generated via: `node build-standalone-v98.js`
 
-### 🔧 Build Tools
+### 🔧 Build Tools & Runtime
 
 ```
-build-standalone.js    - Combines modules into single file
-split-to-modules.js    - Splits monolithic file into modules
-setup-demo.sh          - Creates Vite dev environment
-package.json           - NPM scripts and dependencies
+build-standalone-v98.js  - Combines v98 modules into single file
+build-standalone.js      - Combines v97 modules into single file
+split-to-modules.js      - Splits monolithic file into modules
+serve-standalone.js      - Simple HTTP server for testing standalone
+standalone.html          - HTML runner for standalone TSX (UPDATE WITH EACH VERSION!)
+setup-demo.sh            - Creates Vite dev environment
+package.json             - NPM scripts and dependencies
 ```
+
+**⚠️ IMPORTANT: Update `standalone.html` with each new version!**
+- Update title to match version (e.g., "v98")
+- Update script src to point to correct standalone file
+- Ensure all required Lucide icons are included
 
 ---
 

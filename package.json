@@ -1,16 +1,20 @@
 {
   "name": "particle-spine-exporter",
-  "version": "97.0.0",
-  "description": "Particle to Spine Exporter - Modular v97",
+  "version": "98.0.0",
+  "description": "Particle to Spine Exporter - Multi-Emitter v98",
   "scripts": {
     "build": "node build-standalone.js",
-    "split": "node split-to-modules.js"
+    "build:v98": "node build-standalone-v98.js",
+    "split": "node split-to-modules.js",
+    "serve": "node serve-standalone.js",
+    "serve:port": "node serve-standalone.js"
   },
   "keywords": [
     "particle",
     "spine",
     "animation",
-    "exporter"
+    "exporter",
+    "multi-emitter"
   ],
   "author": "",
   "license": "MIT"
