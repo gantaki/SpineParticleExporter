@@ -4459,7 +4459,4 @@ const ParticleSpineExporter: React.FC = () => {
   );
 };
 
-// Make component globally available for standalone.html
-if (typeof window !== 'undefined') {
-  window.ParticleSpineExporter = ParticleSpineExporter;
-}
+export default ParticleSpineExporter;
