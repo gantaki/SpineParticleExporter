@@ -11,13 +11,13 @@ interface EmitterState {
   burstCycleIndex: number;
   lastBurstTime: number;
   hasPrewarmed: boolean;
+  nextParticleId: number;
 }
 
 class ParticleSystem {
   particles: Particle[] = [];
   settings: ParticleSettings;
   time: number = 0;
-  nextParticleId: number = 0;
 
   // Per-emitter state management
   emitterStates: Map<string, EmitterState> = new Map();
@@ -35,6 +35,7 @@ class ParticleSystem {
         burstCycleIndex: 0,
         lastBurstTime: 0,
         hasPrewarmed: false,
+        nextParticleId: 0,
       });
     }
   }
@@ -42,7 +43,6 @@ class ParticleSystem {
   reset() {
     this.particles = [];
     this.time = 0;
-    this.nextParticleId = 0;
     this.initializeEmitterStates();
 
     // Prewarm each emitter if enabled
@@ -258,6 +258,9 @@ class ParticleSystem {
     const emitter = this.settings.emitters.find(e => e.id === emitterId);
     if (!emitter) return;
 
+    const state = this.emitterStates.get(emitterId);
+    if (!state) return;
+
     const em = emitter.settings;
     let pos = { ...em.position };
 
@@ -384,7 +387,7 @@ class ParticleSystem {
     const baseAngularVelocity = sampleRange(em.angularVelocityRange);
 
     const particle: Particle = {
-      id: this.nextParticleId++,
+      id: state.nextParticleId++,
       emitterId: emitterId, // NEW: track which emitter spawned this
       x: pos.x,
       y: pos.y,

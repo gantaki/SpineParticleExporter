@@ -1423,13 +1423,13 @@ interface EmitterState {
   burstCycleIndex: number;
   lastBurstTime: number;
   hasPrewarmed: boolean;
+  nextParticleId: number;
 }
 
 class ParticleSystem {
   particles: Particle[] = [];
   settings: ParticleSettings;
   time: number = 0;
-  nextParticleId: number = 0;
 
   // Per-emitter state management
   emitterStates: Map<string, EmitterState> = new Map();
@@ -1447,6 +1447,7 @@ class ParticleSystem {
         burstCycleIndex: 0,
         lastBurstTime: 0,
         hasPrewarmed: false,
+        nextParticleId: 0,
       });
     }
   }
@@ -1454,7 +1455,6 @@ class ParticleSystem {
   reset() {
     this.particles = [];
     this.time = 0;
-    this.nextParticleId = 0;
     this.initializeEmitterStates();
 
     // Prewarm each emitter if enabled
@@ -1670,6 +1670,9 @@ class ParticleSystem {
     const emitter = this.settings.emitters.find(e => e.id === emitterId);
     if (!emitter) return;
 
+    const state = this.emitterStates.get(emitterId);
+    if (!state) return;
+
     const em = emitter.settings;
     let pos = { ...em.position };
 
@@ -1796,7 +1799,7 @@ class ParticleSystem {
     const baseAngularVelocity = sampleRange(em.angularVelocityRange);
 
     const particle: Particle = {
-      id: this.nextParticleId++,
+      id: state.nextParticleId++,
       emitterId: emitterId, // NEW: track which emitter spawned this
       x: pos.x,
       y: pos.y,
@@ -3583,7 +3586,7 @@ const ParticleSpineExporter: React.FC = () => {
           <p className="text-xs text-slate-400">Multi-emitter support • Up to 5 independent emitters • Separate bone hierarchy per emitter</p>
         </header>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[240px_420px_1fr_320px] gap-4 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 items-start">
           <div className="space-y-3">
             {/* Emitter Management Panel */}
             <div className="bg-slate-800/50 backdrop-blur rounded-lg p-3 border border-slate-700">

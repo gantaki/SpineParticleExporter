@@ -476,7 +476,7 @@ const ParticleSpineExporter: React.FC = () => {
           <p className="text-xs text-slate-400">Multi-emitter support • Up to 5 independent emitters • Separate bone hierarchy per emitter</p>
         </header>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[240px_420px_1fr_320px] gap-4 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 items-start">
           <div className="space-y-3">
             {/* Emitter Management Panel */}
             <div className="bg-slate-800/50 backdrop-blur rounded-lg p-3 border border-slate-700">
