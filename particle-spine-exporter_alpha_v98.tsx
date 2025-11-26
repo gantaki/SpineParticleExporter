@@ -350,6 +350,17 @@ function createEmitterInstance(id: string, name: string): EmitterInstance {
   };
 }
 
+function sanitizeSettings(settings: ParticleSettings): ParticleSettings {
+  const emitters = settings.emitters.filter((e): e is EmitterInstance => Boolean(e && e.settings));
+  const currentEmitterIndex = Math.max(0, Math.min(settings.currentEmitterIndex, emitters.length - 1));
+
+  return {
+    ...settings,
+    emitters,
+    currentEmitterIndex,
+  };
+}
+
 // Default particle system settings with one emitter
 const DEFAULT_SETTINGS: ParticleSettings = {
   emitters: [createEmitterInstance('emitter_1', 'Emitter 1')],
@@ -1435,7 +1446,7 @@ class ParticleSystem {
   emitterStates: Map<string, EmitterState> = new Map();
 
   constructor(settings: ParticleSettings) {
-    this.settings = settings;
+    this.settings = sanitizeSettings(settings);
     this.initializeEmitterStates();
   }
 
@@ -1903,6 +1914,9 @@ class ParticleSystem {
 
     // Draw particles
     for (const p of this.particles) {
+      const emitterVisible = this.settings.emitters.find(e => e.id === p.emitterId)?.visible !== false;
+      if (!emitterVisible) continue;
+
       ctx.save();
       ctx.translate(p.x, p.y);
       ctx.rotate(p.rotation);
@@ -2206,19 +2220,20 @@ function createParticleAtlas(spriteCanvas: HTMLCanvasElement): { canvas: HTMLCan
 function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame[]; prewarmFrames: BakedFrame[] } {
   const frames: BakedFrame[] = [];
   const prewarmBakedFrames: BakedFrame[] = [];
-  const system = new ParticleSystem(settings);
+  const sanitizedSettings = sanitizeSettings(settings);
+  const system = new ParticleSystem(sanitizedSettings);
 
-  const dt = 1 / settings.fps;
+  const dt = 1 / sanitizedSettings.fps;
 
   // Store prewarm animation frames for loop
   const prewarmFrameMap: Map<number, Map<number, any>> = new Map();
 
   // Check if any emitter has prewarm enabled
-  const hasAnyPrewarm = settings.emitters.some(e => e.settings.prewarm && e.settings.looping);
+  const hasAnyPrewarm = sanitizedSettings.emitters.some(e => e.settings.prewarm && e.settings.looping);
 
   // Apply prewarm if enabled on any emitter
   if (hasAnyPrewarm) {
-    const prewarmSteps = Math.ceil(settings.duration * settings.fps);
+    const prewarmSteps = Math.ceil(sanitizedSettings.duration * sanitizedSettings.fps);
 
     // Simulate prewarm and capture every frame
     for (let i = 0; i < prewarmSteps; i++) {
@@ -2226,7 +2241,7 @@ function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame
 
       const particlesSnapshot = new Map<number, any>();
       for (const p of system.particles) {
-        const emitter = settings.emitters.find(e => e.id === p.emitterId);
+        const emitter = sanitizedSettings.emitters.find(e => e.id === p.emitterId);
         if (!emitter) continue;
 
         particlesSnapshot.set(p.id, {
@@ -2254,15 +2269,15 @@ function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame
     }
   }
 
-  const duration = settings.duration;
-  const frameCount = Math.ceil(duration * settings.fps);
+  const duration = sanitizedSettings.duration;
+  const frameCount = Math.ceil(duration * sanitizedSettings.fps);
 
   // For looping: simulate extra time to capture wrap-around particles
-  const hasAnyLooping = settings.emitters.some(e => e.settings.looping);
-  const maxLifetime = settings.emitters.reduce((max, e) => Math.max(max, e.settings.lifeTimeMax), 0);
+  const hasAnyLooping = sanitizedSettings.emitters.some(e => e.settings.looping);
+  const maxLifetime = sanitizedSettings.emitters.reduce((max, e) => Math.max(max, e.settings.lifeTimeMax), 0);
   const extraTime = hasAnyLooping ? maxLifetime : 0;
   const totalSimTime = duration + extraTime;
-  const totalFrameCount = Math.ceil(totalSimTime * settings.fps);
+  const totalFrameCount = Math.ceil(totalSimTime * sanitizedSettings.fps);
 
   // Store all simulated frames including extra ones
   const allFrames: Map<number, Map<number, any>> = new Map();
@@ -2272,7 +2287,7 @@ function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame
     const particlesSnapshot = new Map<number, any>();
 
     for (const p of system.particles) {
-      const emitter = settings.emitters.find(e => e.id === p.emitterId);
+      const emitter = sanitizedSettings.emitters.find(e => e.id === p.emitterId);
       if (!emitter) continue;
 
       particlesSnapshot.set(p.id, {
@@ -2450,6 +2465,8 @@ function isParticleVisible(particle: any): boolean {
 }
 
 function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], settings: ParticleSettings): string {
+  const sanitizedSettings = sanitizeSettings(settings);
+
   // Group particle IDs by emitter
   const particlesByEmitter = new Map<string, Set<number>>();
 
@@ -2469,7 +2486,7 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
   collectParticleIds(frames);
 
   // Filter and limit particles per emitter based on settings
-  for (const emitter of settings.emitters) {
+  for (const emitter of sanitizedSettings.emitters) {
     if (!emitter.enabled) {
       // Remove particles from disabled emitters
       particlesByEmitter.delete(emitter.id);
@@ -2481,20 +2498,20 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
 
     // If both looping and prewarm are enabled, limit bones to rate × duration
     if (emitter.settings.looping && emitter.settings.prewarm) {
-      const maxBoneCount = Math.floor(emitter.settings.rate * settings.duration);
+      const maxBoneCount = Math.floor(emitter.settings.rate * sanitizedSettings.duration);
       const sortedIds = Array.from(particleIds).sort((a, b) => a - b);
       const filteredIds = sortedIds.filter(id => id < maxBoneCount);
       particlesByEmitter.set(emitter.id, new Set(filteredIds));
     }
   }
 
-  const skeleton = { hash: "particle_export", spine: "4.2.00", x: 0, y: 0, width: settings.frameSize, height: settings.frameSize };
+  const skeleton = { hash: "particle_export", spine: "4.2.00", x: 0, y: 0, width: sanitizedSettings.frameSize, height: sanitizedSettings.frameSize };
 
   // Build bone hierarchy: root -> emitter_N -> particle_ID
   const bones: any[] = [{ name: "root" }];
 
   // Create emitter bones
-  for (const emitter of settings.emitters) {
+  for (const emitter of sanitizedSettings.emitters) {
     if (!emitter.enabled || !particlesByEmitter.has(emitter.id)) continue;
     bones.push({ name: emitter.id, parent: "root" });
   }
@@ -2503,7 +2520,7 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
   const slots: any[] = [];
   const skins: any = { default: {} };
 
-  for (const emitter of settings.emitters) {
+  for (const emitter of sanitizedSettings.emitters) {
     if (!emitter.enabled || !particlesByEmitter.has(emitter.id)) continue;
 
     const particleIds = Array.from(particlesByEmitter.get(emitter.id)!).sort((a, b) => a - b);
@@ -2530,10 +2547,10 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
 
   const animations: any = {};
 
-  const POSITION_THRESHOLD = settings.exportSettings.positionThreshold;
-  const ROTATION_THRESHOLD = settings.exportSettings.rotationThreshold;
-  const SCALE_THRESHOLD = settings.exportSettings.scaleThreshold;
-  const COLOR_THRESHOLD = settings.exportSettings.colorThreshold;
+  const POSITION_THRESHOLD = sanitizedSettings.exportSettings.positionThreshold;
+  const ROTATION_THRESHOLD = sanitizedSettings.exportSettings.rotationThreshold;
+  const SCALE_THRESHOLD = sanitizedSettings.exportSettings.scaleThreshold;
+  const COLOR_THRESHOLD = sanitizedSettings.exportSettings.colorThreshold;
 
   const addAnimation = (animationName: string, sourceFrames: BakedFrame[]) => {
     if (sourceFrames.length === 0) return null;
@@ -2604,7 +2621,7 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
 
           const movementVector = prevPos ? { x: currentPos.x - prevPos.x, y: currentPos.y - prevPos.y } : null;
           const movementDistance = movementVector ? Math.sqrt(movementVector.x * movementVector.x + movementVector.y * movementVector.y) : 0;
-          const shouldWriteTranslate = settings.exportSettings.exportTranslate && (isFirstFrame || isLastFrame || visibilityChanged || prevPos === null ||
+          const shouldWriteTranslate = sanitizedSettings.exportSettings.exportTranslate && (isFirstFrame || isLastFrame || visibilityChanged || prevPos === null ||
             movementDistance > POSITION_THRESHOLD);
 
           if (shouldWriteTranslate) {
@@ -2613,7 +2630,7 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
           }
 
           const rotationDelta = prevRotation !== null ? normalizedAngle - prevRotation : 0;
-          const shouldWriteRotate = settings.exportSettings.exportRotate && (
+          const shouldWriteRotate = sanitizedSettings.exportSettings.exportRotate && (
             isFirstFrame || isLastFrame || visibilityChanged || prevRotation === null ||
             Math.abs(rotationDelta) > ROTATION_THRESHOLD
           );
@@ -2623,7 +2640,7 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
             prevRotation = normalizedAngle;
           }
 
-          if (settings.exportSettings.exportScale && (isFirstFrame || isLastFrame || visibilityChanged || prevScale === null ||
+          if (sanitizedSettings.exportSettings.exportScale && (isFirstFrame || isLastFrame || visibilityChanged || prevScale === null ||
               Math.abs(currentScale.x - prevScale.x) > SCALE_THRESHOLD || Math.abs(currentScale.y - prevScale.y) > SCALE_THRESHOLD)) {
             scaleKeys.push({
               time: Math.round(frame.time * 1000) / 1000,
@@ -2634,7 +2651,7 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
           }
 
           // Add color keyframe if color changed significantly
-          if (settings.exportSettings.exportColor) {
+          if (sanitizedSettings.exportSettings.exportColor) {
             const colorDeltaSum = prevColor === null ? Number.POSITIVE_INFINITY :
               Math.abs((currentColor.r - prevColor.r) * 255) +
               Math.abs((currentColor.g - prevColor.g) * 255) +
@@ -2668,9 +2685,9 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
 
           if (visibilityChanged && wasVisible) {
             const time = Math.round(frame.time * 1000) / 1000;
-            if (settings.exportSettings.exportTranslate && prevPos) translateKeys.push({ time, x: Math.round(prevPos.x * 100) / 100, y: Math.round(-prevPos.y * 100) / 100 });
-            if (settings.exportSettings.exportRotate && prevRotation !== null) rotateKeys.push({ time, angle: Math.round(prevRotation * 100) / 100 });
-            if (settings.exportSettings.exportScale && prevScale !== null) scaleKeys.push({ time, x: 0, y: 0 });
+            if (sanitizedSettings.exportSettings.exportTranslate && prevPos) translateKeys.push({ time, x: Math.round(prevPos.x * 100) / 100, y: Math.round(-prevPos.y * 100) / 100 });
+            if (sanitizedSettings.exportSettings.exportRotate && prevRotation !== null) rotateKeys.push({ time, angle: Math.round(prevRotation * 100) / 100 });
+            if (sanitizedSettings.exportSettings.exportScale && prevScale !== null) scaleKeys.push({ time, x: 0, y: 0 });
           }
 
           wasVisible = false;
@@ -2679,13 +2696,13 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
 
       if (hasAppeared) {
         const boneAnimation: any = {};
-        if (settings.exportSettings.exportTranslate && translateKeys.length > 0) {
+        if (sanitizedSettings.exportSettings.exportTranslate && translateKeys.length > 0) {
           boneAnimation.translate = translateKeys;
         }
-        if (settings.exportSettings.exportRotate && rotateKeys.length > 0) {
+        if (sanitizedSettings.exportSettings.exportRotate && rotateKeys.length > 0) {
           boneAnimation.rotate = rotateKeys;
         }
-        if (settings.exportSettings.exportScale && scaleKeys.length > 0) {
+        if (sanitizedSettings.exportSettings.exportScale && scaleKeys.length > 0) {
           boneAnimation.scale = scaleKeys;
         }
 
@@ -2697,7 +2714,7 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
         if (attachmentKeys.length > 0) {
           slotAnimation.attachment = attachmentKeys;
         }
-        if (settings.exportSettings.exportColor && colorKeys.length > 0) {
+        if (sanitizedSettings.exportSettings.exportColor && colorKeys.length > 0) {
           slotAnimation.rgba = colorKeys;
         }
 
@@ -2719,7 +2736,7 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
   // Generate prewarm animation
   const prewarmAnimation = addAnimation('prewarm', prewarmFrames);
 
-  const isLoopAndPrewarmMode = settings.emitter.looping && settings.emitter.prewarm;
+  const isLoopAndPrewarmMode = sanitizedSettings.emitters.some(e => e.settings.looping && e.settings.prewarm);
 
   // If both animations exist and we have frames, copy loop data to prewarm
   if (prewarmAnimation && loopAnimation && frames.length > 0 && prewarmFrames.length > 0) {
@@ -3165,7 +3182,7 @@ const ParticleSpineExporter: React.FC = () => {
   const lastFrameTimeRef = useRef<number>(0);
 
   useEffect(() => {
-    systemRef.current = new ParticleSystem(settings);
+    systemRef.current = new ParticleSystem(sanitizeSettings(settings));
     updateSpriteCanvas(em.particleSprite, em.customSpriteData);
   }, []);
 
@@ -3276,7 +3293,7 @@ const ParticleSpineExporter: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    systemRef.current = new ParticleSystem(settings);
+    systemRef.current = new ParticleSystem(sanitizeSettings(settings));
     updateSpriteCanvas(em.particleSprite, em.customSpriteData);
   }, []);
 
@@ -3341,9 +3358,10 @@ const ParticleSpineExporter: React.FC = () => {
   }, [isPlaying, showEmitter, zoom, spriteCanvas, showGrid, backgroundImage, bgPosition, playbackSpeed]);
 
   const updateSettings = useCallback((newSettings: ParticleSettings) => {
-    setSettings(newSettings);
+    const sanitized = sanitizeSettings(newSettings);
+    setSettings(sanitized);
     if (systemRef.current) {
-      systemRef.current.settings = newSettings;
+      systemRef.current.settings = sanitized;
       systemRef.current.initializeEmitterStates();
     }
     setNeedsRebake(true);
