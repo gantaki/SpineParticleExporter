@@ -73,6 +73,7 @@ interface EmitterInstanceSettings {
   burstCount: number;
   burstCycles: number;
   burstInterval: number;
+  loopDuration: number;
   durationStart: number;
   durationEnd: number;
 
@@ -264,12 +265,13 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     maxParticles: 500,
 
     // Emission timing
-    emissionType: 'continuous',
-    burstCount: 50,
-    burstCycles: 1,
-    burstInterval: 0.5,
-    durationStart: 0,
-    durationEnd: 2,
+  emissionType: 'continuous',
+  burstCount: 50,
+  burstCycles: 1,
+  burstInterval: 0.5,
+  loopDuration: 2,
+  durationStart: 0,
+  durationEnd: 2,
 
     looping: true,
     prewarm: false,
@@ -350,14 +352,56 @@ function createEmitterInstance(id: string, name: string): EmitterInstance {
   };
 }
 
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getEmitterLoopDuration(settings: EmitterInstanceSettings, fallback: number): number {
+  return Math.max(0.05, settings.loopDuration ?? fallback);
+}
+
+function computeTimelineDuration(settings: ParticleSettings): number {
+  const fallbackDuration = Math.max(0.05, settings.duration || 0);
+
+  const emitterDurations = settings.emitters.map(em => {
+    const loopDuration = getEmitterLoopDuration(em.settings, fallbackDuration);
+    return em.settings.startDelay + loopDuration;
+  });
+
+  if (emitterDurations.length === 0) {
+    return fallbackDuration;
+  }
+
+  return Math.max(...emitterDurations);
+}
+
 function sanitizeSettings(settings: ParticleSettings): ParticleSettings {
-  const emitters = settings.emitters.filter((e): e is EmitterInstance => Boolean(e && e.settings));
+  const emitters = settings.emitters
+    .filter((e): e is EmitterInstance => Boolean(e && e.settings))
+    .map(em => {
+      const loopDuration = getEmitterLoopDuration(em.settings, settings.duration);
+      const durationStart = clamp(em.settings.durationStart, 0, loopDuration);
+      const durationEnd = clamp(em.settings.durationEnd, durationStart, loopDuration);
+
+      return {
+        ...em,
+        settings: {
+          ...em.settings,
+          loopDuration,
+          durationStart,
+          durationEnd,
+        }
+      };
+    });
   const currentEmitterIndex = Math.max(0, Math.min(settings.currentEmitterIndex, emitters.length - 1));
+
+  const duration = computeTimelineDuration({ ...settings, emitters, currentEmitterIndex });
 
   return {
     ...settings,
     emitters,
     currentEmitterIndex,
+    duration,
   };
 }
 
@@ -1220,6 +1264,7 @@ const CurveEditor: React.FC<{
 const Timeline: React.FC<{
   currentTime: number;
   duration: number;
+  emitterDuration: number;
   fps: number;
   isPlaying: boolean;
   playbackSpeed: number;
@@ -1227,9 +1272,9 @@ const Timeline: React.FC<{
   onPlayPause: () => void;
   onRestart: () => void;
   onSpeedChange: (speed: number) => void;
-  onDurationChange: (duration: number) => void;
+  onEmitterDurationChange: (duration: number) => void;
   onFpsChange: (fps: number) => void;
-}> = ({ currentTime, duration, fps, isPlaying, playbackSpeed, onTimeChange, onPlayPause, onRestart, onSpeedChange, onDurationChange, onFpsChange }) => {
+}> = ({ currentTime, duration, emitterDuration, fps, isPlaying, playbackSpeed, onTimeChange, onPlayPause, onRestart, onSpeedChange, onEmitterDurationChange, onFpsChange }) => {
   const [isDragging, setIsDragging] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
 
@@ -1301,13 +1346,13 @@ const Timeline: React.FC<{
         
         <input
           type="number"
-         
-          max="10"
+
+          max="30"
           step="0.1"
-          value={duration}
-          onChange={e => onDurationChange(Number(e.target.value))}
+          value={emitterDuration}
+          onChange={e => onEmitterDurationChange(Number(e.target.value))}
           className="w-16 px-1.5 py-0.5 bg-slate-900 border border-slate-600 rounded text-xs"
-          title="Duration"
+          title="Emitter Duration"
         />
         <span className="text-xs text-slate-400">s</span>
         
@@ -1478,7 +1523,8 @@ class ParticleSystem {
 
   prewarmEmitter(emitterId: string) {
     // Simulate one full duration cycle for specific emitter
-    const duration = this.settings.duration;
+    const emitter = this.settings.emitters.find(e => e.id === emitterId);
+    const duration = emitter ? emitter.settings.loopDuration : this.settings.duration;
     const dt = 1 / 60; // 60 fps simulation
     const steps = Math.ceil(duration / dt);
 
@@ -1495,6 +1541,18 @@ class ParticleSystem {
 
   update(dt: number, skipTimeReset: boolean = false) {
     this.time += dt;
+
+    const timelineDuration = computeTimelineDuration(this.settings);
+    const hasLoopingEmitters = this.settings.emitters.some(e => e.settings.looping);
+
+    if (!skipTimeReset && timelineDuration > 0 && this.time >= timelineDuration) {
+      if (hasLoopingEmitters) {
+        this.reset();
+        return;
+      } else {
+        this.time = timelineDuration;
+      }
+    }
 
     // Update each emitter
     for (const emitter of this.settings.emitters) {
@@ -1516,14 +1574,14 @@ class ParticleSystem {
     // Handle looping
     if (em.looping && !skipTimeReset) {
       const effectiveTime = this.time - em.startDelay;
-      if (effectiveTime >= this.settings.duration) {
+      if (effectiveTime >= em.loopDuration) {
         // Loop back
         state.burstCycleIndex = 0;
         state.lastBurstTime = em.startDelay;
       }
     } else if (!em.looping && !skipTimeReset) {
       // When not looping, cap time at duration
-      const maxTime = em.startDelay + this.settings.duration;
+      const maxTime = em.startDelay + em.loopDuration;
       if (this.time > maxTime) {
         return; // Don't emit if time exceeded
       }
@@ -2224,6 +2282,7 @@ function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame
   const system = new ParticleSystem(sanitizedSettings);
 
   const dt = 1 / sanitizedSettings.fps;
+  const timelineDuration = computeTimelineDuration(sanitizedSettings);
 
   // Store prewarm animation frames for loop
   const prewarmFrameMap: Map<number, Map<number, any>> = new Map();
@@ -2233,7 +2292,7 @@ function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame
 
   // Apply prewarm if enabled on any emitter
   if (hasAnyPrewarm) {
-    const prewarmSteps = Math.ceil(sanitizedSettings.duration * sanitizedSettings.fps);
+    const prewarmSteps = Math.ceil(timelineDuration * sanitizedSettings.fps);
 
     // Simulate prewarm and capture every frame
     for (let i = 0; i < prewarmSteps; i++) {
@@ -2269,7 +2328,7 @@ function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame
     }
   }
 
-  const duration = sanitizedSettings.duration;
+  const duration = timelineDuration;
   const frameCount = Math.ceil(duration * sanitizedSettings.fps);
 
   // For looping: simulate extra time to capture wrap-around particles
@@ -3167,6 +3226,8 @@ const ParticleSpineExporter: React.FC = () => {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [bakedSimulation, setBakedSimulation] = useState<BakedFrame[] | null>(null);
   const [needsRebake, setNeedsRebake] = useState(true);
+
+  const timelineDuration = computeTimelineDuration(settings);
   
   const [emitterOpen, setEmitterOpen] = useState(true);
   const [particleOpen, setParticleOpen] = useState(true);
@@ -3191,9 +3252,9 @@ const ParticleSpineExporter: React.FC = () => {
     
     const system = systemRef.current;
     system.reset();
-    
+
     const dt = 1 / 60;
-    const frameCount = Math.ceil(settings.duration / dt);
+    const frameCount = Math.ceil(timelineDuration / dt);
     const frames: BakedFrame[] = [];
     
     for (let i = 0; i <= frameCount; i++) {
@@ -3226,7 +3287,7 @@ const ParticleSpineExporter: React.FC = () => {
     }
     
     return frames;
-  }, [settings.duration]);
+  }, [timelineDuration]);
 
   const renderBakedFrame = useCallback((targetTime: number) => {
     if (!bakedSimulation || !canvasRef.current || !systemRef.current) return;
@@ -3267,7 +3328,8 @@ const ParticleSpineExporter: React.FC = () => {
   }, [bakedSimulation, showEmitter, zoom, spriteCanvas, showGrid, backgroundImage, bgPosition]);
 
   const handleTimelineTimeChange = useCallback((newTime: number) => {
-    setCurrentTime(newTime);
+    const clampedTime = Math.max(0, Math.min(newTime, timelineDuration));
+    setCurrentTime(clampedTime);
     setIsPlaying(false);
     
     if (!bakedSimulation || needsRebake) {
@@ -3276,8 +3338,8 @@ const ParticleSpineExporter: React.FC = () => {
       setNeedsRebake(false);
     }
     
-    renderBakedFrame(newTime);
-  }, [bakedSimulation, needsRebake, bakeSimulation, renderBakedFrame]);
+    renderBakedFrame(clampedTime);
+  }, [bakedSimulation, needsRebake, bakeSimulation, renderBakedFrame, timelineDuration]);
 
   const handlePlayPause = useCallback(() => {
     if (!isPlaying && (needsRebake || !bakedSimulation)) {
@@ -3721,7 +3783,8 @@ const ParticleSpineExporter: React.FC = () => {
               <div className="mt-3">
                 <Timeline
                   currentTime={currentTime}
-                  duration={settings.duration}
+                  duration={timelineDuration}
+                  emitterDuration={em?.loopDuration || timelineDuration}
                   fps={settings.fps}
                   isPlaying={isPlaying}
                   playbackSpeed={playbackSpeed}
@@ -3729,7 +3792,7 @@ const ParticleSpineExporter: React.FC = () => {
                   onPlayPause={handlePlayPause}
                   onRestart={handleRestart}
                   onSpeedChange={handleSpeedChange}
-                  onDurationChange={d => updateSettings({ ...settings, duration: d })}
+                  onEmitterDurationChange={d => updateEmitter({ loopDuration: d })}
                   onFpsChange={f => updateSettings({ ...settings, fps: f })}
                 />
               </div>
@@ -3791,11 +3854,24 @@ const ParticleSpineExporter: React.FC = () => {
                     <span className="text-xs text-slate-300">Start Delay (sec)</span>
                     <input
                       type="number"
-                     
+
                       max="5"
                       step="0.1"
                       value={em.startDelay}
                       onChange={e => updateEmitter({ startDelay: Number(e.target.value)  })}
+                      className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                    />
+                  </label>
+
+                  <label className="block mt-2">
+                    <span className="text-xs text-slate-300">Loop Duration (sec)</span>
+                    <input
+                      type="number"
+
+                      max="30"
+                      step="0.1"
+                      value={em.loopDuration}
+                      onChange={e => updateEmitter({ loopDuration: Number(e.target.value)  })}
                       className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
                     />
                   </label>
@@ -3875,7 +3951,7 @@ const ParticleSpineExporter: React.FC = () => {
                         <span className="text-xs text-slate-300">End (sec)</span>
                         <input
                           type="number"
-                          max={settings.duration}
+                          max={em.loopDuration}
                           step="0.1"
                           value={em.durationEnd}
                           onChange={e => updateEmitter({ durationEnd: Number(e.target.value)  })}
@@ -4349,7 +4425,7 @@ const ParticleSpineExporter: React.FC = () => {
             <CollapsibleSection title="💾 Export Settings" isOpen={exportOpen} onToggle={() => setExportOpen(!exportOpen)}>
               <div className="space-y-2">
                 <div className="text-xs text-slate-400 bg-slate-900/50 p-2 rounded space-y-1">
-                  <div>Total Frames: {Math.ceil(settings.duration * settings.fps)}</div>
+                  <div>Total Frames: {Math.ceil(timelineDuration * settings.fps)}</div>
                   {em.looping && (
                     <>
                       <div className="text-green-400">🔄 Loop Mode: Enabled</div>
