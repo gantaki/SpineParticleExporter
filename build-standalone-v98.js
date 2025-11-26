@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build standalone v97.tsx from modular sources
+ * Build standalone v98.tsx from modular sources
  *
  * This script combines all modules into a single self-contained TSX file
  * that can be used without a build system.
@@ -9,10 +9,10 @@
 const fs = require('fs');
 const path = require('path');
 
-const modulesDir = './particle-spine-exporter-v97';
-const outputFile = './particle-spine-exporter_alpha_v97.tsx';
+const modulesDir = './particle-spine-exporter-v98';
+const outputFile = './particle-spine-exporter_alpha_v98.tsx';
 
-console.log('🔨 Building standalone v97 from modules...\n');
+console.log('🔨 Building standalone v98 from modules...\n');
 
 // Module files in correct order
 const modules = [
@@ -169,4 +169,4 @@ console.log('✅ Build complete!\n');
 console.log(`📄 Output: ${outputFile}`);
 console.log(`📏 Lines: ${lines}`);
 console.log(`💾 Size: ${size} KB`);
-console.log('\n🎉 Standalone v97 is ready to use!\n');
+console.log('\n🎉 Standalone v98 is ready to use!\n');

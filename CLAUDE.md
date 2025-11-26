@@ -1,7 +1,7 @@
 # CLAUDE.md - SpineParticleExporter
 
-**Last Updated:** 2025-11-25
-**Current Version:** v97 (Modular)
+**Last Updated:** 2025-11-26
+**Current Version:** v98 (Multi-Emitter)
 
 ## Project Overview
 
@@ -9,6 +9,7 @@ SpineParticleExporter is a React/TypeScript web application that converts partic
 
 ### Core Capabilities
 
+- **Multi-Emitter System (NEW in v98)**: Up to 5 independent particle emitters
 - **Visual Particle Design**: Interactive editors for creating complex particle systems
 - **Real-Time Preview**: HTML5 Canvas-based simulation with live feedback
 - **Physics Simulation**: Gravity, drag, noise, attraction, vortex forces
@@ -17,7 +18,8 @@ SpineParticleExporter is a React/TypeScript web application that converts partic
 - **Color Gradients**: Multi-keyframe color animations
 - **Emission Modes**: Continuous, burst, and duration-based emission
 - **Looping Animations**: Prewarm capability for seamless loops
-- **Spine Export**: Full Spine 4.2 JSON with texture atlases and keyframe optimization
+- **Hierarchical Spine Export**: Separate parent bones for each emitter (emitter_1, emitter_2, etc.)
+- **Individual Emitter Control**: Enable/disable and show/hide emitters independently
 - **ZIP Packaging**: Complete export package with JSON and PNG files
 
 ### Technology Stack
@@ -31,43 +33,52 @@ SpineParticleExporter is a React/TypeScript web application that converts partic
 ### Repository Characteristics
 
 - **Modular Architecture** (v97+): Code split into 6 logical modules for maintainability
+- **Multi-Emitter Support** (v98+): Up to 5 independent emitters with separate settings
 - **Dual Distribution**: Modular for development, standalone for production
 - **Build System**: Automated scripts to generate standalone versions
-- **Versioned Iterations**: Keeps latest versions (v96 monolithic, v97 modular currently)
+- **Versioned Iterations**: Keeps latest versions (v96 monolithic, v97 modular, v98 multi-emitter currently)
 
 ---
 
-## Codebase Structure (v97)
+## Codebase Structure (v98)
 
 ### 🎯 Two Distribution Methods
 
 #### 1. **Modular Structure** (for development)
 ```
-particle-spine-exporter-v97/
-├── types.ts           (~300 lines)  - Type definitions and constants
+particle-spine-exporter-v98/
+├── types.ts           (~380 lines)  - Type definitions, multi-emitter support
 ├── utils.ts           (~150 lines)  - Utility functions
-├── core.ts            (~700 lines)  - ParticleSystem simulation engine
-├── export.ts          (~1200 lines) - Export functionality
-├── components.tsx     (~1000 lines) - React UI components
-├── index.tsx          (~800 lines)  - Main component
+├── core.ts            (~680 lines)  - ParticleSystem with multi-emitter logic
+├── export.ts          (~1200 lines) - Export with emitter bone hierarchy
+├── components.tsx     (~1000 lines) - Reusable React UI components
+├── index.tsx          (~1350 lines) - Main component with emitter management
 └── README.md                        - Module documentation
 ```
 
 #### 2. **Standalone Version** (for distribution)
 ```
-particle-spine-exporter_alpha_v97.tsx  (~4175 lines)
+particle-spine-exporter_alpha_v98.tsx  (~4463 lines)
 ```
 
-Generated via: `npm run build`
+Generated via: `node build-standalone-v98.js`
 
-### 🔧 Build Tools
+### 🔧 Build Tools & Runtime
 
 ```
-build-standalone.js    - Combines modules into single file
-split-to-modules.js    - Splits monolithic file into modules
-setup-demo.sh          - Creates Vite dev environment
-package.json           - NPM scripts and dependencies
+build-standalone-v98.js  - Combines v98 modules into single file
+build-standalone.js      - Combines v97 modules into single file
+split-to-modules.js      - Splits monolithic file into modules
+serve-standalone.js      - Simple HTTP server for testing standalone
+standalone.html          - HTML runner for standalone TSX (UPDATE WITH EACH VERSION!)
+setup-demo.sh            - Creates Vite dev environment
+package.json             - NPM scripts and dependencies
 ```
+
+**⚠️ IMPORTANT: Update `standalone.html` with each new version!**
+- Update title to match version (e.g., "v98")
+- Update script src to point to correct standalone file
+- Ensure all required Lucide icons are included
 
 ---
 
@@ -487,11 +498,53 @@ Since there's no automated test suite:
   - Duplicate frame 0 at end for seamless looping
   - Prewarm animation only includes bones with offset data
   - 4135 lines, single file
-- **v97** (2025-11-25): **Current version - Modular refactor**
+- **v97** (2025-11-25): Modular refactor
   - Split into 6 modules for maintainability
   - Added build system for standalone generation
   - All v96 functionality preserved
   - 4175 lines total (across 6 files)
+- **v98** (2025-11-26): **Current version - Multi-emitter support**
+  - Up to 5 independent particle emitters
+  - Per-emitter settings and configuration
+  - Hierarchical bone export (emitter_1, emitter_2, etc.)
+  - Individual emitter enable/disable for export
+  - Viewport visibility toggle per emitter
+  - Current emitter highlighted in viewport
+  - 4463 lines total (across 6 files)
+
+### v98 Changes Log
+
+**Major Changes:**
+- Added multi-emitter architecture supporting up to 5 emitters
+- Created `EmitterInstance` and `EmitterInstanceSettings` types
+- Reorganized `ParticleSettings` to contain array of emitters
+- Updated `ParticleSystem` to manage multiple emitters with separate state
+- Modified export pipeline to create parent bones for each emitter
+- Added emitter management UI (add, remove, select, show/hide)
+- Added per-emitter export enable/disable in export settings
+- Updated all particle/emitter settings to work with current emitter
+
+**New Features:**
+- ✅ Up to 5 simultaneous emitters
+- ✅ Independent settings per emitter
+- ✅ Emitter selection UI with visibility toggles
+- ✅ Hierarchical Spine bone structure per emitter
+- ✅ Export filtering by emitter
+- ✅ All emitters rendered simultaneously
+- ✅ Current emitter highlighted in viewport
+
+**Technical Changes:**
+- `Particle` now includes `emitterId` field
+- `BakedFrame` particles include `emitterId`
+- `ParticleSystem` uses `Map<string, EmitterState>` for per-emitter state
+- Export creates `emitter_N` bones as parents for particle bones
+- UI uses `updateEmitter()` helper for current emitter updates
+
+**Benefits:**
+- ✅ Create complex multi-layered particle effects
+- ✅ Each emitter fully independent
+- ✅ Better organization for complex effects
+- ✅ Backward compatible (uses 1 emitter by default)
 
 ### v97 Changes Log
 
