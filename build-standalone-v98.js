@@ -116,8 +116,14 @@ standalone += '// UI COMPONENTS\n';
 standalone += '// ============================================================\n\n';
 // Remove React imports from components since we already have them
 let componentsCode = processedModules[2];
-componentsCode = componentsCode.replace(/^import React[\s\S]*?from 'react';?\n/gm, '');
-componentsCode = componentsCode.replace(/^import {[^}]+}\s+from\s+'lucide-react';?\n/gm, '');
+// Remove all React imports (handles: import React from 'react' and import React, { ... } from 'react')
+componentsCode = componentsCode.replace(/^import\s+React(?:,\s*{[^}]*})?\s+from\s+['"]react['"];?\s*\n/gm, '');
+// Remove standalone hook imports like: import { useState } from 'react'
+componentsCode = componentsCode.replace(/^import\s+{[^}]+}\s+from\s+['"]react['"];?\s*\n/gm, '');
+// Remove lucide-react imports
+componentsCode = componentsCode.replace(/^import\s+{[^}]+}\s+from\s+['"]lucide-react['"];?\s*\n/gm, '');
+// Remove type imports
+componentsCode = componentsCode.replace(/^import\s+type\s+{[^}]+}\s+from\s+['"][^'"]+['"];?\s*\n/gm, '');
 standalone += componentsCode + '\n\n';
 
 standalone += '// ============================================================\n';

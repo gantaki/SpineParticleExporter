@@ -475,7 +475,6 @@ function evaluateColorGradient(gradient: ColorGradient, t: number): Color {
 // UI COMPONENTS
 // ============================================================
 
-
 const ColorPicker: React.FC<{
   color: Color;
   onChange: (color: Color) => void;
