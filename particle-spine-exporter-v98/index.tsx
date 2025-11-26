@@ -467,8 +467,8 @@ const ParticleSpineExporter: React.FC = () => {
   const em = currentEmitter?.settings || settings.emitters[0]?.settings;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-6">
+      <div className="max-w-[1700px] mx-auto">
         <header className="mb-4">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
             Particle → Spine Exporter v98
@@ -476,7 +476,7 @@ const ParticleSpineExporter: React.FC = () => {
           <p className="text-xs text-slate-400">Multi-emitter support • Up to 5 independent emitters • Separate bone hierarchy per emitter</p>
         </header>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[420px_1fr_320px] gap-4 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-4 xl:[grid-template-columns:repeat(4,minmax(320px,1fr))] gap-6 items-start">
           <div className="space-y-3">
             {/* Emitter Management Panel */}
             <div className="bg-slate-800/50 backdrop-blur rounded-lg p-3 border border-slate-700">
@@ -535,7 +535,9 @@ const ParticleSpineExporter: React.FC = () => {
                 ))}
               </div>
             </div>
+          </div>
 
+          <div className="space-y-3">
             <div className="bg-slate-800/50 backdrop-blur rounded-lg p-3 border border-slate-700">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-sm font-semibold">Preview</span>
