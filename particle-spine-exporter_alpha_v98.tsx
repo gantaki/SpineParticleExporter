@@ -202,10 +202,13 @@ interface Particle {
   alpha: number;
 }
 
+type BakedParticleKey = string | number;
+
 interface BakedFrame {
   time: number;
-  particles: Map<number, {
-    emitterId: string; // NEW: track emitter for export bone hierarchy
+  particles: Map<BakedParticleKey, {
+    emitterId: string; // Track emitter for export bone hierarchy
+    localId?: number;  // Preserve per-emitter particle index
     x: number;
     y: number;
     rotation: number;
@@ -2105,6 +2108,8 @@ class ParticleSystem {
 // EXPORT FUNCTIONALITY
 // ============================================================
 
+const makeParticleKey = (emitterId: string, particleId: number) => `${emitterId}__${particleId}`;
+
 function createParticleSprite(type: 'circle' | 'star' | 'polygon' | 'glow', size: number = 64): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = size;
@@ -2214,7 +2219,7 @@ function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame
   const dt = 1 / settings.fps;
 
   // Store prewarm animation frames for loop
-  const prewarmFrameMap: Map<number, Map<number, any>> = new Map();
+  const prewarmFrameMap: Map<number, Map<string, any>> = new Map();
 
   // Check if any emitter has prewarm enabled
   const hasAnyPrewarm = settings.emitters.some(e => e.settings.prewarm && e.settings.looping);
@@ -2227,13 +2232,14 @@ function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame
     for (let i = 0; i < prewarmSteps; i++) {
       system.update(dt, true); // skipTimeReset = true during prewarm
 
-      const particlesSnapshot = new Map<number, any>();
+      const particlesSnapshot = new Map<string, any>();
       for (const p of system.particles) {
         const emitter = settings.emitters.find(e => e.id === p.emitterId);
         if (!emitter) continue;
 
-        particlesSnapshot.set(p.id, {
+        particlesSnapshot.set(makeParticleKey(p.emitterId, p.id), {
           emitterId: p.emitterId, // Track which emitter this particle belongs to
+          localId: p.id,
           x: p.x - emitter.settings.position.x,
           y: p.y - emitter.settings.position.y,
           rotation: p.rotation * 180 / Math.PI,
@@ -2268,18 +2274,19 @@ function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame
   const totalFrameCount = Math.ceil(totalSimTime * settings.fps);
 
   // Store all simulated frames including extra ones
-  const allFrames: Map<number, Map<number, any>> = new Map();
+  const allFrames: Map<number, Map<string, any>> = new Map();
 
   for (let i = 0; i < totalFrameCount; i++) {
     system.update(dt);
-    const particlesSnapshot = new Map<number, any>();
+    const particlesSnapshot = new Map<string, any>();
 
     for (const p of system.particles) {
       const emitter = settings.emitters.find(e => e.id === p.emitterId);
       if (!emitter) continue;
 
-      particlesSnapshot.set(p.id, {
+      particlesSnapshot.set(makeParticleKey(p.emitterId, p.id), {
         emitterId: p.emitterId, // Track which emitter this particle belongs to
+        localId: p.id,
         x: p.x - emitter.settings.position.x,
         y: p.y - emitter.settings.position.y,
         rotation: p.rotation * 180 / Math.PI,
@@ -2474,12 +2481,21 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
 
   const collectParticleIds = (source: BakedFrame[]) => {
     for (const frame of source) {
-      for (const [id, particleData] of frame.particles) {
+      for (const [key, particleData] of frame.particles) {
         const emitterId = particleData.emitterId;
+        const localId = typeof particleData.localId === 'number'
+          ? particleData.localId
+          : typeof key === 'string'
+            ? Number(key.split('__').pop())
+            : Number(key);
+
         if (!particlesByEmitter.has(emitterId)) {
           particlesByEmitter.set(emitterId, new Set());
         }
-        particlesByEmitter.get(emitterId)!.add(id);
+
+        if (!Number.isNaN(localId)) {
+          particlesByEmitter.get(emitterId)!.add(localId);
+        }
       }
     }
   };
@@ -2544,27 +2560,37 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
     }
   }
 
-  const trackByBoneName = new Map<string, { emitterId: string; particleId: number; boneName: string; slotName: string }>();
-  const trackBySlotName = new Map<string, { emitterId: string; particleId: number; boneName: string; slotName: string }>();
+  const animations: any = {};
+  const tracksByEmitter = new Map<string, Array<{ emitterId: string; particleId: number; boneName: string; slotName: string }>>();
 
   for (const track of particleTracks) {
-    trackByBoneName.set(track.boneName, track);
-    trackBySlotName.set(track.slotName, track);
+    if (!tracksByEmitter.has(track.emitterId)) {
+      tracksByEmitter.set(track.emitterId, []);
+    }
+    tracksByEmitter.get(track.emitterId)!.push(track);
   }
-
-  const animations: any = {};
 
   const POSITION_THRESHOLD = settings.exportSettings.positionThreshold;
   const ROTATION_THRESHOLD = settings.exportSettings.rotationThreshold;
   const SCALE_THRESHOLD = settings.exportSettings.scaleThreshold;
   const COLOR_THRESHOLD = settings.exportSettings.colorThreshold;
 
-  const addAnimation = (animationName: string, sourceFrames: BakedFrame[]) => {
-    if (sourceFrames.length === 0) return null;
+  const getParticleFromFrame = (frame: BakedFrame, emitterId: string, particleId: number) =>
+    frame.particles.get(makeParticleKey(emitterId, particleId));
+
+  const addAnimation = (sourceFrames: BakedFrame[], tracks: Array<{ emitterId: string; particleId: number; boneName: string; slotName: string }>) => {
+    if (sourceFrames.length === 0 || tracks.length === 0) return null;
 
     const animationData: any = { bones: {}, slots: {} };
+    const trackByBoneName = new Map<string, { emitterId: string; particleId: number; boneName: string; slotName: string }>();
+    const trackBySlotName = new Map<string, { emitterId: string; particleId: number; boneName: string; slotName: string }>();
 
-    for (const track of particleTracks) {
+    for (const track of tracks) {
+      trackByBoneName.set(track.boneName, track);
+      trackBySlotName.set(track.slotName, track);
+    }
+
+    for (const track of tracks) {
       const { particleId, boneName, slotName } = track;
 
       const translateKeys: any[] = [];
@@ -2575,7 +2601,7 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
 
       const allAngles: number[] = [];
       for (const frame of sourceFrames) {
-        const particle = frame.particles.get(particleId);
+        const particle = getParticleFromFrame(frame, track.emitterId, particleId);
         if (particle) {
           allAngles.push(particle.rotation);
         } else {
@@ -2595,7 +2621,7 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
 
       for (let frameIdx = 0; frameIdx < sourceFrames.length; frameIdx++) {
         const frame = sourceFrames[frameIdx];
-        const particle = frame.particles.get(particleId);
+        const particle = getParticleFromFrame(frame, track.emitterId, particleId);
         const isVisible = particle && isParticleVisible(particle);
         const isFirstFrame = frameIdx === 0;
         const isLastFrame = frameIdx === sourceFrames.length - 1;
@@ -2731,58 +2757,62 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
     }
 
     if (Object.keys(animationData.bones).length > 0 || Object.keys(animationData.slots).length > 0) {
-      return animationData;
+      return { animation: animationData, trackByBoneName, trackBySlotName };
     }
     return null;
   };
 
-  // Generate loop animation first
-  const loopAnimation = addAnimation('particle_anim', frames);
+  const getLocalParticleId = (key: any, particleData: any) => {
+    if (typeof particleData?.localId === 'number') return particleData.localId;
+    if (typeof key === 'string') {
+      const parts = key.split('__');
+      const lastPart = parts[parts.length - 1];
+      const parsed = Number(lastPart);
+      if (!Number.isNaN(parsed)) return parsed;
+    }
+    if (typeof key === 'number') return key;
+    return null;
+  };
 
-  // Generate prewarm animation
-  const prewarmAnimation = addAnimation('prewarm', prewarmFrames);
+  const copyLoopIntoPrewarm = (
+    emitterId: string,
+    loopData: { animation: any; trackByBoneName: Map<string, any>; trackBySlotName: Map<string, any> },
+    prewarmData: { animation: any },
+  ) => {
+    if (frames.length === 0 || prewarmFrames.length === 0) return;
 
-  const isLoopAndPrewarmMode = settings.emitters.some(e => e.settings.looping && e.settings.prewarm);
+    const loopAnimation = loopData.animation;
+    const prewarmAnimation = prewarmData.animation;
+    const bonesWithOffsetData = new Set<string>();
 
-  // If both animations exist and we have frames, copy loop data to prewarm
-  if (prewarmAnimation && loopAnimation && frames.length > 0 && prewarmFrames.length > 0) {
-    // Get last frame of loop animation
     const lastLoopFrame = frames[frames.length - 1];
     const prewarmDuration = prewarmFrames[prewarmFrames.length - 1].time;
 
-    // Find all visible particles in the last loop frame
     const visibleParticleIds: number[] = [];
-    for (const [particleId, particleData] of lastLoopFrame.particles) {
+    for (const [key, particleData] of lastLoopFrame.particles) {
+      if (particleData.emitterId !== emitterId) continue;
       if (isParticleVisible(particleData)) {
-        visibleParticleIds.push(particleId);
+        const localId = getLocalParticleId(key, particleData);
+        if (localId !== null) {
+          visibleParticleIds.push(localId);
+        }
       }
     }
 
-    // Track which bones received offset data from loop
-    const bonesWithOffsetData = new Set<string>();
-
-    // For each visible particle, copy its animation keys from loop to end of prewarm
-    // ONLY if the bone/slot already exists in prewarm (don't create new ones)
     for (const particleId of visibleParticleIds) {
-      const emitterId = lastLoopFrame.particles.get(particleId)?.emitterId;
-      if (!emitterId) continue;
-
       const boneName = getParticleBoneName(emitterId, particleId);
       const slotName = getParticleSlotName(emitterId, particleId);
 
       let boneHasData = false;
 
-      // Copy bone animations (translate, rotate, scale) ONLY if bone already exists in prewarm
       if (loopAnimation.bones[boneName] && prewarmAnimation.bones[boneName]) {
         const loopBone = loopAnimation.bones[boneName];
         const prewarmBone = prewarmAnimation.bones[boneName];
 
-        // Copy translate keys
         if (loopBone.translate && loopBone.translate.length > 0) {
           if (!prewarmBone.translate) {
             prewarmBone.translate = [];
           }
-          // Add all translate keys from loop to end of prewarm
           for (const key of loopBone.translate) {
             prewarmBone.translate.push({
               time: Math.round((prewarmDuration + key.time) * 1000) / 1000,
@@ -2793,7 +2823,6 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
           boneHasData = true;
         }
 
-        // Copy rotate keys
         if (loopBone.rotate && loopBone.rotate.length > 0) {
           if (!prewarmBone.rotate) {
             prewarmBone.rotate = [];
@@ -2807,7 +2836,6 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
           boneHasData = true;
         }
 
-        // Copy scale keys
         if (loopBone.scale && loopBone.scale.length > 0) {
           if (!prewarmBone.scale) {
             prewarmBone.scale = [];
@@ -2827,12 +2855,10 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
         }
       }
 
-      // Copy slot animations (attachment, rgba) ONLY if slot already exists in prewarm
       if (loopAnimation.slots[slotName] && prewarmAnimation.slots[slotName]) {
         const loopSlot = loopAnimation.slots[slotName];
         const prewarmSlot = prewarmAnimation.slots[slotName];
 
-        // Copy attachment keys
         if (loopSlot.attachment && loopSlot.attachment.length > 0) {
           if (!prewarmSlot.attachment) {
             prewarmSlot.attachment = [];
@@ -2845,7 +2871,6 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
           }
         }
 
-        // Copy rgba/color keys
         if (loopSlot.rgba && loopSlot.rgba.length > 0) {
           if (!prewarmSlot.rgba) {
             prewarmSlot.rgba = [];
@@ -2860,145 +2885,152 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
       }
     }
 
-    // If Loop+Prewarm mode, clean up prewarm animation
-    if (isLoopAndPrewarmMode) {
-      // Remove bones that don't have offset data from loop
-      const bonesToKeep: any = {};
-      for (const boneName of bonesWithOffsetData) {
-        if (prewarmAnimation.bones[boneName]) {
-          bonesToKeep[boneName] = prewarmAnimation.bones[boneName];
-        }
+    const bonesToKeep: any = {};
+    for (const boneName of bonesWithOffsetData) {
+      if (prewarmAnimation.bones[boneName]) {
+        bonesToKeep[boneName] = prewarmAnimation.bones[boneName];
       }
-      prewarmAnimation.bones = bonesToKeep;
-
-      // Remove corresponding slots
-      const slotsToKeep: any = {};
-      for (const boneName of bonesWithOffsetData) {
-        const slotName = boneName.replace('particle_', 'particle_slot_');
-        if (prewarmAnimation.slots[slotName]) {
-          slotsToKeep[slotName] = prewarmAnimation.slots[slotName];
-        }
-      }
-      prewarmAnimation.slots = slotsToKeep;
-
-      // Calculate new prewarm duration as max time across all keys
-      let maxTime = 0;
-      for (const boneName in prewarmAnimation.bones) {
-        const bone = prewarmAnimation.bones[boneName];
-        if (bone.translate) {
-          for (const key of bone.translate) {
-            maxTime = Math.max(maxTime, key.time);
-          }
-        }
-        if (bone.rotate) {
-          for (const key of bone.rotate) {
-            maxTime = Math.max(maxTime, key.time);
-          }
-        }
-        if (bone.scale) {
-          for (const key of bone.scale) {
-            maxTime = Math.max(maxTime, key.time);
-          }
-        }
-      }
-      for (const slotName in prewarmAnimation.slots) {
-        const slot = prewarmAnimation.slots[slotName];
-        if (slot.attachment) {
-          for (const key of slot.attachment) {
-            maxTime = Math.max(maxTime, key.time);
-          }
-        }
-        if (slot.rgba) {
-          for (const key of slot.rgba) {
-            maxTime = Math.max(maxTime, key.time);
-          }
-        }
-      }
-      // Store the adjusted duration (will be used for renaming)
-      (prewarmAnimation as any).__adjustedDuration = maxTime;
     }
-  }
+    prewarmAnimation.bones = bonesToKeep;
 
-  // Add animations with appropriate names
-  if (loopAnimation) {
-    if (isLoopAndPrewarmMode) {
-      // Add frame 0 copy to end of loop for seamless cycling
-      const loopDuration = frames[frames.length - 1].time;
-      const firstFrame = frames[0];
-
-      // For each bone in loop, add frame 0 keys at the end
-      for (const boneName in loopAnimation.bones) {
-        const bone = loopAnimation.bones[boneName];
-        const track = trackByBoneName.get(boneName);
-        const firstParticle = track ? firstFrame.particles.get(track.particleId) : undefined;
-
-        if (firstParticle && isParticleVisible(firstParticle)) {
-          // Add translate key from frame 0
-          if (bone.translate && bone.translate.length > 0) {
-            const firstKey = bone.translate[0];
-            bone.translate.push({
-              time: Math.round(loopDuration * 1000) / 1000,
-              x: firstKey.x,
-              y: firstKey.y
-            });
-          }
-
-          // Add rotate key from frame 0
-          if (bone.rotate && bone.rotate.length > 0) {
-            const firstKey = bone.rotate[0];
-            bone.rotate.push({
-              time: Math.round(loopDuration * 1000) / 1000,
-              angle: firstKey.angle
-            });
-          }
-
-          // Add scale key from frame 0
-          if (bone.scale && bone.scale.length > 0) {
-            const firstKey = bone.scale[0];
-            bone.scale.push({
-              time: Math.round(loopDuration * 1000) / 1000,
-              x: firstKey.x,
-              y: firstKey.y
-            });
-          }
-        }
+    const slotsToKeep: any = {};
+    for (const boneName of bonesWithOffsetData) {
+      const slotName = boneName.replace('particle_', 'particle_slot_');
+      if (prewarmAnimation.slots[slotName]) {
+        slotsToKeep[slotName] = prewarmAnimation.slots[slotName];
       }
-
-      // For each slot in loop, add frame 0 keys at the end
-      for (const slotName in loopAnimation.slots) {
-        const slot = loopAnimation.slots[slotName];
-        const track = trackBySlotName.get(slotName);
-        const firstParticle = track ? firstFrame.particles.get(track.particleId) : undefined;
-
-        if (firstParticle && isParticleVisible(firstParticle)) {
-          // Add attachment key from frame 0
-          if (slot.attachment && slot.attachment.length > 0) {
-            const firstKey = slot.attachment[0];
-            slot.attachment.push({
-              time: Math.round(loopDuration * 1000) / 1000,
-              name: firstKey.name
-            });
-          }
-
-          // Add rgba key from frame 0
-          if (slot.rgba && slot.rgba.length > 0) {
-            const firstKey = slot.rgba[0];
-            slot.rgba.push({
-              time: Math.round(loopDuration * 1000) / 1000,
-              color: firstKey.color
-            });
-          }
-        }
-      }
-
-      animations['loop'] = loopAnimation;
-    } else {
-      animations['particle_anim'] = loopAnimation;
     }
-  }
+    prewarmAnimation.slots = slotsToKeep;
 
-  if (prewarmAnimation) {
-    animations['prewarm'] = prewarmAnimation;
+    let maxTime = 0;
+    for (const boneName in prewarmAnimation.bones) {
+      const bone = prewarmAnimation.bones[boneName];
+      if (bone.translate) {
+        for (const key of bone.translate) {
+          maxTime = Math.max(maxTime, key.time);
+        }
+      }
+      if (bone.rotate) {
+        for (const key of bone.rotate) {
+          maxTime = Math.max(maxTime, key.time);
+        }
+      }
+      if (bone.scale) {
+        for (const key of bone.scale) {
+          maxTime = Math.max(maxTime, key.time);
+        }
+      }
+    }
+    for (const slotName in prewarmAnimation.slots) {
+      const slot = prewarmAnimation.slots[slotName];
+      if (slot.attachment) {
+        for (const key of slot.attachment) {
+          maxTime = Math.max(maxTime, key.time);
+        }
+      }
+      if (slot.rgba) {
+        for (const key of slot.rgba) {
+          maxTime = Math.max(maxTime, key.time);
+        }
+      }
+    }
+    (prewarmAnimation as any).__adjustedDuration = maxTime;
+  };
+
+  const addLoopSeamKeys = (
+    emitterId: string,
+    loopData: { animation: any; trackByBoneName: Map<string, any>; trackBySlotName: Map<string, any> },
+  ) => {
+    if (frames.length === 0) return;
+    const loopAnimation = loopData.animation;
+    const loopDuration = frames[frames.length - 1].time;
+    const firstFrame = frames[0];
+
+    for (const boneName in loopAnimation.bones) {
+      const bone = loopAnimation.bones[boneName];
+      const track = loopData.trackByBoneName.get(boneName);
+      const firstParticle = track ? getParticleFromFrame(firstFrame, emitterId, track.particleId) : undefined;
+
+      if (firstParticle && isParticleVisible(firstParticle)) {
+        if (bone.translate && bone.translate.length > 0) {
+          const firstKey = bone.translate[0];
+          bone.translate.push({
+            time: Math.round(loopDuration * 1000) / 1000,
+            x: firstKey.x,
+            y: firstKey.y
+          });
+        }
+
+        if (bone.rotate && bone.rotate.length > 0) {
+          const firstKey = bone.rotate[0];
+          bone.rotate.push({
+            time: Math.round(loopDuration * 1000) / 1000,
+            angle: firstKey.angle
+          });
+        }
+
+        if (bone.scale && bone.scale.length > 0) {
+          const firstKey = bone.scale[0];
+          bone.scale.push({
+            time: Math.round(loopDuration * 1000) / 1000,
+            x: firstKey.x,
+            y: firstKey.y
+          });
+        }
+      }
+    }
+
+    for (const slotName in loopAnimation.slots) {
+      const slot = loopAnimation.slots[slotName];
+      const track = loopData.trackBySlotName.get(slotName);
+      const firstParticle = track ? getParticleFromFrame(firstFrame, emitterId, track.particleId) : undefined;
+
+      if (firstParticle && isParticleVisible(firstParticle)) {
+        if (slot.attachment && slot.attachment.length > 0) {
+          const firstKey = slot.attachment[0];
+          slot.attachment.push({
+            time: Math.round(loopDuration * 1000) / 1000,
+            name: firstKey.name
+          });
+        }
+
+        if (slot.rgba && slot.rgba.length > 0) {
+          const firstKey = slot.rgba[0];
+          slot.rgba.push({
+            time: Math.round(loopDuration * 1000) / 1000,
+            color: firstKey.color
+          });
+        }
+      }
+    }
+  };
+
+  for (const emitter of settings.emitters) {
+    if (!emitter.enabled) continue;
+    const emitterTracks = tracksByEmitter.get(emitter.id) || [];
+    if (emitterTracks.length === 0) continue;
+
+    const emitterIndex = emitterIndexMap.get(emitter.id);
+    const emitterNumber = emitterIndex !== undefined ? emitterIndex + 1 : emitter.id;
+
+    const loopData = emitter.settings.looping ? addAnimation(frames, emitterTracks) : null;
+    const prewarmData = emitter.settings.prewarm && emitter.settings.looping ? addAnimation(prewarmFrames, emitterTracks) : null;
+
+    if (loopData && prewarmData) {
+      copyLoopIntoPrewarm(emitter.id, loopData, prewarmData);
+    }
+
+    if (loopData && prewarmData) {
+      addLoopSeamKeys(emitter.id, loopData);
+    }
+
+    if (loopData) {
+      animations[`loop_${emitterNumber}`] = loopData.animation;
+    }
+
+    if (prewarmData) {
+      animations[`prewarm_${emitterNumber}`] = prewarmData.animation;
+    }
   }
 
   return JSON.stringify({ skeleton, bones, slots, skins, animations });
@@ -3577,8 +3609,8 @@ const ParticleSpineExporter: React.FC = () => {
   const em = currentEmitter?.settings || settings.emitters[0]?.settings;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-4">
-      <div className="max-w-6xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-6">
+      <div className="max-w-[1700px] mx-auto">
         <header className="mb-4">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
             Particle → Spine Exporter v98
@@ -3586,7 +3618,7 @@ const ParticleSpineExporter: React.FC = () => {
           <p className="text-xs text-slate-400">Multi-emitter support • Up to 5 independent emitters • Separate bone hierarchy per emitter</p>
         </header>
 
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-4 xl:[grid-template-columns:repeat(4,minmax(320px,1fr))] gap-6 items-start">
           <div className="space-y-3">
             {/* Emitter Management Panel */}
             <div className="bg-slate-800/50 backdrop-blur rounded-lg p-3 border border-slate-700">

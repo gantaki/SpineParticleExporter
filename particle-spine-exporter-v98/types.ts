@@ -182,10 +182,13 @@ interface Particle {
   alpha: number;
 }
 
+type BakedParticleKey = string | number;
+
 interface BakedFrame {
   time: number;
-  particles: Map<number, {
-    emitterId: string; // NEW: track emitter for export bone hierarchy
+  particles: Map<BakedParticleKey, {
+    emitterId: string; // Track emitter for export bone hierarchy
+    localId?: number;  // Preserve per-emitter particle index
     x: number;
     y: number;
     rotation: number;
@@ -368,6 +371,7 @@ export {
   type ParticleSettings,
   type Particle,
   type BakedFrame,
+  type BakedParticleKey,
   type AtlasRegion,
   DEFAULT_CURVE_PRESETS,
   DEFAULT_SETTINGS,
