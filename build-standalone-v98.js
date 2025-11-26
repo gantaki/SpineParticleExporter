@@ -133,6 +133,15 @@ mainCode = mainCode.replace(/^import[\s\S]*?;?\n/gm, '');
 mainCode = mainCode.replace(/^\/\/\s*Type imports[\s\S]*?\/\/\s*Export imports[\s\S]*?from\s+'\.\/export';\s*\n\n?/m, '');
 standalone += mainCode.trim();
 
+// Replace export default with global window assignment for browser compatibility
+standalone = standalone.replace(
+  /export default ParticleSpineExporter;?$/m,
+  `// Make component globally available for standalone.html
+if (typeof window !== 'undefined') {
+  window.ParticleSpineExporter = ParticleSpineExporter;
+}`
+);
+
 // Write output file
 console.log(`💾 Writing ${outputFile}...\n`);
 fs.writeFileSync(outputFile, standalone);
