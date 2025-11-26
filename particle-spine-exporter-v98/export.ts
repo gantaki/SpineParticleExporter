@@ -353,6 +353,22 @@ function isParticleVisible(particle: any): boolean {
 }
 
 function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], settings: ParticleSettings): string {
+  const emitterIndexMap = new Map<string, number>();
+  settings.emitters.forEach((emitter, index) => emitterIndexMap.set(emitter.id, index));
+
+  const getEmitterPrefix = (emitterId: string) => {
+    const index = emitterIndexMap.get(emitterId);
+    if (index !== undefined) {
+      return `e${index + 1}`;
+    }
+
+    const match = emitterId.match(/emitter_(\d+)/);
+    return match ? `e${match[1]}` : emitterId;
+  };
+
+  const getParticleBoneName = (emitterId: string, particleId: number) => `${getEmitterPrefix(emitterId)}_particle_${particleId}`;
+  const getParticleSlotName = (emitterId: string, particleId: number) => `${getEmitterPrefix(emitterId)}_particle_slot_${particleId}`;
+
   // Group particle IDs by emitter
   const particlesByEmitter = new Map<string, Set<number>>();
 
@@ -406,14 +422,18 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
   const slots: any[] = [];
   const skins: any = { default: {} };
 
+  const particleTracks: Array<{ emitterId: string; particleId: number; boneName: string; slotName: string }> = [];
+
   for (const emitter of settings.emitters) {
     if (!emitter.enabled || !particlesByEmitter.has(emitter.id)) continue;
 
     const particleIds = Array.from(particlesByEmitter.get(emitter.id)!).sort((a, b) => a - b);
 
     for (const id of particleIds) {
-      const boneName = `particle_${id}`;
-      const slotName = `particle_slot_${id}`;
+      const boneName = getParticleBoneName(emitter.id, id);
+      const slotName = getParticleSlotName(emitter.id, id);
+
+      particleTracks.push({ emitterId: emitter.id, particleId: id, boneName, slotName });
 
       bones.push({ name: boneName, parent: emitter.id });
       slots.push({ name: slotName, bone: boneName, attachment: null });
@@ -424,12 +444,13 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
     }
   }
 
-  // Collect all particle IDs for animation generation
-  const allParticleIds: number[] = [];
-  for (const ids of particlesByEmitter.values()) {
-    allParticleIds.push(...Array.from(ids));
+  const trackByBoneName = new Map<string, { emitterId: string; particleId: number; boneName: string; slotName: string }>();
+  const trackBySlotName = new Map<string, { emitterId: string; particleId: number; boneName: string; slotName: string }>();
+
+  for (const track of particleTracks) {
+    trackByBoneName.set(track.boneName, track);
+    trackBySlotName.set(track.slotName, track);
   }
-  const particleIds = allParticleIds.sort((a, b) => a - b);
 
   const animations: any = {};
 
@@ -443,9 +464,8 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
 
     const animationData: any = { bones: {}, slots: {} };
 
-    for (const particleId of particleIds) {
-      const boneName = `particle_${particleId}`;
-      const slotName = `particle_slot_${particleId}`;
+    for (const track of particleTracks) {
+      const { particleId, boneName, slotName } = track;
 
       const translateKeys: any[] = [];
       const rotateKeys: any[] = [];
@@ -622,7 +642,7 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
   // Generate prewarm animation
   const prewarmAnimation = addAnimation('prewarm', prewarmFrames);
 
-  const isLoopAndPrewarmMode = settings.emitter.looping && settings.emitter.prewarm;
+  const isLoopAndPrewarmMode = settings.emitters.some(e => e.settings.looping && e.settings.prewarm);
 
   // If both animations exist and we have frames, copy loop data to prewarm
   if (prewarmAnimation && loopAnimation && frames.length > 0 && prewarmFrames.length > 0) {
@@ -644,8 +664,11 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
     // For each visible particle, copy its animation keys from loop to end of prewarm
     // ONLY if the bone/slot already exists in prewarm (don't create new ones)
     for (const particleId of visibleParticleIds) {
-      const boneName = `particle_${particleId}`;
-      const slotName = `particle_slot_${particleId}`;
+      const emitterId = lastLoopFrame.particles.get(particleId)?.emitterId;
+      if (!emitterId) continue;
+
+      const boneName = getParticleBoneName(emitterId, particleId);
+      const slotName = getParticleSlotName(emitterId, particleId);
 
       let boneHasData = false;
 
@@ -806,8 +829,8 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
       // For each bone in loop, add frame 0 keys at the end
       for (const boneName in loopAnimation.bones) {
         const bone = loopAnimation.bones[boneName];
-        const particleId = parseInt(boneName.replace('particle_', ''));
-        const firstParticle = firstFrame.particles.get(particleId);
+        const track = trackByBoneName.get(boneName);
+        const firstParticle = track ? firstFrame.particles.get(track.particleId) : undefined;
 
         if (firstParticle && isParticleVisible(firstParticle)) {
           // Add translate key from frame 0
@@ -844,8 +867,8 @@ function generateSpineJSON(frames: BakedFrame[], prewarmFrames: BakedFrame[], se
       // For each slot in loop, add frame 0 keys at the end
       for (const slotName in loopAnimation.slots) {
         const slot = loopAnimation.slots[slotName];
-        const particleId = parseInt(slotName.replace('particle_slot_', ''));
-        const firstParticle = firstFrame.particles.get(particleId);
+        const track = trackBySlotName.get(slotName);
+        const firstParticle = track ? firstFrame.particles.get(track.particleId) : undefined;
 
         if (firstParticle && isParticleVisible(firstParticle)) {
           // Add attachment key from frame 0
