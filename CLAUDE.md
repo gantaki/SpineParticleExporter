@@ -1,7 +1,7 @@
 # CLAUDE.md - SpineParticleExporter
 
-**Last Updated:** 2025-11-26
-**Current Version:** v98 (Multi-Emitter)
+**Last Updated:** 2025-11-27
+**Current Version:** v99 (Per-Emitter Sprites)
 
 ## Project Overview
 
@@ -9,7 +9,10 @@ SpineParticleExporter is a React/TypeScript web application that converts partic
 
 ### Core Capabilities
 
-- **Multi-Emitter System (NEW in v98)**: Up to 5 independent particle emitters
+- **Multi-Emitter System (v98+)**: Up to 5 independent particle emitters
+- **Per-Emitter Sprites (NEW in v99)**: Unique sprite selection and atlas names per emitter (sprite_1, sprite_2, ...)
+- **Viewport Visibility Control (v99)**: Hiding an emitter now hides its particles without deleting the emitter
+- **Prewarm Timing (v99)**: Corrected warmup capture with clean starting keys
 - **Visual Particle Design**: Interactive editors for creating complex particle systems
 - **Real-Time Preview**: HTML5 Canvas-based simulation with live feedback
 - **Physics Simulation**: Gravity, drag, noise, attraction, vortex forces
@@ -36,11 +39,31 @@ SpineParticleExporter is a React/TypeScript web application that converts partic
 - **Multi-Emitter Support** (v98+): Up to 5 independent emitters with separate settings
 - **Dual Distribution**: Modular for development, standalone for production
 - **Build System**: Automated scripts to generate standalone versions
-- **Versioned Iterations**: Keeps latest versions (v96 monolithic, v97 modular, v98 multi-emitter currently)
+- **Versioned Iterations**: Keeps latest versions (v96 monolithic, v97 modular, v98 multi-emitter, v99 per-emitter sprites)
 
 ---
 
-## Codebase Structure (v98)
+### Versioning Guidelines
+
+- Each commit that changes the standalone TSX must create the next sequential version file (v99 → v100 → v101, etc.).
+- Update `CLAUDE.md` to reflect the new current version and highlight key features/fixes for that release.
+- Keep `standalone.html`/server defaults pointing at the newest version.
+- Refresh the page header (title + subline) to show the current version and a short list of the latest features for each update.
+
+---
+
+### v99 Highlights
+
+- Emitter visibility toggles now hide emitted particles in the viewport without disabling the emitter.
+- Prewarm capture records a single warmup cycle with keys starting at time 0 (no leading timeline gaps).
+- Default drag is now 1.0–1.0 for consistent damping.
+- Particle sprites are scoped per emitter with new presets (needle, raindrop, snowflake, smoke) plus isolated custom uploads saved as sprite_1, sprite_2, etc.
+- Exports are atlas-free; sprite PNGs embed the selected emitter sprites while attachments still reference sprite_# names.
+- UI columns scaled up (~110%) for more comfortable controls.
+
+---
+
+## Codebase Structure (v99)
 
 ### 🎯 Two Distribution Methods
 
@@ -58,10 +81,10 @@ particle-spine-exporter-v98/
 
 #### 2. **Standalone Version** (for distribution)
 ```
-particle-spine-exporter_alpha_v98.tsx  (~4463 lines)
+particle-spine-exporter_alpha_v99.tsx  (~4500 lines)
 ```
 
-Generated via: `node build-standalone-v98.js`
+Generated via: `node serve-standalone.js v99` or direct editing (v99 is currently monolithic)
 
 ### 🔧 Build Tools & Runtime
 
