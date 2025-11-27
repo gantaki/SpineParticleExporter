@@ -230,6 +230,7 @@ interface AtlasRegion {
 
 // ========== Default Presets ==========
 
+
 const DEFAULT_CURVE_PRESETS: { [key: string]: Curve } = {
   sizeX: { points: [{ time: 0, value: 1.0 }, { time: 1, value: 0.2 }], interpolation: 'linear' },
   sizeY: { points: [{ time: 0, value: 1.0 }, { time: 1, value: 0.2 }], interpolation: 'linear' },
@@ -352,6 +353,7 @@ function createEmitterInstance(id: string, name: string): EmitterInstance {
 }
 
 // Default particle system settings with one emitter
+
 const DEFAULT_SETTINGS: ParticleSettings = {
   emitters: [createEmitterInstance('emitter_1', 'Emitter 1')],
   currentEmitterIndex: 0,
@@ -3174,6 +3176,14 @@ function downloadBlob(blob: Blob, filename: string) {
 
 // Export imports
 
+// Type imports
+
+// Component imports
+
+// Core imports
+
+// Export imports
+
 const ParticleSpineExporter: React.FC = () => {
   const [settings, setSettings] = useState<ParticleSettings>(DEFAULT_SETTINGS);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -4584,6 +4594,8 @@ const ParticleSpineExporter: React.FC = () => {
     </div>
   );
 };
+
+
 
 // Make component globally available for standalone.html
 if (typeof window !== 'undefined') {
