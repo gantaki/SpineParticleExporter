@@ -5,7 +5,7 @@
  *
  * Examples:
  *   node serve-standalone.js           # serve default version on port 3000
- *   node serve-standalone.js v99       # serve v99 on port 3000
+ *   node serve-standalone.js v100      # serve v100 on port 3000
  *   node serve-standalone.js v97 4000  # serve v97 on port 4000
  */
 
@@ -15,7 +15,7 @@ const path = require('path');
 
 // Parse CLI arguments: version (non-numeric) and optional port (numeric)
 const args = process.argv.slice(2);
-const defaultVersion = normalizeVersion(args.find(arg => !/^\d+$/.test(arg)) || 'v99');
+const defaultVersion = normalizeVersion(args.find(arg => !/^\d+$/.test(arg)) || 'v100');
 const PORT = parseInt(args.find(arg => /^\d+$/.test(arg)), 10) || 3000;
 
 // Preload HTML templates for runtime substitution
@@ -88,13 +88,13 @@ server.listen(PORT, () => {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log(`📡 Server running at http://localhost:${PORT}/`);
   console.log(`📄 Opening: http://localhost:${PORT}/standalone.html?v=${defaultVersion}`);
-  console.log('   Use ?version=v96|v97|v98|v99 to swap builds per request.');
+  console.log('   Use ?version=v96|v97|v98|v99|v100 to swap builds per request.');
   console.log(`   CLI: node serve-standalone.js ${defaultVersion} ${PORT} # serves particle-spine-exporter_alpha_${defaultVersion}.tsx`);
   console.log('\n💡 Press Ctrl+C to stop the server\n');
 });
 
 function normalizeVersion(input) {
-  if (!input) return 'v99';
+  if (!input) return 'v100';
   const trimmed = String(input).trim();
   const cleaned = trimmed.startsWith('v') ? trimmed.slice(1) : trimmed;
   return `v${cleaned}`;
