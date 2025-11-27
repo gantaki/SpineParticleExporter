@@ -48,16 +48,18 @@ SpineParticleExporter is a React/TypeScript web application that converts partic
 - Each commit that changes the standalone TSX must create the next sequential version file (v99 → v100 → v101, etc.).
 - Update `CLAUDE.md` to reflect the new current version and highlight key features/fixes for that release.
 - Keep `standalone.html`/server defaults pointing at the newest version.
+- Refresh the page header (title + subline) to show the current version and a short list of the latest features for each update.
 
 ---
 
 ### v99 Highlights
 
 - Emitter visibility toggles now hide emitted particles in the viewport without disabling the emitter.
-- Prewarm capture starts at time 0 and trims excess warmup frames for accurate keys.
+- Prewarm capture records a single warmup cycle with keys starting at time 0 (no leading timeline gaps).
 - Default drag is now 1.0–1.0 for consistent damping.
-- Particle sprites are scoped per emitter with new presets (needle, raindrop, snowflake, smoke) plus isolated custom uploads.
-- Exports reference emitter-specific sprite names (sprite_1, sprite_2, etc.) in the atlas and attachments.
+- Particle sprites are scoped per emitter with new presets (needle, raindrop, snowflake, smoke) plus isolated custom uploads saved as sprite_1, sprite_2, etc.
+- Exports are atlas-free; sprite PNGs embed the selected emitter sprites while attachments still reference sprite_# names.
+- UI columns scaled up (~110%) for more comfortable controls.
 
 ---
 

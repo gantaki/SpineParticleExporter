@@ -2666,7 +2666,11 @@ function generateSpineJSON(
   const getParticleFromFrame = (frame: BakedFrame, emitterId: string, particleId: number) =>
     frame.particles.get(makeParticleKey(emitterId, particleId));
 
-  const addAnimation = (sourceFrames: BakedFrame[], tracks: Array<{ emitterId: string; particleId: number; boneName: string; slotName: string }>) => {
+    const addAnimation = (
+      sourceFrames: BakedFrame[],
+      tracks: Array<{ emitterId: string; particleId: number; boneName: string; slotName: string }>,
+      normalizeStart = false
+    ) => {
     if (sourceFrames.length === 0 || tracks.length === 0) return null;
 
     const animationData: any = { bones: {}, slots: {} };
@@ -2707,6 +2711,15 @@ function generateSpineJSON(
       let wasVisible = false;
       let hasAppeared = false;
       let normalizedAngle = 0;
+      let forceSteppedInterpolation = false;
+
+      const pushKeyWithCurve = <T extends { time: number }>(list: T[], key: T) => {
+        if (forceSteppedInterpolation) {
+          list.push({ ...key, curve: 'stepped' } as T);
+        } else {
+          list.push(key);
+        }
+      };
 
       for (let frameIdx = 0; frameIdx < sourceFrames.length; frameIdx++) {
         const frame = sourceFrames[frameIdx];
@@ -2723,6 +2736,7 @@ function generateSpineJSON(
             hasAppeared = true;
             const time = Math.round(frame.time * 1000) / 1000;
             attachmentKeys.push({ time, name: spriteName });
+            forceSteppedInterpolation = false;
           }
 
           const currentPos = { x: particle.x, y: particle.y };
@@ -2746,7 +2760,7 @@ function generateSpineJSON(
             movementDistance > POSITION_THRESHOLD);
 
           if (shouldWriteTranslate) {
-            translateKeys.push({ time: Math.round(frame.time * 1000) / 1000, x: Math.round(currentPos.x * 100) / 100, y: Math.round(-currentPos.y * 100) / 100 });
+            pushKeyWithCurve(translateKeys, { time: Math.round(frame.time * 1000) / 1000, x: Math.round(currentPos.x * 100) / 100, y: Math.round(-currentPos.y * 100) / 100 });
             prevPos = currentPos;
           }
 
@@ -2757,13 +2771,13 @@ function generateSpineJSON(
           );
 
           if (shouldWriteRotate) {
-            rotateKeys.push({ time: Math.round(frame.time * 1000) / 1000, angle: Math.round(normalizedAngle * 100) / 100 });
+            pushKeyWithCurve(rotateKeys, { time: Math.round(frame.time * 1000) / 1000, angle: Math.round(normalizedAngle * 100) / 100 });
             prevRotation = normalizedAngle;
           }
 
           if (settings.exportSettings.exportScale && (isFirstFrame || isLastFrame || visibilityChanged || prevScale === null ||
               Math.abs(currentScale.x - prevScale.x) > SCALE_THRESHOLD || Math.abs(currentScale.y - prevScale.y) > SCALE_THRESHOLD)) {
-            scaleKeys.push({
+            pushKeyWithCurve(scaleKeys, {
               time: Math.round(frame.time * 1000) / 1000,
               x: Math.round(currentScale.x * 1000) / 1000,
               y: Math.round(currentScale.y * 1000) / 1000
@@ -2789,7 +2803,7 @@ function generateSpineJSON(
               const aHex = Math.round(currentColor.a * 255).toString(16).padStart(2, '0');
               const colorHex = `${rHex}${gHex}${bHex}${aHex}`;
 
-              colorKeys.push({
+              pushKeyWithCurve(colorKeys, {
                 time: Math.round(frame.time * 1000) / 1000,
                 color: colorHex
               });
@@ -2802,13 +2816,14 @@ function generateSpineJSON(
           if (wasVisible && visibilityChanged) {
             const time = Math.round(frame.time * 1000) / 1000;
             attachmentKeys.push({ time, name: null });
+            forceSteppedInterpolation = true;
           }
 
           if (visibilityChanged && wasVisible) {
             const time = Math.round(frame.time * 1000) / 1000;
-            if (settings.exportSettings.exportTranslate && prevPos) translateKeys.push({ time, x: Math.round(prevPos.x * 100) / 100, y: Math.round(-prevPos.y * 100) / 100 });
-            if (settings.exportSettings.exportRotate && prevRotation !== null) rotateKeys.push({ time, angle: Math.round(prevRotation * 100) / 100 });
-            if (settings.exportSettings.exportScale && prevScale !== null) scaleKeys.push({ time, x: 0, y: 0 });
+            if (settings.exportSettings.exportTranslate && prevPos) pushKeyWithCurve(translateKeys, { time, x: Math.round(prevPos.x * 100) / 100, y: Math.round(-prevPos.y * 100) / 100 });
+            if (settings.exportSettings.exportRotate && prevRotation !== null) pushKeyWithCurve(rotateKeys, { time, angle: Math.round(prevRotation * 100) / 100 });
+            if (settings.exportSettings.exportScale && prevScale !== null) pushKeyWithCurve(scaleKeys, { time, x: 0, y: 0 });
           }
 
           wasVisible = false;
@@ -2845,254 +2860,140 @@ function generateSpineJSON(
       }
     }
 
-    if (Object.keys(animationData.bones).length > 0 || Object.keys(animationData.slots).length > 0) {
-      return { animation: animationData, trackByBoneName, trackBySlotName };
-    }
-    return null;
-  };
+      if (Object.keys(animationData.bones).length === 0 && Object.keys(animationData.slots).length === 0) {
+        return null;
+      }
 
-  const getLocalParticleId = (key: any, particleData: any) => {
-    if (typeof particleData?.localId === 'number') return particleData.localId;
-    if (typeof key === 'string') {
-      const parts = key.split('__');
+      if (normalizeStart) {
+        let minTime = Infinity;
+
+        const consider = (keys?: Array<{ time: number }>) => {
+          if (!keys) return;
+          for (const key of keys) {
+            if (typeof key.time === 'number') {
+              minTime = Math.min(minTime, key.time);
+            }
+          }
+        };
+
+        for (const boneName in animationData.bones) {
+          const bone = animationData.bones[boneName];
+          consider(bone.translate);
+          consider(bone.rotate);
+          consider(bone.scale);
+        }
+
+        for (const slotName in animationData.slots) {
+          const slot = animationData.slots[slotName];
+          consider(slot.attachment);
+          consider(slot.rgba);
+        }
+
+        if (isFinite(minTime) && minTime > 0) {
+          const shiftKeys = (keys?: Array<{ time: number }>) => {
+            if (!keys) return;
+            for (const key of keys) {
+              key.time = Math.round((key.time - minTime) * 1000) / 1000;
+            }
+          };
+
+          for (const boneName in animationData.bones) {
+            const bone = animationData.bones[boneName];
+            shiftKeys(bone.translate);
+            shiftKeys(bone.rotate);
+            shiftKeys(bone.scale);
+          }
+
+          for (const slotName in animationData.slots) {
+            const slot = animationData.slots[slotName];
+            shiftKeys(slot.attachment);
+            shiftKeys(slot.rgba);
+          }
+        }
+      }
+
+      return { animation: animationData, trackByBoneName, trackBySlotName };
+    };
+
+    const getLocalParticleId = (key: any, particleData: any) => {
+      if (typeof particleData?.localId === 'number') return particleData.localId;
+      if (typeof key === 'string') {
+        const parts = key.split('__');
       const lastPart = parts[parts.length - 1];
       const parsed = Number(lastPart);
       if (!Number.isNaN(parsed)) return parsed;
-    }
-    if (typeof key === 'number') return key;
-    return null;
-  };
-
-  const copyLoopIntoPrewarm = (
-    emitterId: string,
-    loopData: { animation: any; trackByBoneName: Map<string, any>; trackBySlotName: Map<string, any> },
-    prewarmData: { animation: any },
-  ) => {
-    if (frames.length === 0 || prewarmFrames.length === 0) return;
-
-    const loopAnimation = loopData.animation;
-    const prewarmAnimation = prewarmData.animation;
-    const bonesWithOffsetData = new Set<string>();
-
-    const lastLoopFrame = frames[frames.length - 1];
-    const prewarmDuration = prewarmFrames[prewarmFrames.length - 1].time;
-
-    const visibleParticleIds: number[] = [];
-    for (const [key, particleData] of lastLoopFrame.particles) {
-      if (particleData.emitterId !== emitterId) continue;
-      if (isParticleVisible(particleData)) {
-        const localId = getLocalParticleId(key, particleData);
-        if (localId !== null) {
-          visibleParticleIds.push(localId);
-        }
       }
-    }
+      if (typeof key === 'number') return key;
+      return null;
+    };
 
-    for (const particleId of visibleParticleIds) {
-      const boneName = getParticleBoneName(emitterId, particleId);
-      const slotName = getParticleSlotName(emitterId, particleId);
+    const addLoopSeamKeys = (
+      emitterId: string,
+      loopData: { animation: any; trackByBoneName: Map<string, any>; trackBySlotName: Map<string, any> },
+    ) => {
+      if (frames.length === 0) return;
+      const loopAnimation = loopData.animation;
+      const loopDuration = frames[frames.length - 1].time;
+      const firstFrame = frames[0];
 
-      let boneHasData = false;
+      for (const boneName in loopAnimation.bones) {
+        const bone = loopAnimation.bones[boneName];
+        const track = loopData.trackByBoneName.get(boneName);
+        const firstParticle = track ? getParticleFromFrame(firstFrame, emitterId, track.particleId) : undefined;
 
-      if (loopAnimation.bones[boneName] && prewarmAnimation.bones[boneName]) {
-        const loopBone = loopAnimation.bones[boneName];
-        const prewarmBone = prewarmAnimation.bones[boneName];
-
-        if (loopBone.translate && loopBone.translate.length > 0) {
-          if (!prewarmBone.translate) {
-            prewarmBone.translate = [];
-          }
-          for (const key of loopBone.translate) {
-            prewarmBone.translate.push({
-              time: Math.round((prewarmDuration + key.time) * 1000) / 1000,
-              x: key.x,
-              y: key.y
+        if (firstParticle && isParticleVisible(firstParticle)) {
+          if (bone.translate && bone.translate.length > 0) {
+            const firstKey = bone.translate[0];
+            bone.translate.push({
+              time: Math.round(loopDuration * 1000) / 1000,
+              x: firstKey.x,
+              y: firstKey.y
             });
           }
-          boneHasData = true;
-        }
 
-        if (loopBone.rotate && loopBone.rotate.length > 0) {
-          if (!prewarmBone.rotate) {
-            prewarmBone.rotate = [];
-          }
-          for (const key of loopBone.rotate) {
-            prewarmBone.rotate.push({
-              time: Math.round((prewarmDuration + key.time) * 1000) / 1000,
-              angle: key.angle
+          if (bone.rotate && bone.rotate.length > 0) {
+            const firstKey = bone.rotate[0];
+            bone.rotate.push({
+              time: Math.round(loopDuration * 1000) / 1000,
+              angle: firstKey.angle
             });
           }
-          boneHasData = true;
-        }
 
-        if (loopBone.scale && loopBone.scale.length > 0) {
-          if (!prewarmBone.scale) {
-            prewarmBone.scale = [];
-          }
-          for (const key of loopBone.scale) {
-            prewarmBone.scale.push({
-              time: Math.round((prewarmDuration + key.time) * 1000) / 1000,
-              x: key.x,
-              y: key.y
-            });
-          }
-          boneHasData = true;
-        }
-
-        if (boneHasData) {
-          bonesWithOffsetData.add(boneName);
-        }
-      }
-
-      if (loopAnimation.slots[slotName] && prewarmAnimation.slots[slotName]) {
-        const loopSlot = loopAnimation.slots[slotName];
-        const prewarmSlot = prewarmAnimation.slots[slotName];
-
-        if (loopSlot.attachment && loopSlot.attachment.length > 0) {
-          if (!prewarmSlot.attachment) {
-            prewarmSlot.attachment = [];
-          }
-          for (const key of loopSlot.attachment) {
-            prewarmSlot.attachment.push({
-              time: Math.round((prewarmDuration + key.time) * 1000) / 1000,
-              name: key.name
-            });
-          }
-        }
-
-        if (loopSlot.rgba && loopSlot.rgba.length > 0) {
-          if (!prewarmSlot.rgba) {
-            prewarmSlot.rgba = [];
-          }
-          for (const key of loopSlot.rgba) {
-            prewarmSlot.rgba.push({
-              time: Math.round((prewarmDuration + key.time) * 1000) / 1000,
-              color: key.color
+          if (bone.scale && bone.scale.length > 0) {
+            const firstKey = bone.scale[0];
+            bone.scale.push({
+              time: Math.round(loopDuration * 1000) / 1000,
+              x: firstKey.x,
+              y: firstKey.y
             });
           }
         }
       }
-    }
 
-    const bonesToKeep: any = {};
-    for (const boneName of bonesWithOffsetData) {
-      if (prewarmAnimation.bones[boneName]) {
-        bonesToKeep[boneName] = prewarmAnimation.bones[boneName];
-      }
-    }
-    prewarmAnimation.bones = bonesToKeep;
+      for (const slotName in loopAnimation.slots) {
+        const slot = loopAnimation.slots[slotName];
+        const track = loopData.trackBySlotName.get(slotName);
+        const firstParticle = track ? getParticleFromFrame(firstFrame, emitterId, track.particleId) : undefined;
 
-    const slotsToKeep: any = {};
-    for (const boneName of bonesWithOffsetData) {
-      const slotName = boneName.replace('particle_', 'particle_slot_');
-      if (prewarmAnimation.slots[slotName]) {
-        slotsToKeep[slotName] = prewarmAnimation.slots[slotName];
-      }
-    }
-    prewarmAnimation.slots = slotsToKeep;
+        if (firstParticle && isParticleVisible(firstParticle)) {
+          if (slot.attachment && slot.attachment.length > 0) {
+            const firstKey = slot.attachment[0];
+            slot.attachment.push({
+              time: Math.round(loopDuration * 1000) / 1000,
+              name: firstKey.name
+            });
+          }
 
-    let maxTime = 0;
-    for (const boneName in prewarmAnimation.bones) {
-      const bone = prewarmAnimation.bones[boneName];
-      if (bone.translate) {
-        for (const key of bone.translate) {
-          maxTime = Math.max(maxTime, key.time);
+          if (slot.rgba && slot.rgba.length > 0) {
+            const firstKey = slot.rgba[0];
+            slot.rgba.push({
+              time: Math.round(loopDuration * 1000) / 1000,
+              color: firstKey.color
+            });
+          }
         }
       }
-      if (bone.rotate) {
-        for (const key of bone.rotate) {
-          maxTime = Math.max(maxTime, key.time);
-        }
-      }
-      if (bone.scale) {
-        for (const key of bone.scale) {
-          maxTime = Math.max(maxTime, key.time);
-        }
-      }
-    }
-    for (const slotName in prewarmAnimation.slots) {
-      const slot = prewarmAnimation.slots[slotName];
-      if (slot.attachment) {
-        for (const key of slot.attachment) {
-          maxTime = Math.max(maxTime, key.time);
-        }
-      }
-      if (slot.rgba) {
-        for (const key of slot.rgba) {
-          maxTime = Math.max(maxTime, key.time);
-        }
-      }
-    }
-    (prewarmAnimation as any).__adjustedDuration = maxTime;
-  };
-
-  const addLoopSeamKeys = (
-    emitterId: string,
-    loopData: { animation: any; trackByBoneName: Map<string, any>; trackBySlotName: Map<string, any> },
-  ) => {
-    if (frames.length === 0) return;
-    const loopAnimation = loopData.animation;
-    const loopDuration = frames[frames.length - 1].time;
-    const firstFrame = frames[0];
-
-    for (const boneName in loopAnimation.bones) {
-      const bone = loopAnimation.bones[boneName];
-      const track = loopData.trackByBoneName.get(boneName);
-      const firstParticle = track ? getParticleFromFrame(firstFrame, emitterId, track.particleId) : undefined;
-
-      if (firstParticle && isParticleVisible(firstParticle)) {
-        if (bone.translate && bone.translate.length > 0) {
-          const firstKey = bone.translate[0];
-          bone.translate.push({
-            time: Math.round(loopDuration * 1000) / 1000,
-            x: firstKey.x,
-            y: firstKey.y
-          });
-        }
-
-        if (bone.rotate && bone.rotate.length > 0) {
-          const firstKey = bone.rotate[0];
-          bone.rotate.push({
-            time: Math.round(loopDuration * 1000) / 1000,
-            angle: firstKey.angle
-          });
-        }
-
-        if (bone.scale && bone.scale.length > 0) {
-          const firstKey = bone.scale[0];
-          bone.scale.push({
-            time: Math.round(loopDuration * 1000) / 1000,
-            x: firstKey.x,
-            y: firstKey.y
-          });
-        }
-      }
-    }
-
-    for (const slotName in loopAnimation.slots) {
-      const slot = loopAnimation.slots[slotName];
-      const track = loopData.trackBySlotName.get(slotName);
-      const firstParticle = track ? getParticleFromFrame(firstFrame, emitterId, track.particleId) : undefined;
-
-      if (firstParticle && isParticleVisible(firstParticle)) {
-        if (slot.attachment && slot.attachment.length > 0) {
-          const firstKey = slot.attachment[0];
-          slot.attachment.push({
-            time: Math.round(loopDuration * 1000) / 1000,
-            name: firstKey.name
-          });
-        }
-
-        if (slot.rgba && slot.rgba.length > 0) {
-          const firstKey = slot.rgba[0];
-          slot.rgba.push({
-            time: Math.round(loopDuration * 1000) / 1000,
-            color: firstKey.color
-          });
-        }
-      }
-    }
-  };
+    };
 
   for (const emitter of settings.emitters) {
     if (!emitter.enabled) continue;
@@ -3102,16 +3003,12 @@ function generateSpineJSON(
     const emitterIndex = emitterIndexMap.get(emitter.id);
     const emitterNumber = emitterIndex !== undefined ? emitterIndex + 1 : emitter.id;
 
-    const loopData = emitter.settings.looping ? addAnimation(frames, emitterTracks) : null;
-    const prewarmData = emitter.settings.prewarm && emitter.settings.looping ? addAnimation(prewarmFrames, emitterTracks) : null;
+      const loopData = emitter.settings.looping ? addAnimation(frames, emitterTracks) : null;
+      const prewarmData = emitter.settings.prewarm && emitter.settings.looping ? addAnimation(prewarmFrames, emitterTracks, true) : null;
 
-    if (loopData && prewarmData) {
-      copyLoopIntoPrewarm(emitter.id, loopData, prewarmData);
-    }
-
-    if (loopData && prewarmData) {
-      addLoopSeamKeys(emitter.id, loopData);
-    }
+      if (loopData && prewarmData) {
+        addLoopSeamKeys(emitter.id, loopData);
+      }
 
     if (loopData) {
       animations[`loop_${emitterNumber}`] = loopData.animation;
@@ -3744,17 +3641,14 @@ const ParticleSpineExporter: React.FC = () => {
         emitterSprites.push({ emitterId: emitter.id, name: spriteName, canvas: spriteCanvas });
       }
 
-      const { canvas: atlasCanvas, regions } = createParticleAtlas(
-        emitterSprites.map(entry => ({ name: entry.name, canvas: entry.canvas }))
-      );
-      const atlasText = generateAtlasFile(atlasCanvas, regions);
       const spineJSON = generateSpineJSON(frames, prewarmFrames, settings, spriteNameMap);
       const previewCanvas = renderBakedPreview(frames, settings);
-      
+
       const zip = new SimpleZip();
-      await zip.addCanvasFile('particle.png', atlasCanvas);
+      for (const sprite of emitterSprites) {
+        await zip.addCanvasFile(`${sprite.name}.png`, sprite.canvas);
+      }
       await zip.addCanvasFile('preview.png', previewCanvas);
-      zip.addFile('particle.atlas', atlasText);
       zip.addFile('particle_spine.json', spineJSON);
       
       const zipBlob = zip.generate();
@@ -3777,15 +3671,15 @@ const ParticleSpineExporter: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-6">
-      <div className="max-w-[1700px] mx-auto">
+      <div className="max-w-[1870px] mx-auto">
         <header className="mb-4">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
             Particle → Spine Exporter v99
           </h1>
-          <p className="text-xs text-slate-400">Multi-emitter support • Up to 5 independent emitters • Separate bone hierarchy per emitter</p>
+          <p className="text-xs text-slate-400">Single-cycle prewarm capture • Atlas-free exports with per-emitter sprites • Widened editor columns</p>
         </header>
 
-        <div className="grid grid-cols-1 xl:grid-cols-4 xl:[grid-template-columns:repeat(4,minmax(320px,1fr))] gap-6 items-start">
+        <div className="grid grid-cols-1 xl:grid-cols-4 xl:[grid-template-columns:repeat(4,minmax(352px,1fr))] gap-6 items-start">
           <div className="space-y-3">
             {/* Emitter Management Panel */}
             <div className="bg-slate-800/50 backdrop-blur rounded-lg p-3 border border-slate-700">
