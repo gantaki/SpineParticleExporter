@@ -46,6 +46,7 @@ SpineParticleExporter is a React/TypeScript web application that converts partic
 ### Versioning Guidelines
 
 - Each commit that changes the standalone TSX must create the next sequential version file (v99 → v100 → v101, etc.).
+- Make all code edits in the modular sources (e.g., `particle-spine-exporter-v99/`), then rebuild the standalone `.tsx` from those modules.
 - Update `CLAUDE.md` to reflect the new current version and highlight key features/fixes for that release.
 - Keep `standalone.html`/server defaults pointing at the newest version.
 - Refresh the page header (title + subline) to show the current version and a short list of the latest features for each update.
