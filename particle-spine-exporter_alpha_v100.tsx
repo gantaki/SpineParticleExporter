@@ -58,10 +58,12 @@ interface EmitterInstanceSettings {
   shapeHeight: number;
   roundRadius: number;
   lineLength: number;
+  lineSpreadRotation: number;
   emissionMode: 'area' | 'edge';
   angle: number;
   angleSpread: number;
   rate: number;
+  rateOverTime: Curve;
   maxParticles: number;
 
   // Emission timing
@@ -241,6 +243,7 @@ const DEFAULT_CURVE_PRESETS: { [key: string]: Curve } = {
   vortex: { points: [{ time: 0, value: 0 }, { time: 1, value: 0 }], interpolation: 'linear' },
   gravity: { points: [{ time: 0, value: 1 }, { time: 1, value: 1 }], interpolation: 'linear' },
   drag: { points: [{ time: 0, value: 1 }, { time: 1, value: 1 }], interpolation: 'linear' },
+  rate: { points: [{ time: 0, value: 1 }, { time: 1, value: 1 }], interpolation: 'linear' },
 };
 
 
@@ -257,10 +260,12 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     shapeHeight: 100,
     roundRadius: 20,
     lineLength: 100,
+    lineSpreadRotation: 0,
     emissionMode: 'area',
     angle: -90,
     angleSpread: 30,
     rate: 10,
+    rateOverTime: DEFAULT_CURVE_PRESETS.rate,
     maxParticles: 500,
 
     // Emission timing
@@ -1523,17 +1528,27 @@ class ParticleSystem {
     const effectiveTime = this.time - em.startDelay;
     const isActive = effectiveTime >= 0;
 
+    const normalizedTime = this.settings.duration > 0
+      ? Math.max(0, Math.min(1, (this.time - em.startDelay) / this.settings.duration))
+      : 0;
+    const rateMultiplier = Math.max(0, evaluateCurve(em.rateOverTime, normalizedTime));
+
+    const getEffectiveRate = () => em.rate * rateMultiplier;
+
     if (isActive) {
       // Count particles for this emitter
       const emitterParticleCount = this.particles.filter(p => p.emitterId === emitterId).length;
 
       if (em.emissionType === 'continuous') {
-        state.spawnAccumulator += dt;
-        const spawnInterval = 1 / em.rate;
+        const effectiveRate = getEffectiveRate();
+        if (effectiveRate > 0) {
+          state.spawnAccumulator += dt;
+          const spawnInterval = 1 / effectiveRate;
 
-        while (state.spawnAccumulator >= spawnInterval && emitterParticleCount < em.maxParticles) {
-          this.spawnParticle(emitterId);
-          state.spawnAccumulator -= spawnInterval;
+          while (state.spawnAccumulator >= spawnInterval && emitterParticleCount < em.maxParticles) {
+            this.spawnParticle(emitterId);
+            state.spawnAccumulator -= spawnInterval;
+          }
         }
       }
       else if (em.emissionType === 'burst') {
@@ -1553,12 +1568,15 @@ class ParticleSystem {
       }
       else if (em.emissionType === 'duration') {
         if (effectiveTime >= em.durationStart && effectiveTime <= em.durationEnd) {
-          state.spawnAccumulator += dt;
-          const spawnInterval = 1 / em.rate;
+          const effectiveRate = getEffectiveRate();
+          if (effectiveRate > 0) {
+            state.spawnAccumulator += dt;
+            const spawnInterval = 1 / effectiveRate;
 
-          while (state.spawnAccumulator >= spawnInterval && emitterParticleCount < em.maxParticles) {
-            this.spawnParticle(emitterId);
-            state.spawnAccumulator -= spawnInterval;
+            while (state.spawnAccumulator >= spawnInterval && emitterParticleCount < em.maxParticles) {
+              this.spawnParticle(emitterId);
+              state.spawnAccumulator -= spawnInterval;
+            }
           }
         }
       }
@@ -1764,7 +1782,8 @@ class ParticleSystem {
       }
     }
 
-    const angleRad = (em.angle + (Math.random() - 0.5) * em.angleSpread) * Math.PI / 180;
+    const baseAngleDeg = em.angle + (em.shape === 'line' ? em.lineSpreadRotation : 0);
+    const angleRad = (baseAngleDeg + (Math.random() - 0.5) * em.angleSpread) * Math.PI / 180;
     const speed = sampleRange(em.initialSpeedRange);
 
     let initialRotation = 0;
@@ -2038,7 +2057,7 @@ class ParticleSystem {
 
       ctx.setLineDash([]);
       ctx.strokeStyle = strokeColor;
-      const angleRad = em.angle * Math.PI / 180;
+      const angleRad = (em.angle + (em.shape === 'line' ? em.lineSpreadRotation : 0)) * Math.PI / 180;
       const dirLength = 40;
       ctx.beginPath();
       ctx.moveTo(em.position.x, em.position.y);
@@ -4016,6 +4035,17 @@ const ParticleSpineExporter: React.FC = () => {
                   </div>
                 )}
 
+                {em.emissionType !== 'burst' && (
+                  <CurveEditor
+                    label="Rate Multiplier (0-2)"
+                    curve={em.rateOverTime}
+                    onChange={curve => updateEmitter({ rateOverTime: curve })}
+                    onReset={() => updateEmitter({ rateOverTime: copyCurve(DEFAULT_CURVE_PRESETS.rate) })}
+                    min={0}
+                    max={2}
+                  />
+                )}
+
                 <label className="block">
                   <span className="text-xs text-slate-300">Shape</span>
                   <select value={em.shape} onChange={e => updateEmitter({ shape: e.target.value as any  })} className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs">
@@ -4041,6 +4071,21 @@ const ParticleSpineExporter: React.FC = () => {
                   <label className="block">
                     <span className="text-xs text-slate-300">Length</span>
                     <input type="number" max="400" value={em.lineLength} onChange={e => updateEmitter({ lineLength: Number(e.target.value)  })} className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs" />
+                  </label>
+                )}
+
+                {em.shape === 'line' && (
+                  <label className="block">
+                    <span className="text-xs text-slate-300">Spread Cone Rotation (°)</span>
+                    <input
+                      type="number"
+                      min={-180}
+                      max={180}
+                      value={em.lineSpreadRotation}
+                      onChange={e => updateEmitter({ lineSpreadRotation: Number(e.target.value) })}
+                      className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">Rotate the emission cone independently from the line itself.</p>
                   </label>
                 )}
 

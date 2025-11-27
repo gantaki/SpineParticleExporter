@@ -15,7 +15,7 @@ import { Download, Play, RotateCcw, Settings, ChevronDown, ChevronUp, Trash2, Re
 
 // Type imports
 import type { ParticleSettings, Curve, RangeValue, Vec2, EmitterInstance, BakedFrame } from './types';
-import { DEFAULT_SETTINGS, createEmitterInstance } from './types';
+import { DEFAULT_SETTINGS, createEmitterInstance, DEFAULT_CURVE_PRESETS } from './types';
 
 // Component imports
 import {
@@ -41,6 +41,7 @@ import {
   SimpleZip,
   downloadBlob,
 } from './export';
+import { copyCurve } from './utils';
 
 const ParticleSpineExporter: React.FC = () => {
   const [settings, setSettings] = useState<ParticleSettings>(DEFAULT_SETTINGS);
@@ -869,6 +870,17 @@ const ParticleSpineExporter: React.FC = () => {
                   </div>
                 )}
 
+                {em.emissionType !== 'burst' && (
+                  <CurveEditor
+                    label="Rate Multiplier (0-2)"
+                    curve={em.rateOverTime}
+                    onChange={curve => updateEmitter({ rateOverTime: curve })}
+                    onReset={() => updateEmitter({ rateOverTime: copyCurve(DEFAULT_CURVE_PRESETS.rate) })}
+                    min={0}
+                    max={2}
+                  />
+                )}
+
                 <label className="block">
                   <span className="text-xs text-slate-300">Shape</span>
                   <select value={em.shape} onChange={e => updateEmitter({ shape: e.target.value as any  })} className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs">
@@ -894,6 +906,21 @@ const ParticleSpineExporter: React.FC = () => {
                   <label className="block">
                     <span className="text-xs text-slate-300">Length</span>
                     <input type="number" max="400" value={em.lineLength} onChange={e => updateEmitter({ lineLength: Number(e.target.value)  })} className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs" />
+                  </label>
+                )}
+
+                {em.shape === 'line' && (
+                  <label className="block">
+                    <span className="text-xs text-slate-300">Spread Cone Rotation (°)</span>
+                    <input
+                      type="number"
+                      min={-180}
+                      max={180}
+                      value={em.lineSpreadRotation}
+                      onChange={e => updateEmitter({ lineSpreadRotation: Number(e.target.value) })}
+                      className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                    />
+                    <p className="text-[10px] text-slate-500 mt-1">Rotate the emission cone independently from the line itself.</p>
                   </label>
                 )}
 

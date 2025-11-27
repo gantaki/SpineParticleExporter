@@ -45,10 +45,12 @@ interface EmitterInstanceSettings {
   shapeHeight: number;
   roundRadius: number;
   lineLength: number;
+  lineSpreadRotation: number;
   emissionMode: 'area' | 'edge';
   angle: number;
   angleSpread: number;
   rate: number;
+  rateOverTime: Curve;
   maxParticles: number;
 
   // Emission timing
@@ -228,6 +230,7 @@ const DEFAULT_CURVE_PRESETS: { [key: string]: Curve } = {
   vortex: { points: [{ time: 0, value: 0 }, { time: 1, value: 0 }], interpolation: 'linear' },
   gravity: { points: [{ time: 0, value: 1 }, { time: 1, value: 1 }], interpolation: 'linear' },
   drag: { points: [{ time: 0, value: 1 }, { time: 1, value: 1 }], interpolation: 'linear' },
+  rate: { points: [{ time: 0, value: 1 }, { time: 1, value: 1 }], interpolation: 'linear' },
 };
 
 
@@ -244,10 +247,12 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     shapeHeight: 100,
     roundRadius: 20,
     lineLength: 100,
+    lineSpreadRotation: 0,
     emissionMode: 'area',
     angle: -90,
     angleSpread: 30,
     rate: 10,
+    rateOverTime: DEFAULT_CURVE_PRESETS.rate,
     maxParticles: 500,
 
     // Emission timing

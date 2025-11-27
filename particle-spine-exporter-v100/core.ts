@@ -3,7 +3,7 @@
  */
 
 import type { ParticleSettings, Particle, Vec2, Color, EmitterInstance } from './types';
-import { sampleRange, evaluateCurve, evaluateColorGradient, noise2D } from './utils';
+import { sampleRange, evaluateCurve, evaluateColorGradient, noise2D, clamp01 } from './utils';
 
 // ============================================================
 // PARTICLE SYSTEM CORE
@@ -114,17 +114,27 @@ class ParticleSystem {
     const effectiveTime = this.time - em.startDelay;
     const isActive = effectiveTime >= 0;
 
+    const normalizedTime = this.settings.duration > 0
+      ? Math.max(0, Math.min(1, (this.time - em.startDelay) / this.settings.duration))
+      : 0;
+    const rateMultiplier = Math.max(0, evaluateCurve(em.rateOverTime, normalizedTime));
+
+    const getEffectiveRate = () => em.rate * rateMultiplier;
+
     if (isActive) {
       // Count particles for this emitter
       const emitterParticleCount = this.particles.filter(p => p.emitterId === emitterId).length;
 
       if (em.emissionType === 'continuous') {
-        state.spawnAccumulator += dt;
-        const spawnInterval = 1 / em.rate;
+        const effectiveRate = getEffectiveRate();
+        if (effectiveRate > 0) {
+          state.spawnAccumulator += dt;
+          const spawnInterval = 1 / effectiveRate;
 
-        while (state.spawnAccumulator >= spawnInterval && emitterParticleCount < em.maxParticles) {
-          this.spawnParticle(emitterId);
-          state.spawnAccumulator -= spawnInterval;
+          while (state.spawnAccumulator >= spawnInterval && emitterParticleCount < em.maxParticles) {
+            this.spawnParticle(emitterId);
+            state.spawnAccumulator -= spawnInterval;
+          }
         }
       }
       else if (em.emissionType === 'burst') {
@@ -144,12 +154,15 @@ class ParticleSystem {
       }
       else if (em.emissionType === 'duration') {
         if (effectiveTime >= em.durationStart && effectiveTime <= em.durationEnd) {
-          state.spawnAccumulator += dt;
-          const spawnInterval = 1 / em.rate;
+          const effectiveRate = getEffectiveRate();
+          if (effectiveRate > 0) {
+            state.spawnAccumulator += dt;
+            const spawnInterval = 1 / effectiveRate;
 
-          while (state.spawnAccumulator >= spawnInterval && emitterParticleCount < em.maxParticles) {
-            this.spawnParticle(emitterId);
-            state.spawnAccumulator -= spawnInterval;
+            while (state.spawnAccumulator >= spawnInterval && emitterParticleCount < em.maxParticles) {
+              this.spawnParticle(emitterId);
+              state.spawnAccumulator -= spawnInterval;
+            }
           }
         }
       }
@@ -355,7 +368,8 @@ class ParticleSystem {
       }
     }
 
-    const angleRad = (em.angle + (Math.random() - 0.5) * em.angleSpread) * Math.PI / 180;
+    const baseAngleDeg = em.angle + (em.shape === 'line' ? em.lineSpreadRotation : 0);
+    const angleRad = (baseAngleDeg + (Math.random() - 0.5) * em.angleSpread) * Math.PI / 180;
     const speed = sampleRange(em.initialSpeedRange);
 
     let initialRotation = 0;
@@ -629,7 +643,7 @@ class ParticleSystem {
 
       ctx.setLineDash([]);
       ctx.strokeStyle = strokeColor;
-      const angleRad = em.angle * Math.PI / 180;
+      const angleRad = (em.angle + (em.shape === 'line' ? em.lineSpreadRotation : 0)) * Math.PI / 180;
       const dirLength = 40;
       ctx.beginPath();
       ctx.moveTo(em.position.x, em.position.y);
