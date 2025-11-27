@@ -1,11 +1,12 @@
 {
   "name": "particle-spine-exporter",
-  "version": "99.0.0",
-  "description": "Particle to Spine Exporter - Per-Emitter Sprites v99",
+  "version": "100.0.0",
+  "description": "Particle to Spine Exporter - Burst/Duration export fix v100",
   "scripts": {
     "build": "node build-standalone.js",
     "build:v98": "node build-standalone-v98.js",
     "build:v99": "node build-standalone-v99.js",
+    "build:v100": "node build-standalone-v100.js",
     "split": "node split-to-modules.js",
     "split:v99": "node split-v99-to-modules.js",
     "serve": "node serve-standalone.js",

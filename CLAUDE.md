@@ -1,7 +1,7 @@
 # CLAUDE.md - SpineParticleExporter
 
 **Last Updated:** 2025-11-27
-**Current Version:** v99 (Per-Emitter Sprites)
+**Current Version:** v100 (Burst/Duration Export Fix)
 
 ## Project Overview
 
@@ -52,6 +52,11 @@ SpineParticleExporter is a React/TypeScript web application that converts partic
 - Refresh the page header (title + subline) to show the current version and a short list of the latest features for each update.
 
 ---
+
+### v100 Highlights
+
+- Burst and Duration emission modes now export baked animations even when looping is disabled, using burst_#/duration_# naming.
+- Default Burst Count reduced to 10 for cleaner clips; Color Threshold default lowered to 60 to keep vivid particles.
 
 ### v99 Highlights
 
