@@ -2711,6 +2711,15 @@ function generateSpineJSON(
       let wasVisible = false;
       let hasAppeared = false;
       let normalizedAngle = 0;
+      let forceSteppedInterpolation = false;
+
+      const pushKeyWithCurve = <T extends { time: number }>(list: T[], key: T) => {
+        if (forceSteppedInterpolation) {
+          list.push({ ...key, curve: 'stepped' } as T);
+        } else {
+          list.push(key);
+        }
+      };
 
       for (let frameIdx = 0; frameIdx < sourceFrames.length; frameIdx++) {
         const frame = sourceFrames[frameIdx];
@@ -2727,6 +2736,7 @@ function generateSpineJSON(
             hasAppeared = true;
             const time = Math.round(frame.time * 1000) / 1000;
             attachmentKeys.push({ time, name: spriteName });
+            forceSteppedInterpolation = false;
           }
 
           const currentPos = { x: particle.x, y: particle.y };
@@ -2750,7 +2760,7 @@ function generateSpineJSON(
             movementDistance > POSITION_THRESHOLD);
 
           if (shouldWriteTranslate) {
-            translateKeys.push({ time: Math.round(frame.time * 1000) / 1000, x: Math.round(currentPos.x * 100) / 100, y: Math.round(-currentPos.y * 100) / 100 });
+            pushKeyWithCurve(translateKeys, { time: Math.round(frame.time * 1000) / 1000, x: Math.round(currentPos.x * 100) / 100, y: Math.round(-currentPos.y * 100) / 100 });
             prevPos = currentPos;
           }
 
@@ -2761,13 +2771,13 @@ function generateSpineJSON(
           );
 
           if (shouldWriteRotate) {
-            rotateKeys.push({ time: Math.round(frame.time * 1000) / 1000, angle: Math.round(normalizedAngle * 100) / 100 });
+            pushKeyWithCurve(rotateKeys, { time: Math.round(frame.time * 1000) / 1000, angle: Math.round(normalizedAngle * 100) / 100 });
             prevRotation = normalizedAngle;
           }
 
           if (settings.exportSettings.exportScale && (isFirstFrame || isLastFrame || visibilityChanged || prevScale === null ||
               Math.abs(currentScale.x - prevScale.x) > SCALE_THRESHOLD || Math.abs(currentScale.y - prevScale.y) > SCALE_THRESHOLD)) {
-            scaleKeys.push({
+            pushKeyWithCurve(scaleKeys, {
               time: Math.round(frame.time * 1000) / 1000,
               x: Math.round(currentScale.x * 1000) / 1000,
               y: Math.round(currentScale.y * 1000) / 1000
@@ -2793,7 +2803,7 @@ function generateSpineJSON(
               const aHex = Math.round(currentColor.a * 255).toString(16).padStart(2, '0');
               const colorHex = `${rHex}${gHex}${bHex}${aHex}`;
 
-              colorKeys.push({
+              pushKeyWithCurve(colorKeys, {
                 time: Math.round(frame.time * 1000) / 1000,
                 color: colorHex
               });
@@ -2806,13 +2816,14 @@ function generateSpineJSON(
           if (wasVisible && visibilityChanged) {
             const time = Math.round(frame.time * 1000) / 1000;
             attachmentKeys.push({ time, name: null });
+            forceSteppedInterpolation = true;
           }
 
           if (visibilityChanged && wasVisible) {
             const time = Math.round(frame.time * 1000) / 1000;
-            if (settings.exportSettings.exportTranslate && prevPos) translateKeys.push({ time, x: Math.round(prevPos.x * 100) / 100, y: Math.round(-prevPos.y * 100) / 100 });
-            if (settings.exportSettings.exportRotate && prevRotation !== null) rotateKeys.push({ time, angle: Math.round(prevRotation * 100) / 100 });
-            if (settings.exportSettings.exportScale && prevScale !== null) scaleKeys.push({ time, x: 0, y: 0 });
+            if (settings.exportSettings.exportTranslate && prevPos) pushKeyWithCurve(translateKeys, { time, x: Math.round(prevPos.x * 100) / 100, y: Math.round(-prevPos.y * 100) / 100 });
+            if (settings.exportSettings.exportRotate && prevRotation !== null) pushKeyWithCurve(rotateKeys, { time, angle: Math.round(prevRotation * 100) / 100 });
+            if (settings.exportSettings.exportScale && prevScale !== null) pushKeyWithCurve(scaleKeys, { time, x: 0, y: 0 });
           }
 
           wasVisible = false;
@@ -3630,14 +3641,13 @@ const ParticleSpineExporter: React.FC = () => {
         emitterSprites.push({ emitterId: emitter.id, name: spriteName, canvas: spriteCanvas });
       }
 
-      const { canvas: atlasCanvas } = createParticleAtlas(
-        emitterSprites.map(entry => ({ name: entry.name, canvas: entry.canvas }))
-      );
       const spineJSON = generateSpineJSON(frames, prewarmFrames, settings, spriteNameMap);
       const previewCanvas = renderBakedPreview(frames, settings);
-      
+
       const zip = new SimpleZip();
-      await zip.addCanvasFile('particle.png', atlasCanvas);
+      for (const sprite of emitterSprites) {
+        await zip.addCanvasFile(`${sprite.name}.png`, sprite.canvas);
+      }
       await zip.addCanvasFile('preview.png', previewCanvas);
       zip.addFile('particle_spine.json', spineJSON);
       
