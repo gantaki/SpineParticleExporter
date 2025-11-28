@@ -184,8 +184,40 @@ const ParticleSpineExporter: React.FC = () => {
       setBakedSimulation(newBake);
       setNeedsRebake(false);
     }
+
+    // If playback reached the end, restart the simulation before playing again
+    if (
+      !isPlaying &&
+      !hasLoopingContinuousEmitter &&
+      settings.duration > 0 &&
+      systemRef.current &&
+      systemRef.current.time >= settings.duration
+    ) {
+      systemRef.current.reset();
+      setCurrentTime(0);
+      setLiveParticleCount(systemRef.current.particles.length);
+
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext('2d')!;
+        systemRef.current.render(ctx, showEmitter, zoom, spriteCanvases, showGrid, backgroundImage, bgPosition);
+      }
+    }
+
     setIsPlaying(prev => !prev);
-  }, [isPlaying, needsRebake, bakedSimulation, bakeSimulation]);
+  }, [
+    isPlaying,
+    needsRebake,
+    bakedSimulation,
+    bakeSimulation,
+    hasLoopingContinuousEmitter,
+    settings.duration,
+    showEmitter,
+    zoom,
+    spriteCanvases,
+    showGrid,
+    backgroundImage,
+    bgPosition,
+  ]);
 
   const handleSpeedChange = useCallback((speed: number) => {
     setPlaybackSpeed(speed);
@@ -408,7 +440,8 @@ const ParticleSpineExporter: React.FC = () => {
       setCurrentTime(0);
       setNeedsRebake(true);
       setBakedSimulation(null);
-      
+      setIsPlaying(false);
+
       // Render initial state
       if (canvasRef.current) {
         const ctx = canvasRef.current.getContext('2d')!;
