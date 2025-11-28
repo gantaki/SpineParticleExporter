@@ -430,11 +430,15 @@ const CurveEditor: React.FC<{
 }> = ({ label, curve, onChange, onReset, min = -1, max = 1, autoScale = true }) => {
   const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [timeInput, setTimeInput] = useState('');
+  const [valueInput, setValueInput] = useState('');
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(260);
   const [viewMin, setViewMin] = useState(min);
   const [viewMax, setViewMax] = useState(max);
+
+  const roundToTwo = (val: number) => Math.round(val * 100) / 100;
 
   useEffect(() => {
     const measureWidth = () => {
@@ -473,6 +477,26 @@ const CurveEditor: React.FC<{
     setViewMin(minValue - padding);
     setViewMax(maxValue + padding);
   }, [autoScale, curve.points, min, max]);
+
+  useEffect(() => {
+    if (selectedPoint === null) return;
+
+    const point = curve.points[selectedPoint];
+    if (!point) return;
+
+    const formattedTime = Number.isFinite(point.time) ? roundToTwo(point.time).toString() : '';
+    const formattedValue = Number.isFinite(point.value) ? roundToTwo(point.value).toString() : '';
+
+    const parsedTime = parseFloat(timeInput);
+    const parsedValue = parseFloat(valueInput);
+
+    if (Number.isNaN(parsedTime) || parsedTime !== point.time) {
+      setTimeInput(formattedTime);
+    }
+    if (Number.isNaN(parsedValue) || parsedValue !== point.value) {
+      setValueInput(formattedValue);
+    }
+  }, [curve.points, selectedPoint]);
 
   const height = 80;
   const padding = 8;
@@ -518,14 +542,15 @@ const CurveEditor: React.FC<{
       return;
     }
 
-    const newTime = xToTime(x);
-    const newValue = yToValue(y);
+    const newTime = roundToTwo(xToTime(x));
+    const newValue = roundToTwo(yToValue(y));
 
-    const newPoints = [...curve.points, { time: newTime, value: newValue }]
+    const newPoint = { time: newTime, value: newValue };
+    const newPoints = [...curve.points, newPoint]
       .sort((a, b) => a.time - b.time);
 
     onChange({ ...curve, points: newPoints });
-    setSelectedPoint(newPoints.findIndex(p => p.time === newTime && p.value === newValue));
+    setSelectedPoint(newPoints.indexOf(newPoint));
   };
 
   const handleMouseDown = (e: React.MouseEvent, index: number) => {
@@ -543,12 +568,12 @@ const CurveEditor: React.FC<{
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    const newTime = xToTime(x);
+    const newTime = roundToTwo(xToTime(x));
     const proposed = yToValue(y);
-    const newValue = autoScale ? proposed : Math.max(min, Math.min(max, proposed));
+    const newValue = roundToTwo(autoScale ? proposed : Math.max(min, Math.min(max, proposed)));
 
     const newPoints = [...curve.points];
-    
+
     if (selectedPoint === 0) {
       newPoints[selectedPoint] = { time: 0, value: newValue };
     } else if (selectedPoint === newPoints.length - 1) {
@@ -687,47 +712,56 @@ const CurveEditor: React.FC<{
                   textAnchor="middle"
                   className="pointer-events-none"
                 >
-                  {point.value.toFixed(1)}
+                  {point.value.toFixed(2)}
                 </text>
               )}
             </g>
           ))}
         </svg>
 
-        {selectedPoint !== null && (
-          <div className="mt-1 grid grid-cols-2 gap-1">
-            <input
-              type="text"
-              value={curve.points[selectedPoint].time.toString()}
-              onChange={e => {
-                const newPoints = [...curve.points];
-                const parsed = parseFloat(e.target.value);
-                const newTime = selectedPoint === 0 ? 0 : selectedPoint === newPoints.length - 1 ? 1 : parsed;
-                if (!Number.isNaN(newTime)) {
-                  newPoints[selectedPoint] = { ...newPoints[selectedPoint], time: newTime };
-                  onChange({ ...curve, points: newPoints.sort((a, b) => a.time - b.time) });
-                }
-              }}
-              disabled={selectedPoint === 0 || selectedPoint === curve.points.length - 1}
-              className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-[10px]"
-              placeholder="Time"
-            />
-            <input
-              type="text"
-              value={curve.points[selectedPoint].value.toString()}
-              onChange={e => {
-                const parsed = parseFloat(e.target.value);
-                if (!Number.isNaN(parsed)) {
+          {selectedPoint !== null && (
+            <div className="mt-1 grid grid-cols-2 gap-1">
+              <input
+                type="text"
+                value={timeInput}
+                onChange={e => {
+                  const raw = e.target.value;
+                  setTimeInput(raw);
+
+                  const parsed = parseFloat(raw);
+                  if (Number.isNaN(parsed) || selectedPoint === null) return;
+
                   const newPoints = [...curve.points];
-                  newPoints[selectedPoint] = { ...newPoints[selectedPoint], value: parsed };
+                  const clampedTime = roundToTwo(Math.max(0, Math.min(1, parsed)));
+                  const nextTime = selectedPoint === 0 ? 0 : selectedPoint === newPoints.length - 1 ? 1 : clampedTime;
+
+                  newPoints[selectedPoint] = { ...newPoints[selectedPoint], time: nextTime };
+                  onChange({ ...curve, points: newPoints.sort((a, b) => a.time - b.time) });
+                }}
+                disabled={selectedPoint === 0 || selectedPoint === curve.points.length - 1}
+                className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-[10px]"
+                placeholder="Time"
+              />
+              <input
+                type="text"
+                value={valueInput}
+                onChange={e => {
+                  const raw = e.target.value;
+                  setValueInput(raw);
+
+                  const parsed = parseFloat(raw);
+                  if (Number.isNaN(parsed) || selectedPoint === null) return;
+
+                  const clampedValue = roundToTwo(autoScale ? parsed : Math.max(min, Math.min(max, parsed)));
+                  const newPoints = [...curve.points];
+                  newPoints[selectedPoint] = { ...newPoints[selectedPoint], value: clampedValue };
                   onChange({ ...curve, points: newPoints });
-                }
-              }}
-              className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-[10px]"
-              placeholder="Value"
-            />
-          </div>
-        )}
+                }}
+                className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-[10px]"
+                placeholder="Value"
+              />
+            </div>
+          )}
       </div>
     </div>
   );
