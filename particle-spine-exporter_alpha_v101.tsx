@@ -11,7 +11,7 @@
  */
 
 // React from CDN (defined in standalone.html)
-const { useState, useRef, useEffect, useCallback } = React;
+const { useState, useRef, useEffect, useCallback, useMemo } = React;
 // Lucide icons from window.LucideReact (defined in standalone.html)
 const { Download, Play, RotateCcw, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } = window.LucideReact || {};
 
@@ -476,6 +476,8 @@ function evaluateColorGradient(gradient: ColorGradient, t: number): Color {
     a: Math.round(p1.color.a + (p2.color.a - p1.color.a) * localT),
   };
 }
+
+const parseDecimal = (raw: string) => parseFloat(raw.replace(/,/g, '.'));
 
 // ============================================================
 // UI COMPONENTS
@@ -957,8 +959,8 @@ const CurveEditor: React.FC<{
     const formattedTime = Number.isFinite(point.time) ? roundToTwo(point.time).toString() : '';
     const formattedValue = Number.isFinite(point.value) ? roundToTwo(point.value).toString() : '';
 
-    const parsedTime = parseFloat(timeInput);
-    const parsedValue = parseFloat(valueInput);
+    const parsedTime = parseDecimal(timeInput);
+    const parsedValue = parseDecimal(valueInput);
 
     if (Number.isNaN(parsedTime) || parsedTime !== point.time) {
       setTimeInput(formattedTime);
@@ -1043,7 +1045,7 @@ const CurveEditor: React.FC<{
     const newValue = roundToTwo(autoScale ? proposed : Math.max(min, Math.min(max, proposed)));
 
     const newPoints = [...curve.points];
-    
+
     if (selectedPoint === 0) {
       newPoints[selectedPoint] = { time: 0, value: newValue };
     } else if (selectedPoint === newPoints.length - 1) {
@@ -1154,6 +1156,22 @@ const CurveEditor: React.FC<{
             />
           )}
 
+          {[-1, 1].map(boundary => {
+            if (boundary < viewMin || boundary > viewMax) return null;
+            return (
+              <line
+                key={`limit-${boundary}`}
+                x1={padding}
+                y1={valueToY(boundary)}
+                x2={width - padding}
+                y2={valueToY(boundary)}
+                stroke="rgba(148,163,184,0.4)"
+                strokeWidth="1"
+                strokeDasharray="4,2"
+              />
+            );
+          })}
+
           <path
             d={generatePath()}
             fill="none"
@@ -1189,49 +1207,49 @@ const CurveEditor: React.FC<{
           ))}
         </svg>
 
-        {selectedPoint !== null && (
-          <div className="mt-1 grid grid-cols-2 gap-1">
-            <input
-              type="text"
-              value={timeInput}
-              onChange={e => {
-                const raw = e.target.value;
-                setTimeInput(raw);
+          {selectedPoint !== null && (
+            <div className="mt-1 grid grid-cols-2 gap-1">
+              <input
+                type="text"
+                value={timeInput}
+                onChange={e => {
+                  const raw = e.target.value;
+                  setTimeInput(raw);
 
-                const parsed = parseFloat(raw);
-                if (Number.isNaN(parsed) || selectedPoint === null) return;
+                  const parsed = parseDecimal(raw);
+                  if (Number.isNaN(parsed) || selectedPoint === null) return;
 
-                const newPoints = [...curve.points];
-                const clampedTime = roundToTwo(Math.max(0, Math.min(1, parsed)));
-                const nextTime = selectedPoint === 0 ? 0 : selectedPoint === newPoints.length - 1 ? 1 : clampedTime;
+                  const newPoints = [...curve.points];
+                  const clampedTime = roundToTwo(Math.max(0, Math.min(1, parsed)));
+                  const nextTime = selectedPoint === 0 ? 0 : selectedPoint === newPoints.length - 1 ? 1 : clampedTime;
 
-                newPoints[selectedPoint] = { ...newPoints[selectedPoint], time: nextTime };
-                onChange({ ...curve, points: newPoints.sort((a, b) => a.time - b.time) });
-              }}
-              disabled={selectedPoint === 0 || selectedPoint === curve.points.length - 1}
-              className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-[10px]"
-              placeholder="Time"
-            />
-            <input
-              type="text"
-              value={valueInput}
-              onChange={e => {
-                const raw = e.target.value;
-                setValueInput(raw);
+                  newPoints[selectedPoint] = { ...newPoints[selectedPoint], time: nextTime };
+                  onChange({ ...curve, points: newPoints.sort((a, b) => a.time - b.time) });
+                }}
+                disabled={selectedPoint === 0 || selectedPoint === curve.points.length - 1}
+                className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-[10px]"
+                placeholder="Time"
+              />
+              <input
+                type="text"
+                value={valueInput}
+                onChange={e => {
+                  const raw = e.target.value;
+                  setValueInput(raw);
 
-                const parsed = parseFloat(raw);
-                if (Number.isNaN(parsed) || selectedPoint === null) return;
+                  const parsed = parseDecimal(raw);
+                  if (Number.isNaN(parsed) || selectedPoint === null) return;
 
-                const clampedValue = roundToTwo(autoScale ? parsed : Math.max(min, Math.min(max, parsed)));
-                const newPoints = [...curve.points];
-                newPoints[selectedPoint] = { ...newPoints[selectedPoint], value: clampedValue };
-                onChange({ ...curve, points: newPoints });
-              }}
-              className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-[10px]"
-              placeholder="Value"
-            />
-          </div>
-        )}
+                  const clampedValue = roundToTwo(autoScale ? parsed : Math.max(min, Math.min(max, parsed)));
+                  const newPoints = [...curve.points];
+                  newPoints[selectedPoint] = { ...newPoints[selectedPoint], value: clampedValue };
+                  onChange({ ...curve, points: newPoints });
+                }}
+                className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-[10px]"
+                placeholder="Value"
+              />
+            </div>
+          )}
       </div>
     </div>
   );
@@ -1305,7 +1323,7 @@ const Timeline: React.FC<{
         
         <select
           value={playbackSpeed}
-          onChange={e => onSpeedChange(parseFloat(e.target.value))}
+          onChange={e => onSpeedChange(parseDecimal(e.target.value))}
           className="px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
         >
           <option value="0.25">0.25x</option>
@@ -1398,8 +1416,8 @@ const NumericInput: React.FC<NumericInputProps> = ({
 }) => {
   const [text, setText] = useState<string>(Number.isFinite(value) ? String(value) : '');
 
-  const parsedMin = min !== undefined ? parseFloat(String(min)) : undefined;
-  const parsedMax = max !== undefined ? parseFloat(String(max)) : undefined;
+  const parsedMin = min !== undefined ? parseDecimal(String(min)) : undefined;
+  const parsedMax = max !== undefined ? parseDecimal(String(max)) : undefined;
 
   const clampValue = (val: number) => {
     let next = val;
@@ -1413,7 +1431,7 @@ const NumericInput: React.FC<NumericInputProps> = ({
   };
 
   useEffect(() => {
-    const parsedDisplay = parseFloat(text);
+    const parsedDisplay = parseDecimal(text);
     if (Number.isNaN(parsedDisplay) || parsedDisplay !== value) {
       setText(Number.isFinite(value) ? String(value) : '');
     }
@@ -1425,7 +1443,7 @@ const NumericInput: React.FC<NumericInputProps> = ({
     const raw = e.target.value;
     setText(raw);
 
-    const parsed = parseFloat(raw);
+    const parsed = parseDecimal(raw);
     if (!Number.isNaN(parsed)) {
       const clamped = clampValue(parsed);
       onValueChange(clamped);
@@ -1433,7 +1451,7 @@ const NumericInput: React.FC<NumericInputProps> = ({
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const parsed = parseFloat(text);
+    const parsed = parseDecimal(text);
 
     if (Number.isNaN(parsed)) {
       setText(Number.isFinite(value) ? String(value) : '');
@@ -3345,6 +3363,11 @@ const ParticleSpineExporter: React.FC = () => {
   const spriteCacheRef = useRef<Record<string, HTMLCanvasElement | null>>({});
   const spriteSignatureRef = useRef<Record<string, string>>({});
 
+  const hasLoopingContinuousEmitter = useMemo(
+    () => settings.emitters.some(em => em.settings.emissionType === 'continuous' && em.settings.looping),
+    [settings.emitters]
+  );
+
   const bakeSimulation = useCallback(() => {
     if (!systemRef.current) return [];
     
@@ -3444,8 +3467,40 @@ const ParticleSpineExporter: React.FC = () => {
       setBakedSimulation(newBake);
       setNeedsRebake(false);
     }
+
+    // If playback reached the end, restart the simulation before playing again
+    if (
+      !isPlaying &&
+      !hasLoopingContinuousEmitter &&
+      settings.duration > 0 &&
+      systemRef.current &&
+      systemRef.current.time >= settings.duration
+    ) {
+      systemRef.current.reset();
+      setCurrentTime(0);
+      setLiveParticleCount(systemRef.current.particles.length);
+
+      if (canvasRef.current) {
+        const ctx = canvasRef.current.getContext('2d')!;
+        systemRef.current.render(ctx, showEmitter, zoom, spriteCanvases, showGrid, backgroundImage, bgPosition);
+      }
+    }
+
     setIsPlaying(prev => !prev);
-  }, [isPlaying, needsRebake, bakedSimulation, bakeSimulation]);
+  }, [
+    isPlaying,
+    needsRebake,
+    bakedSimulation,
+    bakeSimulation,
+    hasLoopingContinuousEmitter,
+    settings.duration,
+    showEmitter,
+    zoom,
+    spriteCanvases,
+    showGrid,
+    backgroundImage,
+    bgPosition,
+  ]);
 
   const handleSpeedChange = useCallback((speed: number) => {
     setPlaybackSpeed(speed);
@@ -3527,15 +3582,39 @@ const ParticleSpineExporter: React.FC = () => {
       lastTime = time;
 
       if (isPlaying && systemRef.current) {
+        if (!hasLoopingContinuousEmitter && settings.duration > 0 && systemRef.current.time >= settings.duration) {
+          systemRef.current.time = settings.duration;
+          systemRef.current.render(ctx, showEmitter, zoom, spriteCanvases, showGrid, backgroundImage, bgPosition);
+          setLiveParticleCount(systemRef.current.particles.length);
+          setCurrentTime(settings.duration);
+          setIsPlaying(false);
+          return;
+        }
+
         const dt = Math.min(realDt * playbackSpeed, 0.1);
-        systemRef.current.update(dt);
-        
-        // Update timeline
+        let appliedDt = dt;
+
+        if (!hasLoopingContinuousEmitter && settings.duration > 0) {
+          const remaining = settings.duration - systemRef.current.time;
+          appliedDt = Math.max(0, Math.min(dt, remaining));
+        }
+
+        systemRef.current.update(appliedDt);
+
         const newTime = systemRef.current.time;
-        setCurrentTime(newTime);
+        const clampedTime = !hasLoopingContinuousEmitter && settings.duration > 0
+          ? Math.min(newTime, settings.duration)
+          : newTime;
 
         systemRef.current.render(ctx, showEmitter, zoom, spriteCanvases, showGrid, backgroundImage, bgPosition);
         setLiveParticleCount(systemRef.current.particles.length);
+        setCurrentTime(clampedTime);
+
+        if (!hasLoopingContinuousEmitter && settings.duration > 0 && newTime >= settings.duration) {
+          systemRef.current.time = settings.duration;
+          setIsPlaying(false);
+          return;
+        }
       }
 
       animationRef.current = requestAnimationFrame(animate);
@@ -3548,7 +3627,7 @@ const ParticleSpineExporter: React.FC = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, showEmitter, zoom, spriteCanvases, showGrid, backgroundImage, bgPosition, playbackSpeed]);
+  }, [isPlaying, showEmitter, zoom, spriteCanvases, showGrid, backgroundImage, bgPosition, playbackSpeed, settings.duration, hasLoopingContinuousEmitter]);
 
   const updateSettings = useCallback((newSettings: ParticleSettings) => {
     setSettings(newSettings);
@@ -3644,7 +3723,8 @@ const ParticleSpineExporter: React.FC = () => {
       setCurrentTime(0);
       setNeedsRebake(true);
       setBakedSimulation(null);
-      
+      setIsPlaying(false);
+
       // Render initial state
       if (canvasRef.current) {
         const ctx = canvasRef.current.getContext('2d')!;

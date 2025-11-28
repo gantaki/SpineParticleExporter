@@ -7,6 +7,8 @@ import { Download, Play, RotateCcw, Settings, ChevronDown, ChevronUp, Trash2, Re
 import type { Color, ColorGradient, ColorPoint, Curve, CurvePoint, RangeValue } from './types';
 import { clamp01, evaluateCurve, evaluateColorGradient } from './utils';
 
+const parseDecimal = (raw: string) => parseFloat(raw.replace(/,/g, '.'));
+
 // ============================================================
 // UI COMPONENTS
 // ============================================================
@@ -487,8 +489,8 @@ const CurveEditor: React.FC<{
     const formattedTime = Number.isFinite(point.time) ? roundToTwo(point.time).toString() : '';
     const formattedValue = Number.isFinite(point.value) ? roundToTwo(point.value).toString() : '';
 
-    const parsedTime = parseFloat(timeInput);
-    const parsedValue = parseFloat(valueInput);
+    const parsedTime = parseDecimal(timeInput);
+    const parsedValue = parseDecimal(valueInput);
 
     if (Number.isNaN(parsedTime) || parsedTime !== point.time) {
       setTimeInput(formattedTime);
@@ -684,6 +686,22 @@ const CurveEditor: React.FC<{
             />
           )}
 
+          {[-1, 1].map(boundary => {
+            if (boundary < viewMin || boundary > viewMax) return null;
+            return (
+              <line
+                key={`limit-${boundary}`}
+                x1={padding}
+                y1={valueToY(boundary)}
+                x2={width - padding}
+                y2={valueToY(boundary)}
+                stroke="rgba(148,163,184,0.4)"
+                strokeWidth="1"
+                strokeDasharray="4,2"
+              />
+            );
+          })}
+
           <path
             d={generatePath()}
             fill="none"
@@ -728,7 +746,7 @@ const CurveEditor: React.FC<{
                   const raw = e.target.value;
                   setTimeInput(raw);
 
-                  const parsed = parseFloat(raw);
+                  const parsed = parseDecimal(raw);
                   if (Number.isNaN(parsed) || selectedPoint === null) return;
 
                   const newPoints = [...curve.points];
@@ -749,7 +767,7 @@ const CurveEditor: React.FC<{
                   const raw = e.target.value;
                   setValueInput(raw);
 
-                  const parsed = parseFloat(raw);
+                  const parsed = parseDecimal(raw);
                   if (Number.isNaN(parsed) || selectedPoint === null) return;
 
                   const clampedValue = roundToTwo(autoScale ? parsed : Math.max(min, Math.min(max, parsed)));
@@ -835,7 +853,7 @@ const Timeline: React.FC<{
         
         <select
           value={playbackSpeed}
-          onChange={e => onSpeedChange(parseFloat(e.target.value))}
+          onChange={e => onSpeedChange(parseDecimal(e.target.value))}
           className="px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
         >
           <option value="0.25">0.25x</option>
@@ -928,8 +946,8 @@ const NumericInput: React.FC<NumericInputProps> = ({
 }) => {
   const [text, setText] = useState<string>(Number.isFinite(value) ? String(value) : '');
 
-  const parsedMin = min !== undefined ? parseFloat(String(min)) : undefined;
-  const parsedMax = max !== undefined ? parseFloat(String(max)) : undefined;
+  const parsedMin = min !== undefined ? parseDecimal(String(min)) : undefined;
+  const parsedMax = max !== undefined ? parseDecimal(String(max)) : undefined;
 
   const clampValue = (val: number) => {
     let next = val;
@@ -943,7 +961,7 @@ const NumericInput: React.FC<NumericInputProps> = ({
   };
 
   useEffect(() => {
-    const parsedDisplay = parseFloat(text);
+    const parsedDisplay = parseDecimal(text);
     if (Number.isNaN(parsedDisplay) || parsedDisplay !== value) {
       setText(Number.isFinite(value) ? String(value) : '');
     }
@@ -955,7 +973,7 @@ const NumericInput: React.FC<NumericInputProps> = ({
     const raw = e.target.value;
     setText(raw);
 
-    const parsed = parseFloat(raw);
+    const parsed = parseDecimal(raw);
     if (!Number.isNaN(parsed)) {
       const clamped = clampValue(parsed);
       onValueChange(clamped);
@@ -963,7 +981,7 @@ const NumericInput: React.FC<NumericInputProps> = ({
   };
 
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    const parsed = parseFloat(text);
+    const parsed = parseDecimal(text);
 
     if (Number.isNaN(parsed)) {
       setText(Number.isFinite(value) ? String(value) : '');
