@@ -10,7 +10,7 @@
  * - Curve multipliers are clamped to -1..1 with flexible numeric inputs that allow negatives and decimals
  */
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Download, Play, RotateCcw, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } from 'lucide-react';
 
 // Type imports
@@ -79,6 +79,11 @@ const ParticleSpineExporter: React.FC = () => {
   const lastFrameTimeRef = useRef<number>(0);
   const spriteCacheRef = useRef<Record<string, HTMLCanvasElement | null>>({});
   const spriteSignatureRef = useRef<Record<string, string>>({});
+
+  const hasLoopingContinuousEmitter = useMemo(
+    () => settings.emitters.some(em => em.settings.emissionType === 'continuous' && em.settings.looping),
+    [settings.emitters]
+  );
 
   const bakeSimulation = useCallback(() => {
     if (!systemRef.current) return [];
@@ -262,15 +267,39 @@ const ParticleSpineExporter: React.FC = () => {
       lastTime = time;
 
       if (isPlaying && systemRef.current) {
+        if (!hasLoopingContinuousEmitter && settings.duration > 0 && systemRef.current.time >= settings.duration) {
+          systemRef.current.time = settings.duration;
+          systemRef.current.render(ctx, showEmitter, zoom, spriteCanvases, showGrid, backgroundImage, bgPosition);
+          setLiveParticleCount(systemRef.current.particles.length);
+          setCurrentTime(settings.duration);
+          setIsPlaying(false);
+          return;
+        }
+
         const dt = Math.min(realDt * playbackSpeed, 0.1);
-        systemRef.current.update(dt);
-        
-        // Update timeline
+        let appliedDt = dt;
+
+        if (!hasLoopingContinuousEmitter && settings.duration > 0) {
+          const remaining = settings.duration - systemRef.current.time;
+          appliedDt = Math.max(0, Math.min(dt, remaining));
+        }
+
+        systemRef.current.update(appliedDt);
+
         const newTime = systemRef.current.time;
-        setCurrentTime(newTime);
+        const clampedTime = !hasLoopingContinuousEmitter && settings.duration > 0
+          ? Math.min(newTime, settings.duration)
+          : newTime;
 
         systemRef.current.render(ctx, showEmitter, zoom, spriteCanvases, showGrid, backgroundImage, bgPosition);
         setLiveParticleCount(systemRef.current.particles.length);
+        setCurrentTime(clampedTime);
+
+        if (!hasLoopingContinuousEmitter && settings.duration > 0 && newTime >= settings.duration) {
+          systemRef.current.time = settings.duration;
+          setIsPlaying(false);
+          return;
+        }
       }
 
       animationRef.current = requestAnimationFrame(animate);
@@ -283,7 +312,7 @@ const ParticleSpineExporter: React.FC = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [isPlaying, showEmitter, zoom, spriteCanvases, showGrid, backgroundImage, bgPosition, playbackSpeed]);
+  }, [isPlaying, showEmitter, zoom, spriteCanvases, showGrid, backgroundImage, bgPosition, playbackSpeed, settings.duration, hasLoopingContinuousEmitter]);
 
   const updateSettings = useCallback((newSettings: ParticleSettings) => {
     setSettings(newSettings);
