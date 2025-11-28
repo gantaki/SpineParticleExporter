@@ -1,7 +1,7 @@
 # CLAUDE.md - SpineParticleExporter
 
-**Last Updated:** 2025-11-27
-**Current Version:** v100 (Burst/Duration Export Fix)
+**Last Updated:** 2025-11-28
+**Current Version:** v101 (Custom Sprite Fidelity & Input Fixes)
 
 ## Project Overview
 
@@ -52,6 +52,12 @@ SpineParticleExporter is a React/TypeScript web application that converts partic
 - Refresh the page header (title + subline) to show the current version and a short list of the latest features for each update.
 
 ---
+
+### v101 Highlights
+
+- Custom sprites render at their native resolution without downscaling on import.
+- Emitter settings sit under the emitter list with reordered rate controls and hidden looping for burst/duration modes.
+- Multiplier curves are clamped to -1..1 and numeric inputs now allow negative/decimal editing without fighting the cursor.
 
 ### v100 Highlights
 
