@@ -8,8 +8,16 @@
 
 // ========== Types and Interfaces ==========
 
-interface Vec2 { x: number; y: number; }
-interface Color { r: number; g: number; b: number; a: number; }
+interface Vec2 {
+  x: number;
+  y: number;
+}
+interface Color {
+  r: number;
+  g: number;
+  b: number;
+  a: number;
+}
 
 interface CurvePoint {
   time: number;
@@ -18,7 +26,7 @@ interface CurvePoint {
 
 interface Curve {
   points: CurvePoint[];
-  interpolation: 'linear' | 'smooth';
+  interpolation: "linear" | "smooth";
 }
 
 interface RangeValue {
@@ -39,14 +47,14 @@ interface ColorGradient {
 interface EmitterInstanceSettings {
   // Emitter shape and position
   position: Vec2;
-  shape: 'point' | 'circle' | 'rectangle' | 'roundedRect' | 'line';
+  shape: "point" | "circle" | "rectangle" | "roundedRect" | "line";
   shapeRadius: number;
   shapeWidth: number;
   shapeHeight: number;
   roundRadius: number;
   lineLength: number;
   lineSpreadRotation: number;
-  emissionMode: 'area' | 'edge';
+  emissionMode: "area" | "edge";
   angle: number;
   angleSpread: number;
   rate: number;
@@ -54,7 +62,7 @@ interface EmitterInstanceSettings {
   maxParticles: number;
 
   // Emission timing
-  emissionType: 'continuous' | 'burst' | 'duration';
+  emissionType: "continuous" | "burst" | "duration";
   burstCount: number;
   burstCycles: number;
   burstInterval: number;
@@ -95,7 +103,7 @@ interface EmitterInstanceSettings {
   spinRange: RangeValue;
   angularVelocityOverLifetime: Curve;
   angularVelocityRange: RangeValue;
-  spawnAngleMode: 'alignMotion' | 'specific' | 'random' | 'range';
+  spawnAngleMode: "alignMotion" | "specific" | "random" | "range";
   spawnAngle: number;
   spawnAngleMin: number;
   spawnAngleMax: number;
@@ -119,7 +127,16 @@ interface EmitterInstanceSettings {
 
   // Appearance
   colorOverLifetime: ColorGradient;
-  particleSprite: 'circle' | 'star' | 'polygon' | 'glow' | 'needle' | 'raindrop' | 'snowflake' | 'smoke' | 'custom';
+  particleSprite:
+    | "circle"
+    | "star"
+    | "polygon"
+    | "glow"
+    | "needle"
+    | "raindrop"
+    | "snowflake"
+    | "smoke"
+    | "custom";
   customSpriteData: string | null;
 }
 
@@ -142,6 +159,8 @@ interface ExportSettings {
   rotationThreshold: number;
   scaleThreshold: number;
   colorThreshold: number;
+
+  spineVersion: string; // e.g. "4.2.00", "4.3.39-beta"
 }
 
 // Global particle system settings
@@ -191,18 +210,21 @@ type BakedParticleKey = string | number;
 
 interface BakedFrame {
   time: number;
-  particles: Map<BakedParticleKey, {
-    emitterId: string; // Track emitter for export bone hierarchy
-    localId?: number;  // Preserve per-emitter particle index
-    x: number;
-    y: number;
-    rotation: number;
-    scale: number;
-    scaleX: number;
-    scaleY: number;
-    alpha: number;
-    color: Color;
-  }>;
+  particles: Map<
+    BakedParticleKey,
+    {
+      emitterId: string; // Track emitter for export bone hierarchy
+      localId?: number; // Preserve per-emitter particle index
+      x: number;
+      y: number;
+      rotation: number;
+      scale: number;
+      scaleX: number;
+      scaleY: number;
+      alpha: number;
+      color: Color;
+    }
+  >;
 }
 
 interface AtlasRegion {
@@ -214,25 +236,94 @@ interface AtlasRegion {
   atlasIndex: number;
 }
 
-
 // ========== Default Presets ==========
 
-
 const DEFAULT_CURVE_PRESETS: { [key: string]: Curve } = {
-  sizeX: { points: [{ time: 0, value: 1.0 }, { time: 1, value: 0.2 }], interpolation: 'linear' },
-  sizeY: { points: [{ time: 0, value: 1.0 }, { time: 1, value: 0.2 }], interpolation: 'linear' },
-  speed: { points: [{ time: 0, value: 1.0 }, { time: 1, value: 1.0 }], interpolation: 'linear' },
-  weight: { points: [{ time: 0, value: 1.0 }, { time: 1, value: 1.0 }], interpolation: 'linear' },
-  spin: { points: [{ time: 0, value: 0 }, { time: 1, value: 0 }], interpolation: 'linear' },
-  attraction: { points: [{ time: 0, value: 0 }, { time: 1, value: 0 }], interpolation: 'linear' },
-  noise: { points: [{ time: 0, value: 0 }, { time: 1, value: 0 }], interpolation: 'linear' },
-  angularVelocity: { points: [{ time: 0, value: 0 }, { time: 1, value: 0 }], interpolation: 'linear' },
-  vortex: { points: [{ time: 0, value: 0 }, { time: 1, value: 0 }], interpolation: 'linear' },
-  gravity: { points: [{ time: 0, value: 1 }, { time: 1, value: 1 }], interpolation: 'linear' },
-  drag: { points: [{ time: 0, value: 1 }, { time: 1, value: 1 }], interpolation: 'linear' },
-  rate: { points: [{ time: 0, value: 1 }, { time: 1, value: 1 }], interpolation: 'linear' },
+  sizeX: {
+    points: [
+      { time: 0, value: 1.0 },
+      { time: 1, value: 0.2 },
+    ],
+    interpolation: "linear",
+  },
+  sizeY: {
+    points: [
+      { time: 0, value: 1.0 },
+      { time: 1, value: 0.2 },
+    ],
+    interpolation: "linear",
+  },
+  speed: {
+    points: [
+      { time: 0, value: 1.0 },
+      { time: 1, value: 1.0 },
+    ],
+    interpolation: "linear",
+  },
+  weight: {
+    points: [
+      { time: 0, value: 1.0 },
+      { time: 1, value: 1.0 },
+    ],
+    interpolation: "linear",
+  },
+  spin: {
+    points: [
+      { time: 0, value: 0 },
+      { time: 1, value: 0 },
+    ],
+    interpolation: "linear",
+  },
+  attraction: {
+    points: [
+      { time: 0, value: 0 },
+      { time: 1, value: 0 },
+    ],
+    interpolation: "linear",
+  },
+  noise: {
+    points: [
+      { time: 0, value: 0 },
+      { time: 1, value: 0 },
+    ],
+    interpolation: "linear",
+  },
+  angularVelocity: {
+    points: [
+      { time: 0, value: 0 },
+      { time: 1, value: 0 },
+    ],
+    interpolation: "linear",
+  },
+  vortex: {
+    points: [
+      { time: 0, value: 0 },
+      { time: 1, value: 0 },
+    ],
+    interpolation: "linear",
+  },
+  gravity: {
+    points: [
+      { time: 0, value: 1 },
+      { time: 1, value: 1 },
+    ],
+    interpolation: "linear",
+  },
+  drag: {
+    points: [
+      { time: 0, value: 1 },
+      { time: 1, value: 1 },
+    ],
+    interpolation: "linear",
+  },
+  rate: {
+    points: [
+      { time: 0, value: 1 },
+      { time: 1, value: 1 },
+    ],
+    interpolation: "linear",
+  },
 };
-
 
 // ========== Default Settings ==========
 
@@ -241,14 +332,14 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
   return {
     // Emitter shape and position
     position: { x: 256, y: 256 },
-    shape: 'point',
+    shape: "point",
     shapeRadius: 20,
     shapeWidth: 100,
     shapeHeight: 100,
     roundRadius: 20,
     lineLength: 100,
     lineSpreadRotation: 0,
-    emissionMode: 'area',
+    emissionMode: "area",
     angle: -90,
     angleSpread: 30,
     rate: 10,
@@ -256,7 +347,7 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     maxParticles: 500,
 
     // Emission timing
-    emissionType: 'continuous',
+    emissionType: "continuous",
     burstCount: 10,
     burstCycles: 1,
     burstInterval: 0.5,
@@ -297,7 +388,7 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     spinRange: { min: 0, max: 0 },
     angularVelocityOverLifetime: DEFAULT_CURVE_PRESETS.angularVelocity,
     angularVelocityRange: { min: 0, max: 0 },
-    spawnAngleMode: 'alignMotion',
+    spawnAngleMode: "alignMotion",
     spawnAngle: 0,
     spawnAngleMin: -45,
     spawnAngleMax: 45,
@@ -323,10 +414,10 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     colorOverLifetime: {
       points: [
         { time: 0, color: { r: 255, g: 255, b: 255, a: 255 } },
-        { time: 1, color: { r: 255, g: 255, b: 255, a: 0 } }
-      ]
+        { time: 1, color: { r: 255, g: 255, b: 255, a: 0 } },
+      ],
     },
-    particleSprite: 'circle',
+    particleSprite: "circle",
     customSpriteData: null,
   };
 }
@@ -345,7 +436,7 @@ function createEmitterInstance(id: string, name: string): EmitterInstance {
 // Default particle system settings with one emitter
 
 const DEFAULT_SETTINGS: ParticleSettings = {
-  emitters: [createEmitterInstance('emitter_1', 'Emitter 1')],
+  emitters: [createEmitterInstance("emitter_1", "Emitter 1")],
   currentEmitterIndex: 0,
 
   // Global settings
@@ -363,9 +454,10 @@ const DEFAULT_SETTINGS: ParticleSettings = {
     rotationThreshold: 20.0,
     scaleThreshold: 0.2,
     colorThreshold: 60,
+
+    spineVersion: "4.2.00",
   },
 };
-
 
 export {
   type Vec2,
