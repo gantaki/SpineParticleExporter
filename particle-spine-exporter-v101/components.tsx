@@ -848,7 +848,7 @@ const Timeline: React.FC<{
           onClick={onPlaybackRestart}
           className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm font-semibold"
         >
-          Playback
+          ⏯
         </button>
         
         <select

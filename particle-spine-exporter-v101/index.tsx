@@ -101,6 +101,7 @@ const ParticleSpineExporter: React.FC = () => {
       
       for (const p of system.particles) {
         particlesSnapshot.set(p.id, {
+          emitterId: p.emitterId,
           x: p.x,
           y: p.y,
           vx: p.vx,
@@ -144,6 +145,7 @@ const ParticleSpineExporter: React.FC = () => {
     for (const [id, data] of frame.particles) {
       systemRef.current.particles.push({
         id,
+        emitterId: data.emitterId,
         x: data.x,
         y: data.y,
         vx: data.vx,
