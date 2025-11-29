@@ -125,6 +125,7 @@ function editorMachineReducer(
           ...state,
           state: validNextState,
           exportStatus: "✅ Exported!",
+          needsRebake: false,
         };
       }
       return state;
@@ -172,6 +173,12 @@ function editorMachineReducer(
         };
       }
       return state;
+
+    case "MARK_DIRTY":
+      return { ...state, needsRebake: true };
+
+    case "CLEAR_DIRTY":
+      return { ...state, needsRebake: false };
 
     default:
       return state;
@@ -271,14 +278,10 @@ export function useEditorMachine(): EditorMachineAPI {
   }, [isPlaying, pause, play]);
 
   // Mark simulation as needing rebake (settings changed)
-  const markDirty = useCallback(() => {
-    // This is handled through a separate state update to avoid reducer complexity
-    // In practice, this would trigger a re-bake before next play
-  }, []);
+  const markDirty = useCallback(() => dispatch({ type: "MARK_DIRTY" }), []);
 
-  const clearDirty = useCallback(() => {
-    // Clear the dirty flag after rebaking
-  }, []);
+  // Clear the dirty flag after rebaking
+  const clearDirty = useCallback(() => dispatch({ type: "CLEAR_DIRTY" }), []);
 
   return useMemo(
     () => ({

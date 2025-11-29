@@ -129,7 +129,8 @@ export function useParticleBridge(): ParticleBridgeAPI {
 
     // Mark simulation as needing rebake
     bakedSimulationRef.current = null;
-  }, [settings]);
+    machine.markDirty();
+  }, [settings, machine]);
 
   // Subscribe to engine stats updates
   useEffect(() => {
@@ -181,7 +182,7 @@ export function useParticleBridge(): ParticleBridgeAPI {
 
     for (let i = 0; i <= frameCount; i++) {
       const time = i * dt;
-      const particlesSnapshot = new Map<number, any>();
+      const particlesSnapshot = new Map<number, InternalBakedParticle>();
 
       for (const p of engine.particles) {
         particlesSnapshot.set(p.id, {

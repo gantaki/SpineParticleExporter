@@ -40,7 +40,9 @@ export type EditorAction =
   | { type: "SET_TIME"; time: number }
   | { type: "SET_SPEED"; speed: number }
   | { type: "TICK"; deltaTime: number }
-  | { type: "RESET" };
+  | { type: "RESET" }
+  | { type: "MARK_DIRTY" }
+  | { type: "CLEAR_DIRTY" };
 
 /**
  * Full editor machine state
