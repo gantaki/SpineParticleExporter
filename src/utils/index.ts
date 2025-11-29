@@ -2,7 +2,7 @@
  * Utility functions for curves, noise, and math operations
  */
 
-import type { Curve, ColorGradient, Color, RangeValue, Vec2 } from './types';
+import type { Curve, ColorGradient, Color, RangeValue, Vec2 } from '../types';
 
 // ============================================================
 // UTILITY FUNCTIONS

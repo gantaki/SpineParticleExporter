@@ -2,8 +2,8 @@
  * Export functionality: sprite generation, atlas packing, baking, Spine JSON generation
  */
 
-import type { ParticleSettings, BakedFrame, AtlasRegion, Color, EmitterInstance } from './types';
-import { ParticleSystem } from './core';
+import type { ParticleSettings, BakedFrame, AtlasRegion, Color, EmitterInstance } from '../types';
+import { ParticleSystem } from '../core';
 
 // ============================================================
 // EXPORT FUNCTIONALITY
