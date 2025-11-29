@@ -99,17 +99,25 @@ export function generateSpineJSON(
     height: settings.frameSize,
   };
 
-  // Build bone hierarchy
-  const bones = buildBoneHierarchy(settings, particlesByEmitter);
+  // Build bone hierarchy (root + emitters)
+  const hierarchyBones = buildBoneHierarchy(settings, particlesByEmitter);
 
-  // Build slots and skins
-  const { slots, skins, particleTracks } = buildSlotsAndSkins(
+  // Build slots and skins (also creates particle bones)
+  const {
+    slots,
+    skins,
+    particleTracks,
+    bones: particleBones,
+  } = buildSlotsAndSkins(
     settings,
     particlesByEmitter,
     getParticleBoneName,
     getParticleSlotName,
     getSpriteName
   );
+
+  // Combine hierarchy bones with particle bones
+  const bones = [...hierarchyBones, ...particleBones];
 
   // Build animations
   const animations = buildAnimations(
