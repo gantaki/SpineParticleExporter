@@ -2,8 +2,9 @@
  * Core ParticleSystem simulation engine
  */
 
-import type { ParticleSettings, Particle, Vec2, Color, EmitterInstance } from '../types';
+import type { ParticleSettings, Particle } from '../types';
 import { sampleRange, evaluateCurve, evaluateColorGradient, noise2D, clamp01 } from '../utils';
+import { applyWindForce } from './wind';
 
 // ============================================================
 // PARTICLE SYSTEM CORE
@@ -189,6 +190,8 @@ class ParticleSystem {
       }
 
       const t = 1 - (p.life / p.maxLife);
+
+      applyWindForce(p, em.wind, this.time, dt);
 
       const sizeXMultiplier = clamp01(evaluateCurve(em.sizeXOverLifetime, t));
       const sizeYMultiplier = clamp01(evaluateCurve(em.sizeYOverLifetime, t));
@@ -404,6 +407,10 @@ class ParticleSystem {
     const baseSpinRate = sampleRange(em.spinRange);
     const baseAngularVelocity = sampleRange(em.angularVelocityRange);
 
+    const windStrengthMultiplier = 1 + ((Math.random() * 2 - 1) * em.wind.strengthRandomness);
+    const windDirectionOffset = ((Math.random() * 2 - 1) * em.wind.directionRandomness) * Math.PI / 180;
+    const windTurbulenceOffset = { x: Math.random() * 1000, y: Math.random() * 1000 };
+
     const particle: Particle = {
       id: state.nextParticleId++,
       emitterId: emitterId, // NEW: track which emitter spawned this
@@ -432,7 +439,10 @@ class ParticleSystem {
       scaleX: 1,
       scaleY: 1,
       color: { r: 255, g: 255, b: 255, a: 255 },
-      alpha: 1
+      alpha: 1,
+      windStrengthMultiplier,
+      windDirectionOffset,
+      windTurbulenceOffset,
     };
     particle.maxLife = particle.life;
 
@@ -706,18 +716,6 @@ class ParticleSystem {
     ctx.restore();
   }
 
-  private lerp(a: number, b: number, t: number): number {
-    return a + (b - a) * t;
-  }
-
-  private lerpColor(a: Color, b: Color, t: number): Color {
-    return {
-      r: Math.round(this.lerp(a.r, b.r, t)),
-      g: Math.round(this.lerp(a.g, b.g, t)),
-      b: Math.round(this.lerp(a.b, b.b, t)),
-      a: 255
-    };
-  }
 }
 
 
