@@ -130,7 +130,8 @@ export function useParticleBridge(): ParticleBridgeAPI {
     // Mark simulation as needing rebake
     bakedSimulationRef.current = null;
     machine.markDirty();
-  }, [settings, machine]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings]); // machine.markDirty is stable (closes over dispatch)
 
   // Subscribe to engine stats updates
   useEffect(() => {
