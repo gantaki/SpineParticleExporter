@@ -13,7 +13,7 @@
 // React from CDN (defined in standalone.html)
 const { useState, useRef, useEffect, useCallback, useMemo } = React;
 // Lucide icons from window.LucideReact (defined in standalone.html)
-const { Download, Play, RotateCcw, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } = window.LucideReact || {};
+const { Download, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } = window.LucideReact || {};
 
 // ============================================================
 // TYPES AND INTERFACES
@@ -1263,11 +1263,11 @@ const Timeline: React.FC<{
   playbackSpeed: number;
   onTimeChange: (time: number) => void;
   onPlayPause: () => void;
-  onRestart: () => void;
+  onPlaybackRestart: () => void;
   onSpeedChange: (speed: number) => void;
   onDurationChange: (duration: number) => void;
   onFpsChange: (fps: number) => void;
-}> = ({ currentTime, duration, fps, isPlaying, playbackSpeed, onTimeChange, onPlayPause, onRestart, onSpeedChange, onDurationChange, onFpsChange }) => {
+}> = ({ currentTime, duration, fps, isPlaying, playbackSpeed, onTimeChange, onPlayPause, onPlaybackRestart, onSpeedChange, onDurationChange, onFpsChange }) => {
   const [isDragging, setIsDragging] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
 
@@ -1315,10 +1315,10 @@ const Timeline: React.FC<{
         </button>
         
         <button
-          onClick={onRestart}
-          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm"
+          onClick={onPlaybackRestart}
+          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm font-semibold"
         >
-          <RotateCcw size={14} />
+          Playback
         </button>
         
         <select
@@ -3410,13 +3410,13 @@ const ParticleSpineExporter: React.FC = () => {
     return frames;
   }, [settings.duration]);
 
-  const renderBakedFrame = useCallback((targetTime: number) => {
-    if (!bakedSimulation || !canvasRef.current || !systemRef.current) return;
-    
+  const renderBakedFrame = useCallback((targetTime: number, frames: BakedFrame[] | null = bakedSimulation) => {
+    if (!frames || !canvasRef.current || !systemRef.current) return;
+
     const dt = 1 / 60;
     const frameIndex = Math.floor(targetTime / dt);
-    const clampedIndex = Math.max(0, Math.min(frameIndex, bakedSimulation.length - 1));
-    const frame = bakedSimulation[clampedIndex];
+    const clampedIndex = Math.max(0, Math.min(frameIndex, frames.length - 1));
+    const frame = frames[clampedIndex];
     
     if (!frame) return;
     
@@ -3452,13 +3452,14 @@ const ParticleSpineExporter: React.FC = () => {
     setCurrentTime(newTime);
     setIsPlaying(false);
     
-    if (!bakedSimulation || needsRebake) {
-      const newBake = bakeSimulation();
-      setBakedSimulation(newBake);
+    let frames = bakedSimulation;
+    if (!frames || needsRebake) {
+      frames = bakeSimulation();
+      setBakedSimulation(frames);
       setNeedsRebake(false);
     }
-    
-    renderBakedFrame(newTime);
+
+    renderBakedFrame(newTime, frames);
   }, [bakedSimulation, needsRebake, bakeSimulation, renderBakedFrame]);
 
   const handlePlayPause = useCallback(() => {
@@ -3732,6 +3733,27 @@ const ParticleSpineExporter: React.FC = () => {
         setLiveParticleCount(systemRef.current.particles.length);
       }
     }
+  };
+
+  const handlePlaybackRestart = () => {
+    if (!systemRef.current) return;
+
+    systemRef.current.reset();
+    setCurrentTime(0);
+    setLiveParticleCount(systemRef.current.particles.length);
+
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d')!;
+      systemRef.current.render(ctx, showEmitter, zoom, spriteCanvases, showGrid, backgroundImage, bgPosition);
+    }
+
+    if (!bakedSimulation || needsRebake) {
+      const frames = bakeSimulation();
+      setBakedSimulation(frames);
+      setNeedsRebake(false);
+    }
+
+    setIsPlaying(true);
   };
 
   const handleReset = () => {
@@ -4286,12 +4308,6 @@ const ParticleSpineExporter: React.FC = () => {
                   <button onClick={() => setShowGrid(!showGrid)} className={`px-2 py-1 rounded text-xs ${showGrid ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`} title="Toggle Grid">
                     #
                   </button>
-                  <button onClick={() => setIsPlaying(!isPlaying)} className="px-2 py-1 bg-purple-600 hover:bg-purple-700 rounded text-xs">
-                    {isPlaying ? '⏸' : '▶'}
-                  </button>
-                  <button onClick={handleRestart} className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs">
-                    <RotateCcw size={12} />
-                  </button>
                 </div>
               </div>
 
@@ -4347,7 +4363,7 @@ const ParticleSpineExporter: React.FC = () => {
                   playbackSpeed={playbackSpeed}
                   onTimeChange={handleTimelineTimeChange}
                   onPlayPause={handlePlayPause}
-                  onRestart={handleRestart}
+                  onPlaybackRestart={handlePlaybackRestart}
                   onSpeedChange={handleSpeedChange}
                   onDurationChange={d => updateSettings({ ...settings, duration: d })}
                   onFpsChange={f => updateSettings({ ...settings, fps: f })}

@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Download, Play, RotateCcw, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } from 'lucide-react';
+import { Download, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } from 'lucide-react';
 import type { Color, ColorGradient, ColorPoint, Curve, CurvePoint, RangeValue } from './types';
 import { clamp01, evaluateCurve, evaluateColorGradient } from './utils';
 
@@ -793,11 +793,11 @@ const Timeline: React.FC<{
   playbackSpeed: number;
   onTimeChange: (time: number) => void;
   onPlayPause: () => void;
-  onRestart: () => void;
+  onPlaybackRestart: () => void;
   onSpeedChange: (speed: number) => void;
   onDurationChange: (duration: number) => void;
   onFpsChange: (fps: number) => void;
-}> = ({ currentTime, duration, fps, isPlaying, playbackSpeed, onTimeChange, onPlayPause, onRestart, onSpeedChange, onDurationChange, onFpsChange }) => {
+}> = ({ currentTime, duration, fps, isPlaying, playbackSpeed, onTimeChange, onPlayPause, onPlaybackRestart, onSpeedChange, onDurationChange, onFpsChange }) => {
   const [isDragging, setIsDragging] = useState(false);
   const timelineRef = useRef<HTMLDivElement>(null);
 
@@ -845,10 +845,10 @@ const Timeline: React.FC<{
         </button>
         
         <button
-          onClick={onRestart}
-          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm"
+          onClick={onPlaybackRestart}
+          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded text-sm font-semibold"
         >
-          <RotateCcw size={14} />
+          Playback
         </button>
         
         <select

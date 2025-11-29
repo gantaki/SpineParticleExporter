@@ -11,7 +11,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Download, Play, RotateCcw, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } from 'lucide-react';
+import { Download, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } from 'lucide-react';
 
 // Type imports
 import type { ParticleSettings, Curve, RangeValue, Vec2, EmitterInstance, BakedFrame } from './types';
@@ -127,13 +127,13 @@ const ParticleSpineExporter: React.FC = () => {
     return frames;
   }, [settings.duration]);
 
-  const renderBakedFrame = useCallback((targetTime: number) => {
-    if (!bakedSimulation || !canvasRef.current || !systemRef.current) return;
-    
+  const renderBakedFrame = useCallback((targetTime: number, frames: BakedFrame[] | null = bakedSimulation) => {
+    if (!frames || !canvasRef.current || !systemRef.current) return;
+
     const dt = 1 / 60;
     const frameIndex = Math.floor(targetTime / dt);
-    const clampedIndex = Math.max(0, Math.min(frameIndex, bakedSimulation.length - 1));
-    const frame = bakedSimulation[clampedIndex];
+    const clampedIndex = Math.max(0, Math.min(frameIndex, frames.length - 1));
+    const frame = frames[clampedIndex];
     
     if (!frame) return;
     
@@ -169,13 +169,14 @@ const ParticleSpineExporter: React.FC = () => {
     setCurrentTime(newTime);
     setIsPlaying(false);
     
-    if (!bakedSimulation || needsRebake) {
-      const newBake = bakeSimulation();
-      setBakedSimulation(newBake);
+    let frames = bakedSimulation;
+    if (!frames || needsRebake) {
+      frames = bakeSimulation();
+      setBakedSimulation(frames);
       setNeedsRebake(false);
     }
-    
-    renderBakedFrame(newTime);
+
+    renderBakedFrame(newTime, frames);
   }, [bakedSimulation, needsRebake, bakeSimulation, renderBakedFrame]);
 
   const handlePlayPause = useCallback(() => {
@@ -449,6 +450,27 @@ const ParticleSpineExporter: React.FC = () => {
         setLiveParticleCount(systemRef.current.particles.length);
       }
     }
+  };
+
+  const handlePlaybackRestart = () => {
+    if (!systemRef.current) return;
+
+    systemRef.current.reset();
+    setCurrentTime(0);
+    setLiveParticleCount(systemRef.current.particles.length);
+
+    if (canvasRef.current) {
+      const ctx = canvasRef.current.getContext('2d')!;
+      systemRef.current.render(ctx, showEmitter, zoom, spriteCanvases, showGrid, backgroundImage, bgPosition);
+    }
+
+    if (!bakedSimulation || needsRebake) {
+      const frames = bakeSimulation();
+      setBakedSimulation(frames);
+      setNeedsRebake(false);
+    }
+
+    setIsPlaying(true);
   };
 
   const handleReset = () => {
@@ -1003,12 +1025,6 @@ const ParticleSpineExporter: React.FC = () => {
                   <button onClick={() => setShowGrid(!showGrid)} className={`px-2 py-1 rounded text-xs ${showGrid ? 'bg-blue-600 hover:bg-blue-700' : 'bg-slate-700 hover:bg-slate-600'}`} title="Toggle Grid">
                     #
                   </button>
-                  <button onClick={() => setIsPlaying(!isPlaying)} className="px-2 py-1 bg-purple-600 hover:bg-purple-700 rounded text-xs">
-                    {isPlaying ? '⏸' : '▶'}
-                  </button>
-                  <button onClick={handleRestart} className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs">
-                    <RotateCcw size={12} />
-                  </button>
                 </div>
               </div>
 
@@ -1064,7 +1080,7 @@ const ParticleSpineExporter: React.FC = () => {
                   playbackSpeed={playbackSpeed}
                   onTimeChange={handleTimelineTimeChange}
                   onPlayPause={handlePlayPause}
-                  onRestart={handleRestart}
+                  onPlaybackRestart={handlePlaybackRestart}
                   onSpeedChange={handleSpeedChange}
                   onDurationChange={d => updateSettings({ ...settings, duration: d })}
                   onFpsChange={f => updateSettings({ ...settings, fps: f })}
