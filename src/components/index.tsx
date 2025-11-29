@@ -4,8 +4,8 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Download, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } from 'lucide-react';
-import type { Color, ColorGradient, ColorPoint, Curve, CurvePoint, RangeValue } from './types';
-import { clamp01, evaluateCurve, evaluateColorGradient } from './utils';
+import type { Color, ColorGradient, ColorPoint, Curve, CurvePoint, RangeValue } from '../types';
+import { clamp01, evaluateCurve, evaluateColorGradient } from '../utils';
 
 const parseDecimal = (raw: string) => parseFloat(raw.replace(/,/g, '.'));
 

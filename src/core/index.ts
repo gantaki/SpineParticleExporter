@@ -2,8 +2,8 @@
  * Core ParticleSystem simulation engine
  */
 
-import type { ParticleSettings, Particle, Vec2, Color, EmitterInstance } from './types';
-import { sampleRange, evaluateCurve, evaluateColorGradient, noise2D, clamp01 } from './utils';
+import type { ParticleSettings, Particle, Vec2, Color, EmitterInstance } from '../types';
+import { sampleRange, evaluateCurve, evaluateColorGradient, noise2D, clamp01 } from '../utils';
 
 // ============================================================
 // PARTICLE SYSTEM CORE

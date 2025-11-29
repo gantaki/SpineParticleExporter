@@ -12,3 +12,17 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+
+# IDE
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Vite
+dist-ssr
+*.local

@@ -1,24 +1,42 @@
 {
-  "name": "particle-spine-exporter",
+  "name": "spine-particle-exporter",
+  "private": true,
   "version": "101.0.0",
-  "description": "Particle to Spine Exporter - Custom sprite fidelity & input fixes v101",
+  "type": "module",
+  "description": "Particle to Spine Exporter - Vite Edition v101",
   "scripts": {
-    "build": "node build-standalone.js",
-    "build:v98": "node build-standalone-v98.js",
-    "build:v99": "node build-standalone-v99.js",
-    "build:v100": "node build-standalone-v100.js",
-    "build:v101": "node build-standalone-v101.js",
-    "split": "node split-to-modules.js",
-    "split:v99": "node split-v99-to-modules.js",
-    "serve": "node serve-standalone.js",
-    "serve:port": "node serve-standalone.js"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^0.263.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@typescript-eslint/eslint-plugin": "^7.2.0",
+    "@typescript-eslint/parser": "^7.2.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.19",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.6",
+    "postcss": "^8.4.38",
+    "tailwindcss": "^3.4.3",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0"
   },
   "keywords": [
     "particle",
     "spine",
     "animation",
     "exporter",
-    "multi-emitter"
+    "multi-emitter",
+    "vite"
   ],
   "author": "",
   "license": "MIT"
