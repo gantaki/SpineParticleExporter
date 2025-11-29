@@ -35,6 +35,122 @@ interface ColorGradient {
   points: ColorPoint[];
 }
 
+/**
+ * Configuration for the optional wind force applied to particles.
+ *
+ * All parameters are emitter-local so multiple emitters can run different
+ * wind simulations simultaneously.
+ */
+interface WindSettings {
+  /**
+   * Enables or disables the wind influence entirely.
+   *
+   * Set to false to remove all wind acceleration without altering other
+   * emitter forces.
+   */
+  enabled: boolean;
+
+  /**
+   * Chooses how the primary direction is defined: either as an angle in
+   * degrees (0° = +X, 90° = +Y) or as an explicit world-space vector.
+   */
+  directionMode: 'angle' | 'vector';
+
+  /**
+   * Direction of the wind in degrees when {@link directionMode} is `angle`.
+   *
+   * Positive angles rotate counter-clockwise from the +X axis.
+   */
+  directionAngle: number;
+
+  /**
+   * Direction of the wind as a 2D vector when {@link directionMode} is
+   * `vector`.
+   *
+   * The vector is normalized before use; a zero-length vector defaults to
+   * +X.
+   */
+  directionVector: Vec2;
+
+  /**
+   * Base magnitude of the wind acceleration in world units per second².
+   *
+   * Higher values accelerate particles faster along the chosen direction.
+   */
+  strength: number;
+
+  /**
+   * Per-particle random variation applied to {@link strength}.
+   *
+   * Accepts 0..1; a value of 0.2 allows ±20% deviation per particle at
+   * spawn time.
+   */
+  strengthRandomness: number;
+
+  /**
+   * Per-particle angular deviation, in degrees, applied around the primary
+   * wind direction at spawn time.
+   */
+  directionRandomness: number;
+
+  /**
+   * Enables noise-driven gusts that add on top of the base wind direction.
+   */
+  turbulenceEnabled: boolean;
+
+  /**
+   * Maximum acceleration contributed by turbulence (world units per
+   * second²).
+   */
+  turbulenceStrength: number;
+
+  /**
+   * Temporal frequency of the turbulence noise. Higher values change the
+   * gust pattern more rapidly over time.
+   */
+  turbulenceFrequency: number;
+
+  /**
+   * Spatial scale of the turbulence noise. Lower values make nearby
+   * particles experience similar gusts; higher values add more variation
+   * over space.
+   */
+  turbulenceScale: number;
+
+  /**
+   * Overall wind influence volume.
+   *
+   * - `global`: everywhere.
+   * - `rect`: inside {@link areaRect}.
+   * - `circle`: inside {@link areaCircle}.
+   */
+  areaShape: 'global' | 'rect' | 'circle';
+
+  /**
+   * Rectangular wind volume, used when {@link areaShape} is `rect`.
+   * Center is in world space; size is the full width/height.
+   */
+  areaRect: {
+    center: Vec2;
+    size: Vec2;
+  };
+
+  /**
+   * Circular wind volume, used when {@link areaShape} is `circle`.
+   * Center is in world space; radius is in world units.
+   */
+  areaCircle: {
+    center: Vec2;
+    radius: number;
+  };
+
+  /**
+   * Strength falloff toward the shape edge (0 = uniform, 1 = fully eased to
+   * zero at the boundary).
+   */
+  falloff: number;
+}
+
 // Emitter-specific settings combining emitter and particle properties
 interface EmitterInstanceSettings {
   // Emitter shape and position
@@ -74,6 +190,7 @@ interface EmitterInstanceSettings {
   gravityRange: RangeValue;
   dragOverLifetime: Curve;
   dragRange: RangeValue;
+  wind: WindSettings;
 
   // Size and scaling
   sizeXOverLifetime: Curve;
@@ -185,6 +302,9 @@ interface Particle {
   scaleY: number;
   color: Color;
   alpha: number;
+  windStrengthMultiplier: number;
+  windDirectionOffset: number;
+  windTurbulenceOffset: Vec2;
 }
 
 type BakedParticleKey = string | number;
@@ -202,6 +322,9 @@ interface BakedFrame {
     scaleY: number;
     alpha: number;
     color: Color;
+    windStrengthMultiplier?: number;
+    windDirectionOffset?: number;
+    windTurbulenceOffset?: Vec2;
   }>;
 }
 
@@ -276,6 +399,29 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     gravityRange: { min: 0, max: 0 },
     dragOverLifetime: DEFAULT_CURVE_PRESETS.drag,
     dragRange: { min: 1, max: 1 },
+    wind: {
+      enabled: false,
+      directionMode: 'angle',
+      directionAngle: 0,
+      directionVector: { x: 1, y: 0 },
+      strength: 0,
+      strengthRandomness: 0,
+      directionRandomness: 0,
+      turbulenceEnabled: false,
+      turbulenceStrength: 0,
+      turbulenceFrequency: 1,
+      turbulenceScale: 0.02,
+      areaShape: 'global',
+      areaRect: {
+        center: { x: 256, y: 256 },
+        size: { x: 512, y: 512 },
+      },
+      areaCircle: {
+        center: { x: 256, y: 256 },
+        radius: 256,
+      },
+      falloff: 0,
+    },
 
     // Size and scaling
     sizeXOverLifetime: DEFAULT_CURVE_PRESETS.sizeX,
@@ -375,6 +521,7 @@ export {
   type RangeValue,
   type ColorPoint,
   type ColorGradient,
+  type WindSettings,
   type EmitterInstanceSettings,
   type EmitterInstance,
   type ExportSettings,

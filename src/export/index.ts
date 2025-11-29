@@ -2,7 +2,7 @@
  * Export functionality: sprite generation, atlas packing, baking, Spine JSON generation
  */
 
-import type { ParticleSettings, BakedFrame, AtlasRegion, Color, EmitterInstance } from '../types';
+import type { ParticleSettings, BakedFrame, AtlasRegion, BakedParticleKey } from '../types';
 import { ParticleSystem } from '../core';
 
 // ============================================================
@@ -193,10 +193,10 @@ function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame
   const dt = 1 / settings.fps;
 
   // Store prewarm animation frames for loop
-  const prewarmFrameMap: Map<number, Map<string, any>> = new Map();
+  const prewarmFrameMap: Map<number, Map<BakedParticleKey, any>> = new Map();
 
   const captureSnapshot = () => {
-    const particlesSnapshot = new Map<string, any>();
+    const particlesSnapshot = new Map<BakedParticleKey, any>();
 
     for (const p of system.particles) {
       const emitter = settings.emitters.find(e => e.id === p.emitterId);
@@ -261,7 +261,7 @@ function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame
   const totalFrameCount = Math.ceil(totalSimTime * settings.fps);
 
   // Store all simulated frames including extra ones
-  const allFrames: Map<number, Map<string, any>> = new Map();
+  const allFrames: Map<number, Map<BakedParticleKey, any>> = new Map();
 
   // Capture initial frame
   const initialSnapshot = captureSnapshot();
@@ -277,7 +277,7 @@ function bakeParticleAnimation(settings: ParticleSettings): { frames: BakedFrame
 
     if (frameIndex <= frameCount) {
       const time = frameIndex * dt;
-      const particlesSnapshot = new Map<number, any>(snapshot);
+      const particlesSnapshot = new Map<BakedParticleKey, any>(snapshot);
 
       // Add prewarm particles (for looping animations)
       if (hasAnyLooping && prewarmFrameMap.size > 0) {
@@ -346,7 +346,7 @@ function renderBakedPreview(frames: BakedFrame[], settings: ParticleSettings): H
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   
   for (const frame of frames) {
-    for (const [id, p] of frame.particles) {
+    for (const [, p] of frame.particles) {
       const size = 8 * p.scale;
       ctx.globalAlpha = p.alpha * 0.3;
       ctx.fillStyle = `rgb(${p.color.r}, ${p.color.g}, ${p.color.b})`;
@@ -380,20 +380,6 @@ function generateAtlasFile(atlasCanvas: HTMLCanvasElement, regions: AtlasRegion[
   });
 
   return atlasText;
-}
-
-function shouldCreateKey(prevValue: number | { x: number; y: number }, currentValue: number | { x: number; y: number }, threshold: number): boolean {
-  if (typeof prevValue === 'number' && typeof currentValue === 'number') {
-    return Math.abs(currentValue - prevValue) > threshold;
-  }
-
-  if (typeof prevValue === 'object' && typeof currentValue === 'object') {
-    const dx = currentValue.x - prevValue.x;
-    const dy = currentValue.y - prevValue.y;
-    return Math.sqrt(dx * dx + dy * dy) > threshold;
-  }
-
-  return true;
 }
 
 function normalizeAngle(angle: number, prevAngle: number): number {
@@ -460,11 +446,10 @@ function generateSpineJSON(
     for (const frame of source) {
       for (const [key, particleData] of frame.particles) {
         const emitterId = particleData.emitterId;
+        const fallbackId = typeof key === 'string' ? Number(key.split('__').pop()) : Number(key);
         const localId = typeof particleData.localId === 'number'
           ? particleData.localId
-          : typeof key === 'string'
-            ? Number(key.split('__').pop())
-            : Number(key);
+          : fallbackId;
 
         if (!particlesByEmitter.has(emitterId)) {
           particlesByEmitter.set(emitterId, new Set());
@@ -803,18 +788,6 @@ function generateSpineJSON(
       }
 
       return { animation: animationData, trackByBoneName, trackBySlotName };
-    };
-
-    const getLocalParticleId = (key: any, particleData: any) => {
-      if (typeof particleData?.localId === 'number') return particleData.localId;
-      if (typeof key === 'string') {
-        const parts = key.split('__');
-      const lastPart = parts[parts.length - 1];
-      const parsed = Number(lastPart);
-      if (!Number.isNaN(parsed)) return parsed;
-      }
-      if (typeof key === 'number') return key;
-      return null;
     };
 
     const addLoopSeamKeys = (

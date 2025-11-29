@@ -11,15 +11,14 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { Download, Settings, ChevronDown, ChevronUp, Trash2, RefreshCw, Plus, Eye, EyeOff } from 'lucide-react';
+import { Download, Trash2, Plus, Eye, EyeOff } from 'lucide-react';
 
 // Type imports
-import type { ParticleSettings, Curve, RangeValue, Vec2, EmitterInstance, BakedFrame } from './types';
+import type { ParticleSettings, EmitterInstance, BakedFrame } from './types';
 import { DEFAULT_SETTINGS, createEmitterInstance, DEFAULT_CURVE_PRESETS } from './types';
 
 // Component imports
 import {
-  ColorPicker,
   ColorGradientEditor,
   NumericInput,
   CurveEditor,
@@ -32,16 +31,7 @@ import {
 import { ParticleSystem } from './core';
 
 // Export imports
-import {
-  createParticleSprite,
-  createParticleAtlas,
-  bakeParticleAnimation,
-  renderBakedPreview,
-  generateAtlasFile,
-  generateSpineJSON,
-  SimpleZip,
-  downloadBlob,
-} from './export';
+import { createParticleSprite, bakeParticleAnimation, renderBakedPreview, generateSpineJSON, SimpleZip, downloadBlob } from './export';
 import { copyCurve } from './utils';
 
 const ParticleSpineExporter: React.FC = () => {
@@ -76,7 +66,6 @@ const ParticleSpineExporter: React.FC = () => {
   const animationRef = useRef<number>();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const spriteInputRef = useRef<HTMLInputElement>(null);
-  const lastFrameTimeRef = useRef<number>(0);
   const spriteCacheRef = useRef<Record<string, HTMLCanvasElement | null>>({});
   const spriteSignatureRef = useRef<Record<string, string>>({});
 
@@ -114,7 +103,10 @@ const ParticleSpineExporter: React.FC = () => {
           color: { ...p.color },
           life: p.life,
           maxLife: p.maxLife,
-          baseSpeed: p.baseSpeed
+          baseSpeed: p.baseSpeed,
+          windStrengthMultiplier: p.windStrengthMultiplier,
+          windDirectionOffset: p.windDirectionOffset,
+          windTurbulenceOffset: p.windTurbulenceOffset,
         });
       }
       
@@ -143,22 +135,39 @@ const ParticleSpineExporter: React.FC = () => {
     systemRef.current.time = targetTime;
     
     for (const [id, data] of frame.particles) {
+      const numericId = typeof id === 'number' ? id : Number(id);
       systemRef.current.particles.push({
-        id,
+        id: Number.isFinite(numericId) ? numericId : 0,
         emitterId: data.emitterId,
         x: data.x,
         y: data.y,
-        vx: data.vx,
-        vy: data.vy,
+        vx: (data as any).vx ?? 0,
+        vy: (data as any).vy ?? 0,
         rotation: data.rotation,
         scale: data.scale,
         scaleX: data.scaleX,
         scaleY: data.scaleY,
         alpha: data.alpha,
-        color: data.color,
-        life: data.life,
-        maxLife: data.maxLife,
-        baseSpeed: data.baseSpeed
+        color: { ...data.color },
+        life: (data as any).life ?? 0,
+        maxLife: (data as any).maxLife ?? 0,
+        baseSpeed: (data as any).baseSpeed ?? 0,
+        baseSpinRate: (data as any).baseSpinRate ?? 0,
+        baseAngularVelocity: (data as any).baseAngularVelocity ?? 0,
+        baseGravity: (data as any).baseGravity ?? 0,
+        baseDrag: (data as any).baseDrag ?? 1,
+        baseNoiseStrength: (data as any).baseNoiseStrength ?? 0,
+        baseNoiseFrequency: (data as any).baseNoiseFrequency ?? 0,
+        baseNoiseSpeed: (data as any).baseNoiseSpeed ?? 0,
+        baseAttraction: (data as any).baseAttraction ?? 0,
+        baseVortexStrength: (data as any).baseVortexStrength ?? 0,
+        baseSpeedScale: (data as any).baseSpeedScale ?? 1,
+        baseWeight: (data as any).baseWeight ?? 1,
+        baseSizeX: (data as any).baseSizeX ?? 1,
+        baseSizeY: (data as any).baseSizeY ?? 1,
+        windStrengthMultiplier: (data as any).windStrengthMultiplier ?? 1,
+        windDirectionOffset: (data as any).windDirectionOffset ?? 0,
+        windTurbulenceOffset: (data as any).windTurbulenceOffset ?? { x: 0, y: 0 },
       });
     }
     
@@ -588,7 +597,10 @@ const ParticleSpineExporter: React.FC = () => {
       const uniqueParticles = new Set<number>();
       for (const frame of frames) {
         for (const [id, _] of frame.particles) {
-          uniqueParticles.add(id);
+          const numericId = typeof id === 'number' ? id : Number(id);
+          if (Number.isFinite(numericId)) {
+            uniqueParticles.add(numericId);
+          }
         }
       }
       setExportStatus(`✓ ${frames.length} frames, ${uniqueParticles.size} particles`);
@@ -635,6 +647,11 @@ const ParticleSpineExporter: React.FC = () => {
   // Helper to access current emitter settings
   const currentEmitter = settings.emitters[settings.currentEmitterIndex];
   const em = currentEmitter?.settings || settings.emitters[0]?.settings;
+
+  const updateWind = useCallback((partialWind: Partial<EmitterInstance['settings']['wind']>) => {
+    if (!em) return;
+    updateEmitter({ wind: { ...em.wind, ...partialWind } });
+  }, [em, updateEmitter]);
 
   useEffect(() => {
     if (!em) return;
@@ -1180,7 +1197,7 @@ const ParticleSpineExporter: React.FC = () => {
                     <span className="text-xs text-slate-300">Preset</span>
                     <select
                       value={em.spawnAngleMode}
-                      onChange={e => updateEmitter({ spawnAngleMode: e.target.value as ParticleSettings['spawnAngleMode'] })}
+                      onChange={e => updateEmitter({ spawnAngleMode: e.target.value as EmitterInstance['settings']['spawnAngleMode'] })}
                       className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
                     >
                       <option value="alignMotion">Align to Motion</option>
@@ -1282,6 +1299,234 @@ const ParticleSpineExporter: React.FC = () => {
                 </div>
 
                 <div className="bg-slate-900/30 p-2 rounded border border-slate-700">
+                  <h4 className="text-xs font-semibold text-amber-200 mb-2">🍃 Wind Field</h4>
+
+                  <label className="flex items-center gap-2 mb-2 text-xs text-slate-300">
+                    <input
+                      type="checkbox"
+                      checked={em.wind.enabled}
+                      onChange={e => updateWind({ enabled: e.target.checked })}
+                      className="h-4 w-4 text-amber-400 rounded border-slate-600 bg-slate-900"
+                    />
+                    <span>Enable wind acceleration</span>
+                  </label>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block">
+                      <span className="text-xs text-slate-300">Direction Mode</span>
+                      <select
+                        value={em.wind.directionMode}
+                        onChange={e => updateWind({ directionMode: e.target.value as any })}
+                        className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                      >
+                        <option value="angle">Angle (deg)</option>
+                        <option value="vector">Vector</option>
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="text-xs text-slate-300">Strength (accel)</span>
+                      <NumericInput
+                        value={em.wind.strength}
+                        onValueChange={value => updateWind({ strength: value })}
+                        min={0}
+                        className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                      />
+                    </label>
+                  </div>
+
+                  {em.wind.directionMode === 'angle' && (
+                    <label className="block mt-2">
+                      <span className="text-xs text-slate-300">Direction (deg)</span>
+                      <NumericInput
+                        value={em.wind.directionAngle}
+                        onValueChange={value => updateWind({ directionAngle: value })}
+                        className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                      />
+                    </label>
+                  )}
+
+                  {em.wind.directionMode === 'vector' && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <label className="block">
+                        <span className="text-xs text-slate-300">Dir X</span>
+                        <NumericInput
+                          value={em.wind.directionVector.x}
+                          onValueChange={value => updateWind({ directionVector: { ...em.wind.directionVector, x: value } })}
+                          className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs text-slate-300">Dir Y</span>
+                        <NumericInput
+                          value={em.wind.directionVector.y}
+                          onValueChange={value => updateWind({ directionVector: { ...em.wind.directionVector, y: value } })}
+                          className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    <label className="block">
+                      <span className="text-xs text-slate-300">Strength Rand (0-1)</span>
+                      <NumericInput
+                        value={em.wind.strengthRandomness}
+                        onValueChange={value => updateWind({ strengthRandomness: value })}
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs text-slate-300">Direction Rand (deg)</span>
+                      <NumericInput
+                        value={em.wind.directionRandomness}
+                        onValueChange={value => updateWind({ directionRandomness: value })}
+                        min={0}
+                        className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs text-slate-300">Falloff (0-1)</span>
+                      <NumericInput
+                        value={em.wind.falloff}
+                        onValueChange={value => updateWind({ falloff: value })}
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                      />
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-2">
+                    <label className="block">
+                      <span className="text-xs text-slate-300">Area Shape</span>
+                      <select
+                        value={em.wind.areaShape}
+                        onChange={e => updateWind({ areaShape: e.target.value as any })}
+                        className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                      >
+                        <option value="global">Global</option>
+                        <option value="rect">Rectangle</option>
+                        <option value="circle">Circle</option>
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-2 text-xs text-slate-300 mt-4">
+                      <input
+                        type="checkbox"
+                        checked={em.wind.turbulenceEnabled}
+                        onChange={e => updateWind({ turbulenceEnabled: e.target.checked })}
+                        className="h-4 w-4 text-amber-400 rounded border-slate-600 bg-slate-900"
+                      />
+                      <span>Enable turbulence gusts</span>
+                    </label>
+                  </div>
+
+                  {em.wind.areaShape === 'rect' && (
+                    <div className="grid grid-cols-2 gap-2 mt-2">
+                      <label className="block">
+                        <span className="text-xs text-slate-300">Center X</span>
+                        <NumericInput
+                          value={em.wind.areaRect.center.x}
+                          onValueChange={value => updateWind({ areaRect: { ...em.wind.areaRect, center: { ...em.wind.areaRect.center, x: value } } })}
+                          className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs text-slate-300">Center Y</span>
+                        <NumericInput
+                          value={em.wind.areaRect.center.y}
+                          onValueChange={value => updateWind({ areaRect: { ...em.wind.areaRect, center: { ...em.wind.areaRect.center, y: value } } })}
+                          className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs text-slate-300">Width</span>
+                        <NumericInput
+                          value={em.wind.areaRect.size.x}
+                          onValueChange={value => updateWind({ areaRect: { ...em.wind.areaRect, size: { ...em.wind.areaRect.size, x: value } } })}
+                          min={0}
+                          className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs text-slate-300">Height</span>
+                        <NumericInput
+                          value={em.wind.areaRect.size.y}
+                          onValueChange={value => updateWind({ areaRect: { ...em.wind.areaRect, size: { ...em.wind.areaRect.size, y: value } } })}
+                          min={0}
+                          className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  {em.wind.areaShape === 'circle' && (
+                    <div className="grid grid-cols-3 gap-2 mt-2">
+                      <label className="block">
+                        <span className="text-xs text-slate-300">Center X</span>
+                        <NumericInput
+                          value={em.wind.areaCircle.center.x}
+                          onValueChange={value => updateWind({ areaCircle: { ...em.wind.areaCircle, center: { ...em.wind.areaCircle.center, x: value } } })}
+                          className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs text-slate-300">Center Y</span>
+                        <NumericInput
+                          value={em.wind.areaCircle.center.y}
+                          onValueChange={value => updateWind({ areaCircle: { ...em.wind.areaCircle, center: { ...em.wind.areaCircle.center, y: value } } })}
+                          className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs text-slate-300">Radius</span>
+                        <NumericInput
+                          value={em.wind.areaCircle.radius}
+                          onValueChange={value => updateWind({ areaCircle: { ...em.wind.areaCircle, radius: value } })}
+                          min={0}
+                          className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                        />
+                      </label>
+                    </div>
+                  )}
+
+                  {em.wind.turbulenceEnabled && (
+                    <div className="grid grid-cols-3 gap-2 mt-2">
+                      <label className="block">
+                        <span className="text-xs text-slate-300">Turbulence Strength</span>
+                        <NumericInput
+                          value={em.wind.turbulenceStrength}
+                          onValueChange={value => updateWind({ turbulenceStrength: value })}
+                          min={0}
+                          className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs text-slate-300">Frequency</span>
+                        <NumericInput
+                          value={em.wind.turbulenceFrequency}
+                          onValueChange={value => updateWind({ turbulenceFrequency: value })}
+                          min={0}
+                          className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs text-slate-300">Scale</span>
+                        <NumericInput
+                          value={em.wind.turbulenceScale}
+                          onValueChange={value => updateWind({ turbulenceScale: value })}
+                          min={0}
+                          className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+                        />
+                      </label>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-slate-900/30 p-2 rounded border border-slate-700">
                   <h4 className="text-xs font-semibold text-purple-300 mb-2">🌪️ Noise Field</h4>
 
                   <RangeInput
@@ -1340,8 +1585,7 @@ const ParticleSpineExporter: React.FC = () => {
                       <span className="text-xs text-slate-300">Center X</span>
                       <NumericInput
                         value={em.vortexPoint.x}
-                        onValueChange={value => updateSettings({
-                          ...settings,
+                        onValueChange={value => updateEmitter({
                           vortexPoint: { ...em.vortexPoint, x: value }
                         })}
                         className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
@@ -1352,8 +1596,7 @@ const ParticleSpineExporter: React.FC = () => {
                       <span className="text-xs text-slate-300">Center Y</span>
                       <NumericInput
                         value={em.vortexPoint.y}
-                        onValueChange={value => updateSettings({
-                          ...settings,
+                        onValueChange={value => updateEmitter({
                           vortexPoint: { ...em.vortexPoint, y: value }
                         })}
                         className="w-full mt-1 px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
@@ -1559,7 +1802,7 @@ const ParticleSpineExporter: React.FC = () => {
                 </label>
 
                 <div className="text-xs font-semibold text-slate-300 mt-3 mb-1">Emitters to Export</div>
-                {settings.emitters.map((emitter, index) => (
+                {settings.emitters.map((emitter) => (
                   <label key={emitter.id} className="flex items-center gap-2 text-xs cursor-pointer">
                     <input
                       type="checkbox"
