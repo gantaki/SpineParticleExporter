@@ -201,7 +201,7 @@ function buildBoneHierarchy(
       parent: "root"
     };
 
-    // Apply emitter position offset (invert Y for mathematical coordinate system)
+    // Apply emitter position offset
     const posX = emitter.settings.position.x;
     const posY = emitter.settings.position.y;
 
@@ -209,7 +209,7 @@ function buildBoneHierarchy(
       emitterBone.x = Math.round(posX * 100) / 100;
     }
     if (posY !== 0) {
-      emitterBone.y = Math.round(-posY * 100) / 100;
+      emitterBone.y = Math.round(posY * 100) / 100;
     }
 
     bones.push(emitterBone);
