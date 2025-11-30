@@ -641,13 +641,16 @@ export class ParticleEngine {
     const offsetY = centerY - centerEmitterY * zoom;
 
     ctx.save();
-    ctx.setTransform(zoom, 0, 0, zoom, offsetX, offsetY);
+    // Invert Y axis so positive Y goes up (mathematical convention)
+    ctx.setTransform(zoom, 0, 0, -zoom, offsetX, offsetY);
 
     // Draw background
     if (backgroundImage && bgPosition) {
       ctx.save();
       ctx.globalAlpha = 0.5;
-      ctx.drawImage(backgroundImage, bgPosition.x, bgPosition.y);
+      // Compensate for inverted Y axis when drawing images
+      ctx.scale(1, -1);
+      ctx.drawImage(backgroundImage, bgPosition.x, -bgPosition.y - backgroundImage.height);
       ctx.restore();
     }
 
@@ -732,6 +735,8 @@ export class ParticleEngine {
         tempCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
         tempCtx.fillRect(0, 0, size * 2, size * 2);
 
+        // Compensate for inverted Y axis when drawing sprite images
+        ctx.scale(1, -1);
         ctx.drawImage(tempCanvas, -size, -size, size * 2, size * 2);
       } else {
         const size = 8;
