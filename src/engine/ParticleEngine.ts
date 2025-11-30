@@ -392,7 +392,7 @@ export class ParticleEngine {
     const baseAngleDeg =
       em.angle + (em.shape === "line" ? em.lineSpreadRotation : 0);
     const angleRad =
-      ((baseAngleDeg + (Math.random() - 0.5) * em.angleSpread) * Math.PI) / 180;
+      ((baseAngleDeg + (Math.random() - 0.5) * Math.abs(em.angleSpread)) * Math.PI) / 180;
     const speed = sampleRange(em.initialSpeedRange);
 
     let initialRotation = 0;
@@ -802,7 +802,7 @@ export class ParticleEngine {
       // Spread cone
       ctx.globalAlpha = 0.2;
       ctx.fillStyle = strokeColor;
-      const spread = (em.angleSpread * Math.PI) / 180;
+      const spread = (Math.abs(em.angleSpread) * Math.PI) / 180;
       ctx.beginPath();
       ctx.moveTo(em.position.x, em.position.y);
       ctx.arc(
