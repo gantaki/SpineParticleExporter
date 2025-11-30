@@ -331,7 +331,7 @@ const DEFAULT_CURVE_PRESETS: { [key: string]: Curve } = {
 function createDefaultEmitterSettings(): EmitterInstanceSettings {
   return {
     // Emitter shape and position
-    position: { x: 256, y: 256 },
+    position: { x: 0, y: 0 },
     shape: "point",
     shapeRadius: 20,
     shapeWidth: 100,
@@ -396,7 +396,7 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     // Attraction force
     attractionOverLifetime: DEFAULT_CURVE_PRESETS.attraction,
     attractionRange: { min: 0, max: 0 },
-    attractionPoint: { x: 256, y: 256 },
+    attractionPoint: { x: 0, y: 0 },
 
     // Noise/turbulence
     noiseStrengthOverLifetime: DEFAULT_CURVE_PRESETS.noise,
@@ -407,7 +407,7 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     // Vortex force
     vortexStrengthOverLifetime: DEFAULT_CURVE_PRESETS.vortex,
     vortexStrengthRange: { min: 0, max: 0 },
-    vortexPoint: { x: 256, y: 256 },
+    vortexPoint: { x: 0, y: 0 },
     showVortexVisualization: false,
 
     // Appearance

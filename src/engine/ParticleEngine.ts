@@ -593,17 +593,9 @@ export class ParticleEngine {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.restore();
 
-    // Calculate zoom transform centered on current emitter
-    let centerEmitterX = 256;
-    let centerEmitterY = 256;
-    if (this.settings.emitters.length > 0) {
-      const currentEmitter =
-        this.settings.emitters[this.settings.currentEmitterIndex];
-      if (currentEmitter) {
-        centerEmitterX = currentEmitter.settings.position.x;
-        centerEmitterY = currentEmitter.settings.position.y;
-      }
-    }
+    // Calculate zoom transform centered on world origin (0, 0)
+    const centerEmitterX = 0;
+    const centerEmitterY = 0;
 
     const centerX = ctx.canvas.width / 2;
     const centerY = ctx.canvas.height / 2;
