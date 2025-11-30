@@ -1,4 +1,4 @@
-# Spine Particle Exporter v102
+# Spine Particle Exporter v103
 
 A React/TypeScript application for converting particle system animations into Spine 4.2 skeletal animation format. Features a clean, layered architecture with FSM-based state management and Observer pattern for high-performance rendering.
 
@@ -182,7 +182,18 @@ See [`src/export/EXPORT.md`](src/export/EXPORT.md) for detailed documentation on
 
 ## Version History
 
-### v102 (Current)
+### v103 (Current)
+
+- Enhanced Emitters Panel with advanced management features:
+  - Double-click to rename emitters with auto-selection
+  - Drag and drop to reorder emitters (controls render layering)
+  - Duplicate emitter button with full settings copy
+  - Enable/disable checkbox for complete emitter control
+  - Fixed render order: top emitters now properly overlay bottom emitters
+- Improved UX with auto-focus on newly created emitters
+- Better visual feedback for disabled emitters
+
+### v102
 
 - Complete architecture refactoring (FSM, Observer pattern, layered design)
 - Extracted reusable field components (DRY)

@@ -5,12 +5,15 @@
  * - Adding/removing emitters
  * - Selecting active emitter
  * - Toggling visibility and export status
+ * - Renaming emitters (double-click)
+ * - Drag and drop reordering
+ * - Duplicating emitters
  *
  * Uses React.memo for performance optimization
  */
 
-import { memo } from "react";
-import { Plus, Eye, EyeOff, Trash2 } from "lucide-react";
+import { memo, useState, useRef, useEffect } from "react";
+import { Plus, Eye, EyeOff, Trash2, Copy, GripVertical } from "lucide-react";
 import { useSettings } from "../../context/SettingsContext";
 
 // ============================================================
@@ -22,58 +25,164 @@ interface EmitterListItemProps {
     id: string;
     name: string;
     visible: boolean;
+    enabled: boolean;
   };
+  index: number;
   isSelected: boolean;
   canRemove: boolean;
+  isNewlyCreated: boolean;
   onSelect: () => void;
   onToggleVisibility: () => void;
+  onToggleEnabled: () => void;
   onRemove: () => void;
+  onRename: (newName: string) => void;
+  onDuplicate: () => void;
+  onDragStart: (e: React.DragEvent, index: number) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent, index: number) => void;
 }
 
 const EmitterListItem = memo<EmitterListItemProps>(
   ({
     emitter,
+    index,
     isSelected,
     canRemove,
+    isNewlyCreated,
     onSelect,
     onToggleVisibility,
+    onToggleEnabled,
     onRemove,
-  }) => (
-    <div
-      className={`flex items-center gap-2 rounded ${
-        isSelected
-          ? "bg-purple-600/30 border border-purple-500"
-          : "bg-slate-700/30 hover:bg-slate-700/50 border border-transparent"
-      }`}
-    >
-      <button
-        onClick={onSelect}
-        className="flex-1 p-3 text-left text-xs font-medium"
+    onRename,
+    onDuplicate,
+    onDragStart,
+    onDragOver,
+    onDrop,
+  }) => {
+    const [isEditing, setIsEditing] = useState(false);
+    const [editName, setEditName] = useState(emitter.name);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    // Auto-select and focus input for newly created emitters
+    useEffect(() => {
+      if (isNewlyCreated && inputRef.current) {
+        setIsEditing(true);
+      }
+    }, [isNewlyCreated]);
+
+    // Focus and select text when editing starts
+    useEffect(() => {
+      if (isEditing && inputRef.current) {
+        inputRef.current.focus();
+        inputRef.current.select();
+      }
+    }, [isEditing]);
+
+    const handleDoubleClick = () => {
+      if (!isEditing) {
+        setIsEditing(true);
+        setEditName(emitter.name);
+      }
+    };
+
+    const handleBlur = () => {
+      setIsEditing(false);
+      if (editName.trim() && editName !== emitter.name) {
+        onRename(editName.trim());
+      } else {
+        setEditName(emitter.name);
+      }
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        handleBlur();
+      } else if (e.key === "Escape") {
+        setIsEditing(false);
+        setEditName(emitter.name);
+      }
+    };
+
+    return (
+      <div
+        draggable
+        onDragStart={(e) => onDragStart(e, index)}
+        onDragOver={onDragOver}
+        onDrop={(e) => onDrop(e, index)}
+        className={`flex items-center gap-2 rounded ${
+          isSelected
+            ? "bg-purple-600/30 border border-purple-500"
+            : "bg-slate-700/30 hover:bg-slate-700/50 border border-transparent"
+        } ${!emitter.enabled ? "opacity-50" : ""}`}
       >
-        {emitter.name}
-      </button>
-      <button
-        onClick={onToggleVisibility}
-        className={`p-1 rounded ${
-          emitter.visible
-            ? "bg-blue-600 hover:bg-blue-700"
-            : "bg-slate-600 hover:bg-slate-500"
-        }`}
-        title={emitter.visible ? "Hide in viewport" : "Show in viewport"}
-      >
-        {emitter.visible ? <Eye size={16} /> : <EyeOff size={16} />}
-      </button>
-      {canRemove && (
         <button
-          onClick={onRemove}
-          className="p-1 mr-2 bg-red-600 hover:bg-red-700 rounded"
-          title="Remove emitter"
+          className="p-2 cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-200"
+          title="Drag to reorder"
         >
-          <Trash2 size={16} />
+          <GripVertical size={16} />
         </button>
-      )}
-    </div>
-  )
+
+        <input
+          type="checkbox"
+          checked={emitter.enabled}
+          onChange={onToggleEnabled}
+          className="w-4 h-4 cursor-pointer"
+          title="Enable/disable emitter (affects simulation and export)"
+        />
+
+        {isEditing ? (
+          <input
+            ref={inputRef}
+            type="text"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            className="flex-1 px-2 py-1 text-xs font-medium bg-slate-900 border border-purple-500 rounded outline-none"
+          />
+        ) : (
+          <button
+            onClick={onSelect}
+            onDoubleClick={handleDoubleClick}
+            className="flex-1 p-2 text-left text-xs font-medium"
+            title="Double-click to rename"
+          >
+            {emitter.name}
+          </button>
+        )}
+
+        <button
+          onClick={onToggleVisibility}
+          className={`p-1 rounded ${
+            emitter.visible
+              ? "bg-blue-600 hover:bg-blue-700"
+              : "bg-slate-600 hover:bg-slate-500"
+          }`}
+          title={emitter.visible ? "Hide in viewport" : "Show in viewport"}
+        >
+          {emitter.visible ? <Eye size={16} /> : <EyeOff size={16} />}
+        </button>
+
+        <button
+          onClick={onDuplicate}
+          className="p-1 bg-green-600 hover:bg-green-700 rounded"
+          title="Duplicate emitter"
+        >
+          <Copy size={16} />
+        </button>
+
+        {canRemove && (
+          <button
+            onClick={onRemove}
+            className="p-1 mr-2 bg-red-600 hover:bg-red-700 rounded"
+            title="Remove emitter"
+          >
+            <Trash2 size={16} />
+          </button>
+        )}
+      </div>
+    );
+  }
 );
 
 EmitterListItem.displayName = "EmitterListItem";
@@ -89,11 +198,48 @@ export const EmitterManagementPanel = memo(() => {
     removeEmitter,
     selectEmitter,
     toggleEmitterVisibility,
+    toggleEmitterExport,
+    renameEmitter,
+    reorderEmitters,
+    duplicateEmitter,
     emitterCount,
   } = useSettings();
 
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [newlyCreatedEmitterId, setNewlyCreatedEmitterId] = useState<
+    string | null
+  >(null);
+
   const canAddEmitter = emitterCount < 5;
   const canRemoveEmitter = emitterCount > 1;
+
+  const handleAddEmitter = () => {
+    if (canAddEmitter) {
+      addEmitter();
+      // Mark the newly added emitter (it will be the last one)
+      const newEmitterId = settings.emitters[settings.emitters.length]?.id;
+      setNewlyCreatedEmitterId(newEmitterId || null);
+      setTimeout(() => setNewlyCreatedEmitterId(null), 100);
+    }
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+      reorderEmitters(draggedIndex, dropIndex);
+    }
+    setDraggedIndex(null);
+  };
 
   return (
     <div className="bg-slate-800/50 backdrop-blur rounded-lg p-3 border border-slate-700">
@@ -102,7 +248,7 @@ export const EmitterManagementPanel = memo(() => {
           Emitters ({emitterCount}/5)
         </span>
         <button
-          onClick={addEmitter}
+          onClick={handleAddEmitter}
           disabled={!canAddEmitter}
           className={`px-2 py-1 rounded text-xs flex items-center gap-1 ${
             canAddEmitter
@@ -119,11 +265,19 @@ export const EmitterManagementPanel = memo(() => {
           <EmitterListItem
             key={emitter.id}
             emitter={emitter}
+            index={index}
             isSelected={settings.currentEmitterIndex === index}
             canRemove={canRemoveEmitter}
+            isNewlyCreated={emitter.id === newlyCreatedEmitterId}
             onSelect={() => selectEmitter(index)}
             onToggleVisibility={() => toggleEmitterVisibility(emitter.id)}
+            onToggleEnabled={() => toggleEmitterExport(emitter.id)}
             onRemove={() => removeEmitter(emitter.id)}
+            onRename={(newName) => renameEmitter(emitter.id, newName)}
+            onDuplicate={() => duplicateEmitter(emitter.id)}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
           />
         ))}
       </div>

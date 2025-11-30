@@ -1,5 +1,5 @@
 /**
- * Type definitions and constants for Particle Spine Exporter v101
+ * Type definitions and constants for Particle Spine Exporter v103
  */
 
 // ============================================================

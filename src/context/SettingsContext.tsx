@@ -107,6 +107,70 @@ function settingsReducer(
         ),
       };
 
+    case "REORDER_EMITTERS": {
+      const { fromIndex, toIndex } = action;
+      if (
+        fromIndex < 0 ||
+        fromIndex >= state.emitters.length ||
+        toIndex < 0 ||
+        toIndex >= state.emitters.length
+      ) {
+        return state;
+      }
+
+      const newEmitters = [...state.emitters];
+      const [movedEmitter] = newEmitters.splice(fromIndex, 1);
+      newEmitters.splice(toIndex, 0, movedEmitter);
+
+      // Update currentEmitterIndex if the moved emitter was selected
+      let newCurrentIndex = state.currentEmitterIndex;
+      if (state.currentEmitterIndex === fromIndex) {
+        newCurrentIndex = toIndex;
+      } else if (
+        fromIndex < state.currentEmitterIndex &&
+        toIndex >= state.currentEmitterIndex
+      ) {
+        newCurrentIndex--;
+      } else if (
+        fromIndex > state.currentEmitterIndex &&
+        toIndex <= state.currentEmitterIndex
+      ) {
+        newCurrentIndex++;
+      }
+
+      return {
+        ...state,
+        emitters: newEmitters,
+        currentEmitterIndex: newCurrentIndex,
+      };
+    }
+
+    case "DUPLICATE_EMITTER": {
+      const emitterToDuplicate = state.emitters.find(
+        (e) => e.id === action.emitterId
+      );
+      if (!emitterToDuplicate || state.emitters.length >= 5) return state;
+
+      const sourceIndex = state.emitters.indexOf(emitterToDuplicate);
+      const newId = `emitter_${Date.now()}`;
+      const newName = `${emitterToDuplicate.name}_copy`;
+
+      const duplicatedEmitter: EmitterInstance = {
+        ...emitterToDuplicate,
+        id: newId,
+        name: newName,
+        settings: { ...emitterToDuplicate.settings },
+      };
+
+      const newEmitters = [...state.emitters];
+      newEmitters.splice(sourceIndex + 1, 0, duplicatedEmitter);
+
+      return {
+        ...state,
+        emitters: newEmitters,
+      };
+    }
+
     // Current emitter settings update (most common operation)
     case "UPDATE_CURRENT_EMITTER": {
       const currentIndex = state.currentEmitterIndex;
@@ -235,6 +299,8 @@ interface SettingsContextValue {
   toggleEmitterVisibility: (emitterId: string) => void;
   toggleEmitterExport: (emitterId: string) => void;
   renameEmitter: (emitterId: string, name: string) => void;
+  reorderEmitters: (fromIndex: number, toIndex: number) => void;
+  duplicateEmitter: (emitterId: string) => void;
 
   // Actions - Current Emitter Settings
   updateCurrentEmitter: (updates: Partial<EmitterInstanceSettings>) => void;
@@ -386,6 +452,23 @@ export function SettingsProvider({
     []
   );
 
+  const reorderEmitters = useCallback(
+    (fromIndex: number, toIndex: number) =>
+      dispatch({ type: "REORDER_EMITTERS", fromIndex, toIndex }),
+    []
+  );
+
+  const duplicateEmitter = useCallback(
+    (emitterId: string) => {
+      if (settings.emitters.length >= 5) {
+        console.warn("Maximum 5 emitters allowed");
+        return;
+      }
+      dispatch({ type: "DUPLICATE_EMITTER", emitterId });
+    },
+    [settings.emitters.length]
+  );
+
   // Current emitter settings
   const updateCurrentEmitter = useCallback(
     (updates: Partial<EmitterInstanceSettings>) =>
@@ -451,6 +534,8 @@ export function SettingsProvider({
       toggleEmitterVisibility,
       toggleEmitterExport,
       renameEmitter,
+      reorderEmitters,
+      duplicateEmitter,
       updateCurrentEmitter,
       setEmitterCurve,
       setEmitterGradient,
@@ -475,6 +560,8 @@ export function SettingsProvider({
       toggleEmitterVisibility,
       toggleEmitterExport,
       renameEmitter,
+      reorderEmitters,
+      duplicateEmitter,
       updateCurrentEmitter,
       setEmitterCurve,
       setEmitterGradient,

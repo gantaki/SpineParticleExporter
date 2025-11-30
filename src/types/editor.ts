@@ -142,6 +142,8 @@ export type SettingsAction =
   | { type: "TOGGLE_EMITTER_VISIBILITY"; emitterId: string }
   | { type: "TOGGLE_EMITTER_EXPORT"; emitterId: string }
   | { type: "RENAME_EMITTER"; emitterId: string; name: string }
+  | { type: "REORDER_EMITTERS"; fromIndex: number; toIndex: number }
+  | { type: "DUPLICATE_EMITTER"; emitterId: string }
 
   // Current emitter settings (granular updates)
   | {
