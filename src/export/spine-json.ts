@@ -612,7 +612,7 @@ function buildParticleKeyframes(
         pushKeyWithCurve(translateKeys, {
           time: Math.round(frame.time * 1000) / 1000,
           x: Math.round(currentPos.x * 100) / 100,
-          y: Math.round(-currentPos.y * 100) / 100,
+          y: Math.round(currentPos.y * 100) / 100,
         });
         prevPos = currentPos;
       }
@@ -704,7 +704,7 @@ function buildParticleKeyframes(
           pushKeyWithCurve(translateKeys, {
             time,
             x: Math.round(prevPos.x * 100) / 100,
-            y: Math.round(-prevPos.y * 100) / 100,
+            y: Math.round(prevPos.y * 100) / 100,
           });
         }
         if (settings.exportSettings.exportRotate && prevRotation !== null) {
