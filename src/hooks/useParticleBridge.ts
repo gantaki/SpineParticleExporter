@@ -278,13 +278,8 @@ export function useParticleBridge(): ParticleBridgeAPI {
         engine.render(ctx, getRenderOptions());
       }
 
-      // Update stats display directly
-      if (particleCountRef.current) {
-        particleCountRef.current.innerText = String(engine.particles.length);
-      }
-      if (timeDisplayRef.current) {
-        timeDisplayRef.current.innerText = targetTime.toFixed(2);
-      }
+      // Notify observers (updates Timeline via Observer pattern)
+      engine.notifyStats();
     },
     [getRenderOptions]
   );
