@@ -236,7 +236,7 @@ const ShapeSettings = memo(() => {
             label="Length"
             value={em.lineLength}
             onChange={(v) => updateCurrentEmitter({ lineLength: v })}
-            max={400}
+            max={2000}
           />
           <LabeledNumber
             label="Spread Cone Rotation (°)"
@@ -253,25 +253,34 @@ const ShapeSettings = memo(() => {
           label="Radius"
           value={em.shapeRadius}
           onChange={(v) => updateCurrentEmitter({ shapeRadius: v })}
-          max={150}
+          max={1000}
         />
       )}
 
       {(em.shape === "rectangle" || em.shape === "roundedRect") && (
-        <TwoColumn>
+        <>
+          <TwoColumn>
+            <LabeledNumber
+              label="Width"
+              value={em.shapeWidth}
+              onChange={(v) => updateCurrentEmitter({ shapeWidth: v })}
+              max={2000}
+            />
+            <LabeledNumber
+              label="Height"
+              value={em.shapeHeight}
+              onChange={(v) => updateCurrentEmitter({ shapeHeight: v })}
+              max={2000}
+            />
+          </TwoColumn>
           <LabeledNumber
-            label="Width"
-            value={em.shapeWidth}
-            onChange={(v) => updateCurrentEmitter({ shapeWidth: v })}
-            max={300}
+            label="Emitter Rotation (°)"
+            value={em.shapeRotation}
+            onChange={(v) => updateCurrentEmitter({ shapeRotation: v })}
+            min={-180}
+            max={180}
           />
-          <LabeledNumber
-            label="Height"
-            value={em.shapeHeight}
-            onChange={(v) => updateCurrentEmitter({ shapeHeight: v })}
-            max={300}
-          />
-        </TwoColumn>
+        </>
       )}
 
       {em.shape === "roundedRect" && (
@@ -279,7 +288,7 @@ const ShapeSettings = memo(() => {
           label="Corner Radius"
           value={em.roundRadius}
           onChange={(v) => updateCurrentEmitter({ roundRadius: v })}
-          max={Math.min(50, em.shapeWidth / 2, em.shapeHeight / 2)}
+          max={Math.min(70, em.shapeWidth / 2, em.shapeHeight / 2)}
         />
       )}
 
