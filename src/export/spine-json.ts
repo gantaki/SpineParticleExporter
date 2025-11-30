@@ -189,13 +189,30 @@ function collectParticlesByEmitter(
 function buildBoneHierarchy(
   settings: ParticleSettings,
   particlesByEmitter: Map<string, Set<number>>
-): Array<{ name: string; parent?: string }> {
-  const bones: Array<{ name: string; parent?: string }> = [{ name: "root" }];
+): Array<{ name: string; parent?: string; x?: number; y?: number }> {
+  const bones: Array<{ name: string; parent?: string; x?: number; y?: number }> = [{ name: "root" }];
 
-  // Create emitter bones
+  // Create emitter bones with position offset
   for (const emitter of settings.emitters) {
     if (!emitter.enabled || !particlesByEmitter.has(emitter.id)) continue;
-    bones.push({ name: emitter.id, parent: "root" });
+
+    const emitterBone: { name: string; parent: string; x?: number; y?: number } = {
+      name: emitter.id,
+      parent: "root"
+    };
+
+    // Apply emitter position offset (invert Y for mathematical coordinate system)
+    const posX = emitter.settings.position.x;
+    const posY = emitter.settings.position.y;
+
+    if (posX !== 0) {
+      emitterBone.x = Math.round(posX * 100) / 100;
+    }
+    if (posY !== 0) {
+      emitterBone.y = Math.round(-posY * 100) / 100;
+    }
+
+    bones.push(emitterBone);
   }
 
   return bones;
