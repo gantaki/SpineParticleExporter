@@ -211,17 +211,27 @@ export const EmitterManagementPanel = memo(() => {
   const [newlyCreatedEmitterId, setNewlyCreatedEmitterId] = useState<
     string | null
   >(null);
+  const prevEmitterCountRef = useRef(emitterCount);
 
   const canAddEmitter = emitterCount < 5;
   const canRemoveEmitter = emitterCount > 1;
 
+  // Track when a new emitter is added and mark it for auto-editing
+  useEffect(() => {
+    if (emitterCount > prevEmitterCountRef.current) {
+      // New emitter was added - it will be the last one
+      const lastEmitter = settings.emitters[settings.emitters.length - 1];
+      if (lastEmitter) {
+        setNewlyCreatedEmitterId(lastEmitter.id);
+        setTimeout(() => setNewlyCreatedEmitterId(null), 100);
+      }
+    }
+    prevEmitterCountRef.current = emitterCount;
+  }, [emitterCount, settings.emitters]);
+
   const handleAddEmitter = () => {
     if (canAddEmitter) {
       addEmitter();
-      // Mark the newly added emitter (it will be the last one)
-      const newEmitterId = settings.emitters[settings.emitters.length]?.id;
-      setNewlyCreatedEmitterId(newEmitterId || null);
-      setTimeout(() => setNewlyCreatedEmitterId(null), 100);
     }
   };
 
