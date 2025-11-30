@@ -566,7 +566,7 @@ export class ParticleEngine {
       ) {
         localX = -w / 2;
         localY =
-          h / 2 -
+          h / 2 - r -
           (t - (2 * straightWidth + (3 * Math.PI * r) / 2 + straightHeight));
       } else {
         const angle =

@@ -252,7 +252,7 @@ const ShapeSettings = memo(() => {
           label="Radius"
           value={em.shapeRadius}
           onChange={(v) => updateCurrentEmitter({ shapeRadius: v })}
-          max={2000}
+          max={1000}
         />
       )}
 
