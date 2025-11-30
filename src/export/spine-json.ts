@@ -175,7 +175,7 @@ function collectParticlesByEmitter(
     // If both looping and prewarm are enabled, limit bones to rate × duration
     if (emitter.settings.looping && emitter.settings.prewarm) {
       const maxBoneCount = Math.floor(
-        emitter.settings.rate * settings.duration
+        emitter.settings.rateRange.max * settings.duration
       );
       const sortedIds = Array.from(particleIds).sort((a, b) => a - b);
       const filteredIds = sortedIds.filter((id) => id < maxBoneCount);
