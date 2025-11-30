@@ -105,7 +105,7 @@ const EmitterListItem = memo<EmitterListItemProps>(
 
     return (
       <div
-        draggable
+        draggable={!isEditing}
         onDragStart={(e) => onDragStart(e, index)}
         onDragOver={onDragOver}
         onDrop={(e) => onDrop(e, index)}
@@ -116,8 +116,10 @@ const EmitterListItem = memo<EmitterListItemProps>(
         } ${!emitter.enabled ? "opacity-50" : ""}`}
       >
         <button
-          className="p-2 cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-200"
-          title="Drag to reorder"
+          className={`p-2 text-slate-400 hover:text-slate-200 ${
+            isEditing ? "cursor-default" : "cursor-grab active:cursor-grabbing"
+          }`}
+          title={isEditing ? "" : "Drag to reorder"}
         >
           <GripVertical size={16} />
         </button>

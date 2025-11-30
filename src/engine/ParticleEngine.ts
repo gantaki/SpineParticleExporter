@@ -149,6 +149,7 @@ export class ParticleEngine {
     this.time += dt;
 
     for (const emitter of this.settings.emitters) {
+      if (!emitter.enabled) continue; // Skip disabled emitters
       this.updateEmitter(emitter.id, dt, skipTimeReset);
     }
 
@@ -268,7 +269,7 @@ export class ParticleEngine {
       const p = this.particles[i];
 
       const emitter = this.settings.emitters.find((e) => e.id === p.emitterId);
-      if (!emitter) {
+      if (!emitter || !emitter.enabled) {
         this.particles.splice(i, 1);
         continue;
       }
@@ -711,9 +712,10 @@ export class ParticleEngine {
     ctx: CanvasRenderingContext2D,
     spriteCanvases: Record<string, HTMLCanvasElement | null> | null
   ): void {
-    // Render particles grouped by emitter order (first emitter = bottom layer, last = top layer)
-    for (const emitter of this.settings.emitters) {
-      if (!emitter.visible) continue;
+    // Render particles grouped by emitter order (first emitter = top layer, last = bottom layer)
+    // Reverse the array so first emitter (index 0) renders last (on top)
+    for (const emitter of this.settings.emitters.slice().reverse()) {
+      if (!emitter.visible || !emitter.enabled) continue;
 
       const spriteCanvas = spriteCanvases ? spriteCanvases[emitter.id] : null;
 
@@ -757,7 +759,7 @@ export class ParticleEngine {
 
   private renderEmitters(ctx: CanvasRenderingContext2D, zoom: number): void {
     for (const emitter of this.settings.emitters) {
-      if (!emitter.visible) continue;
+      if (!emitter.visible || !emitter.enabled) continue;
 
       const em = emitter.settings;
       const isCurrentEmitter =
