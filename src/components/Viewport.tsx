@@ -266,7 +266,8 @@ export const Viewport = memo(() => {
           const img = new Image();
           img.onload = () => {
             setBackgroundImage(img);
-            setBgPosition({ x: 0, y: 0 });
+            // Center the image at world origin (0, 0)
+            setBgPosition({ x: -img.width / 2, y: -img.height / 2 });
           };
           img.src = event.target?.result as string;
         };
