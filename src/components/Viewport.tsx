@@ -15,7 +15,7 @@
  * - Viewport state is managed in ViewportContext, separate from settings
  */
 
-import React, { useRef, useCallback, useState, memo } from "react";
+import React, { useRef, useCallback, useState, memo, useEffect } from "react";
 import { Download } from "lucide-react";
 import { useParticleBridge } from "../hooks/useParticleBridge";
 import { useSettings } from "../context/SettingsContext";
@@ -200,6 +200,7 @@ ExportStatus.displayName = "ExportStatus";
 
 export const Viewport = memo(() => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [currentTime, setCurrentTime] = useState(0);
 
   // Bridge hook provides refs and handlers
   const bridge = useParticleBridge();
@@ -210,11 +211,24 @@ export const Viewport = memo(() => {
     handleTimelineTimeChange,
     handlePlayPause,
     handlePlaybackRestart,
+    getEngine,
   } = bridge;
 
   // Settings context (for duration, fps, current emitter state)
   const { settings, currentEmitterSettings, setDuration, setFps } =
     useSettings();
+
+  // Subscribe to engine time updates for Timeline
+  useEffect(() => {
+    const engine = getEngine();
+    if (!engine) return;
+
+    const unsubscribe = engine.onStatsUpdate((stats) => {
+      setCurrentTime(stats.time);
+    });
+
+    return unsubscribe;
+  }, [getEngine]);
 
   // Viewport context (for visual state)
   const viewport = useViewport();
@@ -355,7 +369,7 @@ export const Viewport = memo(() => {
 
       <div className="mt-3">
         <Timeline
-          currentTime={machine.state.currentTime}
+          currentTime={currentTime}
           duration={settings.duration}
           fps={settings.fps}
           isPlaying={machine.isPlaying}

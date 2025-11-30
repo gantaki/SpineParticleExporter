@@ -85,7 +85,7 @@ export class ParticleEngine {
    * Notify all observers of current stats
    * Called after each update cycle
    */
-  private notifyStats(): void {
+  notifyStats(): void {
     const stats: ParticleStats = {
       particleCount: this.particles.length,
       time: this.time,

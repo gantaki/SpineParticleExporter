@@ -278,13 +278,8 @@ export function useParticleBridge(): ParticleBridgeAPI {
         engine.render(ctx, getRenderOptions());
       }
 
-      // Update stats display directly
-      if (particleCountRef.current) {
-        particleCountRef.current.innerText = String(engine.particles.length);
-      }
-      if (timeDisplayRef.current) {
-        timeDisplayRef.current.innerText = targetTime.toFixed(2);
-      }
+      // Notify observers (updates Timeline via Observer pattern)
+      engine.notifyStats();
     },
     [getRenderOptions]
   );
@@ -334,16 +329,8 @@ export function useParticleBridge(): ParticleBridgeAPI {
         engine.update(appliedDt);
         engine.render(ctx, getRenderOptions());
 
-        // Update FSM time (for timeline sync)
-        const newTime = engine.time;
-        const clampedTime =
-          !hasLoopingContinuousEmitter && settings.duration > 0
-            ? Math.min(newTime, settings.duration)
-            : newTime;
-
-        machine.setTime(clampedTime);
-
         // Check if reached end after update
+        const newTime = engine.time;
         if (
           !hasLoopingContinuousEmitter &&
           settings.duration > 0 &&

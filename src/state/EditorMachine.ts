@@ -40,6 +40,7 @@ const STATE_TRANSITIONS: Record<
     STOP: "IDLE",
     SCRUB_START: "SCRUBBING",
     TICK: "PLAYING",
+    SET_TIME: "PLAYING",
     SET_SPEED: "PLAYING",
   },
   PAUSED: {
