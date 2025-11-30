@@ -52,12 +52,13 @@ interface EmitterInstanceSettings {
   shapeWidth: number;
   shapeHeight: number;
   roundRadius: number;
+  emitterRotation: number;
   lineLength: number;
   lineSpreadRotation: number;
   emissionMode: "area" | "edge";
   angle: number;
   angleSpread: number;
-  rate: number;
+  rateRange: RangeValue;
   rateOverTime: Curve;
   maxParticles: number;
 
@@ -337,12 +338,13 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     shapeWidth: 100,
     shapeHeight: 100,
     roundRadius: 20,
+    emitterRotation: 0,
     lineLength: 100,
     lineSpreadRotation: 0,
     emissionMode: "area",
     angle: -90,
     angleSpread: 30,
-    rate: 10,
+    rateRange: { min: 10, max: 10 },
     rateOverTime: DEFAULT_CURVE_PRESETS.rate,
     maxParticles: 500,
 

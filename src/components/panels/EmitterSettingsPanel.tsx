@@ -6,6 +6,7 @@
 import { memo, useCallback } from "react";
 import { CollapsibleSection } from "../CollapsibleSection";
 import { CurveEditor } from "../CurveEditor";
+import { RangeInput } from "../RangeInput";
 import {
   LabeledNumber,
   LabeledSelect,
@@ -122,11 +123,10 @@ const EmissionSettings = memo(() => {
       />
 
       {em.emissionType === "continuous" && (
-        <LabeledNumber
+        <RangeInput
           label="Rate (per sec)"
-          value={em.rate}
-          onChange={(v) => updateCurrentEmitter({ rate: v })}
-          max={200}
+          range={em.rateRange}
+          onChange={(range) => updateCurrentEmitter({ rateRange: range })}
         />
       )}
 
@@ -172,11 +172,10 @@ const EmissionSettings = memo(() => {
               step={0.1}
             />
           </TwoColumn>
-          <LabeledNumber
+          <RangeInput
             label="Rate (per sec)"
-            value={em.rate}
-            onChange={(v) => updateCurrentEmitter({ rate: v })}
-            max={200}
+            range={em.rateRange}
+            onChange={(range) => updateCurrentEmitter({ rateRange: range })}
           />
         </div>
       )}
@@ -263,13 +262,13 @@ const ShapeSettings = memo(() => {
             label="Width"
             value={em.shapeWidth}
             onChange={(v) => updateCurrentEmitter({ shapeWidth: v })}
-            max={300}
+            max={2000}
           />
           <LabeledNumber
             label="Height"
             value={em.shapeHeight}
             onChange={(v) => updateCurrentEmitter({ shapeHeight: v })}
-            max={300}
+            max={2000}
           />
         </TwoColumn>
       )}
@@ -279,7 +278,17 @@ const ShapeSettings = memo(() => {
           label="Corner Radius"
           value={em.roundRadius}
           onChange={(v) => updateCurrentEmitter({ roundRadius: v })}
-          max={Math.min(50, em.shapeWidth / 2, em.shapeHeight / 2)}
+          max={Math.min(60, em.shapeWidth / 2, em.shapeHeight / 2)}
+        />
+      )}
+
+      {(em.shape === "rectangle" || em.shape === "roundedRect") && (
+        <LabeledNumber
+          label="Emitter Rotation (°)"
+          value={em.emitterRotation}
+          onChange={(v) => updateCurrentEmitter({ emitterRotation: v })}
+          min={-180}
+          max={180}
         />
       )}
 
