@@ -334,16 +334,8 @@ export function useParticleBridge(): ParticleBridgeAPI {
         engine.update(appliedDt);
         engine.render(ctx, getRenderOptions());
 
-        // Update FSM time (for timeline sync)
-        const newTime = engine.time;
-        const clampedTime =
-          !hasLoopingContinuousEmitter && settings.duration > 0
-            ? Math.min(newTime, settings.duration)
-            : newTime;
-
-        machine.setTime(clampedTime);
-
         // Check if reached end after update
+        const newTime = engine.time;
         if (
           !hasLoopingContinuousEmitter &&
           settings.duration > 0 &&
