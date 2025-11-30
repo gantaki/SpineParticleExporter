@@ -549,7 +549,7 @@ export class ParticleEngine {
         localX = w / 2 - r + Math.cos(angle) * r;
         localY = h / 2 - r + Math.sin(angle) * r;
       } else if (t < 2 * straightWidth + Math.PI * r + straightHeight) {
-        localX = w / 2 - (t - (straightWidth + Math.PI * r + straightHeight));
+        localX = w / 2 - r - (t - (straightWidth + Math.PI * r + straightHeight));
         localY = h / 2;
       } else if (
         t <

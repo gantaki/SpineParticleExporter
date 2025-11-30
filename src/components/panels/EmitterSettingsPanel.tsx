@@ -235,7 +235,7 @@ const ShapeSettings = memo(() => {
             label="Length"
             value={em.lineLength}
             onChange={(v) => updateCurrentEmitter({ lineLength: v })}
-            max={400}
+            max={2000}
           />
           <LabeledNumber
             label="Spread Cone Rotation (°)"
@@ -252,7 +252,7 @@ const ShapeSettings = memo(() => {
           label="Radius"
           value={em.shapeRadius}
           onChange={(v) => updateCurrentEmitter({ shapeRadius: v })}
-          max={150}
+          max={2000}
         />
       )}
 
