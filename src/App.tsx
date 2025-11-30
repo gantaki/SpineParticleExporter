@@ -12,6 +12,7 @@
  * - Extracted panel components for each settings domain
  * - Reusable form field components (LabeledNumber, LabeledSelect, etc.)
  * - Custom hooks for sprite management and particle bridge
+ * - Drag and drop panel layout
  */
 
 import { useState, useCallback, useEffect } from "react";
@@ -19,6 +20,11 @@ import { useState, useCallback, useEffect } from "react";
 // Context Providers
 import { SettingsProvider, useSettings } from "./context/SettingsContext";
 import { ViewportProvider } from "./context/ViewportContext";
+import {
+  PanelLayoutProvider,
+  usePanelLayout,
+  PanelId,
+} from "./context/PanelLayoutContext";
 
 // Components
 import { Viewport } from "./components/Viewport";
@@ -30,6 +36,7 @@ import {
   CurvesPanel,
   ExportPanel,
 } from "./components/panels";
+import { DraggablePanel, DroppableColumn } from "./components/DragDrop";
 
 // Hooks
 import { useParticleBridge, useSpriteManager } from "./hooks";
@@ -58,6 +65,107 @@ function usePanelState() {
 }
 
 // ============================================================
+// PANEL RENDERER
+// ============================================================
+
+interface PanelRendererProps {
+  panelId: PanelId;
+  columnIndex: number;
+  panels: ReturnType<typeof usePanelState>;
+  sprite: ReturnType<typeof useSpriteManager>;
+  exportStatus: string;
+  setExportStatus: (status: string) => void;
+  handleReset: () => void;
+}
+
+const PanelRenderer: React.FC<PanelRendererProps> = ({
+  panelId,
+  columnIndex,
+  panels,
+  sprite,
+  exportStatus,
+  setExportStatus,
+  handleReset,
+}) => {
+  const renderPanel = () => {
+    switch (panelId) {
+      case "emitter-management":
+        return <EmitterManagementPanel />;
+      case "emitter-settings":
+        return (
+          <EmitterSettingsPanel
+            isOpen={panels.emitter.isOpen}
+            onToggle={panels.emitter.toggle}
+          />
+        );
+      case "viewport":
+        return (
+          <>
+            <Viewport />
+            <input
+              ref={sprite.spriteInputRef}
+              type="file"
+              accept="image/png,image/jpeg"
+              onChange={sprite.handleSpriteUpload}
+              style={{ display: "none" }}
+            />
+          </>
+        );
+      case "particle-settings":
+        return (
+          <ParticleSettingsPanel
+            isOpen={panels.particle.isOpen}
+            onToggle={panels.particle.toggle}
+            spriteStatus={sprite.spriteStatus}
+            onSpriteUploadClick={() => sprite.spriteInputRef.current?.click()}
+          />
+        );
+      case "forces":
+        return (
+          <ForcesPanel
+            isOpen={panels.forces.isOpen}
+            onToggle={panels.forces.toggle}
+          />
+        );
+      case "curves":
+        return (
+          <CurvesPanel
+            isOpen={panels.curves.isOpen}
+            onToggle={panels.curves.toggle}
+          />
+        );
+      case "export":
+        return (
+          <ExportPanel
+            isOpen={panels.export.isOpen}
+            onToggle={panels.export.toggle}
+            resolveEmitterSpriteCanvas={sprite.resolveEmitterSpriteCanvas}
+            exportStatus={exportStatus}
+            setExportStatus={setExportStatus}
+          />
+        );
+      case "reset":
+        return (
+          <button
+            onClick={handleReset}
+            className="w-full px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition-colors text-xs"
+          >
+            Reset All Settings
+          </button>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <DraggablePanel id={panelId} columnIndex={columnIndex}>
+      {renderPanel()}
+    </DraggablePanel>
+  );
+};
+
+// ============================================================
 // MAIN EDITOR COMPONENT
 // ============================================================
 
@@ -70,6 +178,7 @@ const ParticleEditor: React.FC = () => {
     currentEmitterSettings: em,
     resetSettings,
   } = useSettings();
+  const { columns, resetLayout } = usePanelLayout();
 
   // Custom hooks
   const bridge = useParticleBridge();
@@ -101,73 +210,43 @@ const ParticleEditor: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-6">
       <div className="max-w-[1870px] mx-auto">
         {/* Header */}
-        <header className="mb-4">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Particle → Spine Exporter v103
-          </h1>
-          <p className="text-xs text-slate-400">
-            Refactored Architecture • FSM State Management • Observer Pattern
-          </p>
+        <header className="mb-4 flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              Particle → Spine Exporter v103
+            </h1>
+            <p className="text-xs text-slate-400">
+              Refactored Architecture • FSM State Management • Drag & Drop
+              Panels
+            </p>
+          </div>
+          <button
+            onClick={resetLayout}
+            className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition-colors text-xs"
+            title="Reset panel layout to default"
+          >
+            Reset Layout
+          </button>
         </header>
 
-        {/* Main Grid Layout */}
+        {/* Main Grid Layout - 4 Columns with Drag and Drop */}
         <div className="grid grid-cols-1 xl:[grid-template-columns:repeat(4,minmax(352px,1fr))] gap-6 items-start">
-          {/* Column 1: Emitter Management & Settings */}
-          <div className="space-y-3">
-            <EmitterManagementPanel />
-            <EmitterSettingsPanel
-              isOpen={panels.emitter.isOpen}
-              onToggle={panels.emitter.toggle}
-            />
-          </div>
-
-          {/* Column 2: Viewport */}
-          <div className="space-y-3">
-            <Viewport />
-            {/* Hidden file input for sprite upload */}
-            <input
-              ref={sprite.spriteInputRef}
-              type="file"
-              accept="image/png,image/jpeg"
-              onChange={sprite.handleSpriteUpload}
-              style={{ display: "none" }}
-            />
-          </div>
-
-          {/* Column 3: Particle Settings & Forces */}
-          <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-8rem)] pr-1">
-            <ParticleSettingsPanel
-              isOpen={panels.particle.isOpen}
-              onToggle={panels.particle.toggle}
-              spriteStatus={sprite.spriteStatus}
-              onSpriteUploadClick={() => sprite.spriteInputRef.current?.click()}
-            />
-            <ForcesPanel
-              isOpen={panels.forces.isOpen}
-              onToggle={panels.forces.toggle}
-            />
-            <CurvesPanel
-              isOpen={panels.curves.isOpen}
-              onToggle={panels.curves.toggle}
-            />
-          </div>
-
-          {/* Column 4: Export Settings */}
-          <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-8rem)] pr-1">
-            <ExportPanel
-              isOpen={panels.export.isOpen}
-              onToggle={panels.export.toggle}
-              resolveEmitterSpriteCanvas={sprite.resolveEmitterSpriteCanvas}
-              exportStatus={exportStatus}
-              setExportStatus={setExportStatus}
-            />
-            <button
-              onClick={handleReset}
-              className="w-full px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition-colors text-xs"
-            >
-              Reset All Settings
-            </button>
-          </div>
+          {columns.map((columnPanels, columnIndex) => (
+            <DroppableColumn key={columnIndex} columnIndex={columnIndex}>
+              {columnPanels.map((panelId) => (
+                <PanelRenderer
+                  key={panelId}
+                  panelId={panelId}
+                  columnIndex={columnIndex}
+                  panels={panels}
+                  sprite={sprite}
+                  exportStatus={exportStatus}
+                  setExportStatus={setExportStatus}
+                  handleReset={handleReset}
+                />
+              ))}
+            </DroppableColumn>
+          ))}
         </div>
       </div>
     </div>
@@ -182,7 +261,9 @@ const ParticleSpineExporter: React.FC = () => {
   return (
     <SettingsProvider>
       <ViewportProvider>
-        <ParticleEditor />
+        <PanelLayoutProvider>
+          <ParticleEditor />
+        </PanelLayoutProvider>
       </ViewportProvider>
     </SettingsProvider>
   );
