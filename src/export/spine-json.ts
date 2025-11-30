@@ -197,7 +197,7 @@ function buildBoneHierarchy(
     if (!emitter.enabled || !particlesByEmitter.has(emitter.id)) continue;
 
     const emitterBone: { name: string; parent: string; x?: number; y?: number } = {
-      name: emitter.id,
+      name: emitter.name,
       parent: "root"
     };
 
@@ -263,7 +263,7 @@ function buildSlotsAndSkins(
         slotName,
       });
 
-      bones.push({ name: boneName, parent: emitter.id });
+      bones.push({ name: boneName, parent: emitter.name });
       slots.push({ name: slotName, bone: boneName, attachment: null });
 
       skins.default[slotName] = {

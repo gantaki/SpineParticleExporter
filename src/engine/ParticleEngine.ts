@@ -149,6 +149,7 @@ export class ParticleEngine {
     this.time += dt;
 
     for (const emitter of this.settings.emitters) {
+      if (!emitter.enabled) continue; // Skip disabled emitters
       this.updateEmitter(emitter.id, dt, skipTimeReset);
     }
 
@@ -268,7 +269,7 @@ export class ParticleEngine {
       const p = this.particles[i];
 
       const emitter = this.settings.emitters.find((e) => e.id === p.emitterId);
-      if (!emitter) {
+      if (!emitter || !emitter.enabled) {
         this.particles.splice(i, 1);
         continue;
       }
@@ -711,48 +712,54 @@ export class ParticleEngine {
     ctx: CanvasRenderingContext2D,
     spriteCanvases: Record<string, HTMLCanvasElement | null> | null
   ): void {
-    for (const p of this.particles) {
-      const emitter = this.settings.emitters.find((e) => e.id === p.emitterId);
-      if (!emitter || !emitter.visible) continue;
+    // Render particles grouped by emitter order (first emitter = top layer, last = bottom layer)
+    // Reverse the array so first emitter (index 0) renders last (on top)
+    for (const emitter of this.settings.emitters.slice().reverse()) {
+      if (!emitter.visible || !emitter.enabled) continue;
 
       const spriteCanvas = spriteCanvases ? spriteCanvases[emitter.id] : null;
 
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rotation);
-      ctx.scale(p.scaleX, p.scaleY);
-      ctx.globalAlpha = p.alpha;
+      // Render all particles from this emitter
+      for (const p of this.particles) {
+        if (p.emitterId !== emitter.id) continue;
 
-      if (spriteCanvas) {
-        const size = 16;
-        const tempCanvas = document.createElement("canvas");
-        tempCanvas.width = size * 2;
-        tempCanvas.height = size * 2;
-        const tempCtx = tempCanvas.getContext("2d")!;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        ctx.scale(p.scaleX, p.scaleY);
+        ctx.globalAlpha = p.alpha;
 
-        tempCtx.drawImage(spriteCanvas, 0, 0, size * 2, size * 2);
-        tempCtx.globalCompositeOperation = "source-in";
-        tempCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-        tempCtx.fillRect(0, 0, size * 2, size * 2);
+        if (spriteCanvas) {
+          const size = 16;
+          const tempCanvas = document.createElement("canvas");
+          tempCanvas.width = size * 2;
+          tempCanvas.height = size * 2;
+          const tempCtx = tempCanvas.getContext("2d")!;
 
-        // Compensate for inverted Y axis when drawing sprite images
-        ctx.scale(1, -1);
-        ctx.drawImage(tempCanvas, -size, -size, size * 2, size * 2);
-      } else {
-        const size = 8;
-        ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-        ctx.beginPath();
-        ctx.arc(0, 0, size, 0, Math.PI * 2);
-        ctx.fill();
+          tempCtx.drawImage(spriteCanvas, 0, 0, size * 2, size * 2);
+          tempCtx.globalCompositeOperation = "source-in";
+          tempCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
+          tempCtx.fillRect(0, 0, size * 2, size * 2);
+
+          // Compensate for inverted Y axis when drawing sprite images
+          ctx.scale(1, -1);
+          ctx.drawImage(tempCanvas, -size, -size, size * 2, size * 2);
+        } else {
+          const size = 8;
+          ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
+          ctx.beginPath();
+          ctx.arc(0, 0, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
       }
-
-      ctx.restore();
     }
   }
 
   private renderEmitters(ctx: CanvasRenderingContext2D, zoom: number): void {
     for (const emitter of this.settings.emitters) {
-      if (!emitter.visible) continue;
+      if (!emitter.visible || !emitter.enabled) continue;
 
       const em = emitter.settings;
       const isCurrentEmitter =
