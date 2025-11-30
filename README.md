@@ -53,6 +53,23 @@ The application follows a **layered architecture** with clear separation of conc
 - **Context Pattern**: SettingsContext (model) + ViewportContext (ephemeral UI state)
 - **DRY Components**: Reusable form fields (LabeledNumber, LabeledSelect, RangeCurveCombo, etc.)
 
+When designing and implementing this system, apply SOLID as follows:
+
+Single Responsibility Principle (SRP)
+Treat each module as responsible for exactly one well-defined concern (e.g., emission logic, curve evaluation, range sampling, serialization). Avoid mixing unrelated responsibilities inside a single class, function, or file.
+
+Open/Closed Principle (OCP)
+Design curves, ranges, and similar behaviors so they can be extended (e.g., by adding new curve types, distribution strategies, or modifiers) without changing existing code. Prefer plug-in style registries, strategy objects, or configuration-driven behavior over hardcoded branching.
+
+Liskov Substitution Principle (LSP)
+Avoid deep inheritance hierarchies. Do not rely on subclasses that weaken or break the expected behavior of their base. Prefer composition and clearly defined interfaces so that any implementation can be substituted without changing client code semantics.
+
+Interface Segregation Principle (ISP)
+Expose small, focused interfaces or hooks instead of one large, monolithic API. Each consumer should depend only on the methods/events it actually uses (e.g., separate interfaces for sampling, updating, rendering, exporting).
+
+Dependency Inversion Principle (DIP)
+High-level components must depend on abstractions (contexts, interfaces, configuration objects), not concrete implementations. Inject dependencies (e.g., random source, time provider, math/curve engine, export backend) via constructors or context objects so implementations can be swapped or mocked without modifying core logic.
+
 ## Project Structure
 
 ```
