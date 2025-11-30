@@ -560,7 +560,7 @@ export class ParticleEngine {
         offsetY = centerY + Math.sin(angle) * r;
       } else if (t < 2 * straightWidth + Math.PI * r + straightHeight) {
         // Bottom edge
-        offsetX = w / 2 - (t - (straightWidth + Math.PI * r + straightHeight));
+        offsetX = (w / 2 - r) - (t - (straightWidth + Math.PI * r + straightHeight));
         offsetY = h / 2;
       } else if (
         t <
@@ -581,7 +581,7 @@ export class ParticleEngine {
         // Left edge
         offsetX = -w / 2;
         offsetY =
-          h / 2 -
+          (h / 2 - r) -
           (t - (2 * straightWidth + (3 * Math.PI * r) / 2 + straightHeight));
       } else {
         // Top-left corner
