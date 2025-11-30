@@ -539,19 +539,25 @@ export class ParticleEngine {
         offsetY = -h / 2;
       } else if (t < straightWidth + (Math.PI * r) / 2) {
         // Top-right corner
-        const angle = (t - straightWidth) / r - Math.PI / 2;
-        offsetX = w / 2 - r + Math.cos(angle) * r;
-        offsetY = -h / 2 + r + Math.sin(angle) * r;
+        const arcProgress = (t - straightWidth) / r;
+        const angle = arcProgress - Math.PI / 2;
+        const centerX = w / 2 - r;
+        const centerY = -h / 2 + r;
+        offsetX = centerX + Math.cos(angle) * r;
+        offsetY = centerY + Math.sin(angle) * r;
       } else if (t < straightWidth + (Math.PI * r) / 2 + straightHeight) {
         // Right edge
         offsetX = w / 2;
         offsetY = t - (straightWidth + (Math.PI * r) / 2) - h / 2 + r;
       } else if (t < straightWidth + Math.PI * r + straightHeight) {
         // Bottom-right corner
-        const angle =
+        const arcProgress =
           (t - (straightWidth + (Math.PI * r) / 2 + straightHeight)) / r;
-        offsetX = w / 2 - r + Math.cos(angle) * r;
-        offsetY = h / 2 - r + Math.sin(angle) * r;
+        const angle = arcProgress;
+        const centerX = w / 2 - r;
+        const centerY = h / 2 - r;
+        offsetX = centerX + Math.cos(angle) * r;
+        offsetY = centerY + Math.sin(angle) * r;
       } else if (t < 2 * straightWidth + Math.PI * r + straightHeight) {
         // Bottom edge
         offsetX = w / 2 - (t - (straightWidth + Math.PI * r + straightHeight));
@@ -561,11 +567,13 @@ export class ParticleEngine {
         2 * straightWidth + (3 * Math.PI * r) / 2 + straightHeight
       ) {
         // Bottom-left corner
-        const angle =
-          (t - (2 * straightWidth + Math.PI * r + straightHeight)) / r +
-          Math.PI / 2;
-        offsetX = -w / 2 + r + Math.cos(angle) * r;
-        offsetY = h / 2 - r + Math.sin(angle) * r;
+        const arcProgress =
+          (t - (2 * straightWidth + Math.PI * r + straightHeight)) / r;
+        const angle = arcProgress + Math.PI / 2;
+        const centerX = -w / 2 + r;
+        const centerY = h / 2 - r;
+        offsetX = centerX + Math.cos(angle) * r;
+        offsetY = centerY + Math.sin(angle) * r;
       } else if (
         t <
         2 * straightWidth + (3 * Math.PI * r) / 2 + 2 * straightHeight
@@ -577,13 +585,15 @@ export class ParticleEngine {
           (t - (2 * straightWidth + (3 * Math.PI * r) / 2 + straightHeight));
       } else {
         // Top-left corner
-        const angle =
+        const arcProgress =
           (t -
             (2 * straightWidth + (3 * Math.PI * r) / 2 + 2 * straightHeight)) /
-            r +
-          Math.PI;
-        offsetX = -w / 2 + r + Math.cos(angle) * r;
-        offsetY = -h / 2 + r + Math.sin(angle) * r;
+          r;
+        const angle = arcProgress + Math.PI;
+        const centerX = -w / 2 + r;
+        const centerY = -h / 2 + r;
+        offsetX = centerX + Math.cos(angle) * r;
+        offsetY = centerY + Math.sin(angle) * r;
       }
     }
 
