@@ -51,6 +51,7 @@ interface EmitterInstanceSettings {
   shapeRadius: number;
   shapeWidth: number;
   shapeHeight: number;
+  shapeRotation: number; // Rotation of the emitter shape itself (for rectangle and rounded)
   roundRadius: number;
   lineLength: number;
   lineSpreadRotation: number;
@@ -336,6 +337,7 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     shapeRadius: 20,
     shapeWidth: 100,
     shapeHeight: 100,
+    shapeRotation: 0,
     roundRadius: 20,
     lineLength: 100,
     lineSpreadRotation: 0,

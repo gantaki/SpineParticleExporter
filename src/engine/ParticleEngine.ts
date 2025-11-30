@@ -475,27 +475,37 @@ export class ParticleEngine {
         pos.y += Math.sin(angle) * em.shapeRadius;
       }
     } else if (em.shape === "rectangle") {
+      let offsetX = 0;
+      let offsetY = 0;
+
       if (em.emissionMode === "area") {
-        pos.x += (Math.random() - 0.5) * em.shapeWidth;
-        pos.y += (Math.random() - 0.5) * em.shapeHeight;
+        offsetX = (Math.random() - 0.5) * em.shapeWidth;
+        offsetY = (Math.random() - 0.5) * em.shapeHeight;
       } else {
         const perimeter = 2 * (em.shapeWidth + em.shapeHeight);
         const t = Math.random() * perimeter;
 
         if (t < em.shapeWidth) {
-          pos.x += t - em.shapeWidth / 2;
-          pos.y -= em.shapeHeight / 2;
+          offsetX = t - em.shapeWidth / 2;
+          offsetY = -em.shapeHeight / 2;
         } else if (t < em.shapeWidth + em.shapeHeight) {
-          pos.x += em.shapeWidth / 2;
-          pos.y += t - em.shapeWidth - em.shapeHeight / 2;
+          offsetX = em.shapeWidth / 2;
+          offsetY = t - em.shapeWidth - em.shapeHeight / 2;
         } else if (t < 2 * em.shapeWidth + em.shapeHeight) {
-          pos.x += 2 * em.shapeWidth + em.shapeHeight - t - em.shapeWidth / 2;
-          pos.y += em.shapeHeight / 2;
+          offsetX = 2 * em.shapeWidth + em.shapeHeight - t - em.shapeWidth / 2;
+          offsetY = em.shapeHeight / 2;
         } else {
-          pos.x -= em.shapeWidth / 2;
-          pos.y += perimeter - t - em.shapeHeight / 2;
+          offsetX = -em.shapeWidth / 2;
+          offsetY = perimeter - t - em.shapeHeight / 2;
         }
       }
+
+      // Apply rotation
+      const rotRad = (em.shapeRotation * Math.PI) / 180;
+      const cosRot = Math.cos(rotRad);
+      const sinRot = Math.sin(rotRad);
+      pos.x += offsetX * cosRot - offsetY * sinRot;
+      pos.y += offsetX * sinRot + offsetY * cosRot;
     } else if (em.shape === "roundedRect") {
       pos = this.calculateRoundedRectPosition(em, pos);
     }
@@ -511,9 +521,12 @@ export class ParticleEngine {
     const h = em.shapeHeight;
     const r = Math.min(em.roundRadius, w / 2, h / 2);
 
+    let offsetX = 0;
+    let offsetY = 0;
+
     if (em.emissionMode === "area") {
-      pos.x += (Math.random() - 0.5) * w;
-      pos.y += (Math.random() - 0.5) * h;
+      offsetX = (Math.random() - 0.5) * w;
+      offsetY = (Math.random() - 0.5) * h;
     } else {
       const straightWidth = w - 2 * r;
       const straightHeight = h - 2 * r;
@@ -521,50 +534,65 @@ export class ParticleEngine {
       const t = Math.random() * perimeter;
 
       if (t < straightWidth) {
-        pos.x += t - w / 2 + r;
-        pos.y -= h / 2;
+        // Top edge
+        offsetX = t - w / 2 + r;
+        offsetY = -h / 2;
       } else if (t < straightWidth + (Math.PI * r) / 2) {
+        // Top-right corner
         const angle = (t - straightWidth) / r - Math.PI / 2;
-        pos.x += w / 2 - r + Math.cos(angle) * r;
-        pos.y -= h / 2 - r + Math.sin(angle) * r;
+        offsetX = w / 2 - r + Math.cos(angle) * r;
+        offsetY = -h / 2 + r + Math.sin(angle) * r;
       } else if (t < straightWidth + (Math.PI * r) / 2 + straightHeight) {
-        pos.x += w / 2;
-        pos.y += t - (straightWidth + (Math.PI * r) / 2) - h / 2 + r;
+        // Right edge
+        offsetX = w / 2;
+        offsetY = t - (straightWidth + (Math.PI * r) / 2) - h / 2 + r;
       } else if (t < straightWidth + Math.PI * r + straightHeight) {
+        // Bottom-right corner
         const angle =
           (t - (straightWidth + (Math.PI * r) / 2 + straightHeight)) / r;
-        pos.x += w / 2 - r + Math.cos(angle) * r;
-        pos.y += h / 2 - r + Math.sin(angle) * r;
+        offsetX = w / 2 - r + Math.cos(angle) * r;
+        offsetY = h / 2 - r + Math.sin(angle) * r;
       } else if (t < 2 * straightWidth + Math.PI * r + straightHeight) {
-        pos.x += w / 2 - (t - (straightWidth + Math.PI * r + straightHeight));
-        pos.y += h / 2;
+        // Bottom edge
+        offsetX = w / 2 - (t - (straightWidth + Math.PI * r + straightHeight));
+        offsetY = h / 2;
       } else if (
         t <
         2 * straightWidth + (3 * Math.PI * r) / 2 + straightHeight
       ) {
+        // Bottom-left corner
         const angle =
           (t - (2 * straightWidth + Math.PI * r + straightHeight)) / r +
           Math.PI / 2;
-        pos.x -= w / 2 - r - Math.cos(angle) * r;
-        pos.y += h / 2 - r + Math.sin(angle) * r;
+        offsetX = -w / 2 + r + Math.cos(angle) * r;
+        offsetY = h / 2 - r + Math.sin(angle) * r;
       } else if (
         t <
         2 * straightWidth + (3 * Math.PI * r) / 2 + 2 * straightHeight
       ) {
-        pos.x -= w / 2;
-        pos.y +=
+        // Left edge
+        offsetX = -w / 2;
+        offsetY =
           h / 2 -
           (t - (2 * straightWidth + (3 * Math.PI * r) / 2 + straightHeight));
       } else {
+        // Top-left corner
         const angle =
           (t -
             (2 * straightWidth + (3 * Math.PI * r) / 2 + 2 * straightHeight)) /
             r +
           Math.PI;
-        pos.x -= w / 2 - r + Math.cos(angle) * r;
-        pos.y -= h / 2 - r + Math.sin(angle) * r;
+        offsetX = -w / 2 + r + Math.cos(angle) * r;
+        offsetY = -h / 2 + r + Math.sin(angle) * r;
       }
     }
+
+    // Apply rotation
+    const rotRad = (em.shapeRotation * Math.PI) / 180;
+    const cosRot = Math.cos(rotRad);
+    const sinRot = Math.sin(rotRad);
+    pos.x += offsetX * cosRot - offsetY * sinRot;
+    pos.y += offsetX * sinRot + offsetY * cosRot;
 
     return pos;
   }
@@ -816,14 +844,24 @@ export class ParticleEngine {
       if (em.emissionMode === "area") ctx.fill();
       ctx.stroke();
     } else if (em.shape === "rectangle") {
-      const x = em.position.x - em.shapeWidth / 2;
-      const y = em.position.y - em.shapeHeight / 2;
+      ctx.save();
+      ctx.translate(em.position.x, em.position.y);
+      ctx.rotate((em.shapeRotation * Math.PI) / 180);
+
+      const x = -em.shapeWidth / 2;
+      const y = -em.shapeHeight / 2;
       if (em.emissionMode === "area")
         ctx.fillRect(x, y, em.shapeWidth, em.shapeHeight);
       ctx.strokeRect(x, y, em.shapeWidth, em.shapeHeight);
+
+      ctx.restore();
     } else if (em.shape === "roundedRect") {
-      const x = em.position.x - em.shapeWidth / 2;
-      const y = em.position.y - em.shapeHeight / 2;
+      ctx.save();
+      ctx.translate(em.position.x, em.position.y);
+      ctx.rotate((em.shapeRotation * Math.PI) / 180);
+
+      const x = -em.shapeWidth / 2;
+      const y = -em.shapeHeight / 2;
       const r = Math.min(em.roundRadius, em.shapeWidth / 2, em.shapeHeight / 2);
 
       ctx.beginPath();
@@ -846,6 +884,8 @@ export class ParticleEngine {
 
       if (em.emissionMode === "area") ctx.fill();
       ctx.stroke();
+
+      ctx.restore();
     }
   }
 
