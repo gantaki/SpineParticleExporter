@@ -30,7 +30,6 @@ interface EmitterListItemProps {
   index: number;
   isSelected: boolean;
   canRemove: boolean;
-  isNewlyCreated: boolean;
   onSelect: () => void;
   onToggleVisibility: () => void;
   onToggleEnabled: () => void;
@@ -48,7 +47,6 @@ const EmitterListItem = memo<EmitterListItemProps>(
     index,
     isSelected,
     canRemove,
-    isNewlyCreated,
     onSelect,
     onToggleVisibility,
     onToggleEnabled,
@@ -62,13 +60,6 @@ const EmitterListItem = memo<EmitterListItemProps>(
     const [isEditing, setIsEditing] = useState(false);
     const [editName, setEditName] = useState(emitter.name);
     const inputRef = useRef<HTMLInputElement>(null);
-
-    // Auto-select and focus input for newly created emitters
-    useEffect(() => {
-      if (isNewlyCreated && inputRef.current) {
-        setIsEditing(true);
-      }
-    }, [isNewlyCreated]);
 
     // Focus and select text when editing starts
     useEffect(() => {
@@ -208,32 +199,9 @@ export const EmitterManagementPanel = memo(() => {
   } = useSettings();
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [newlyCreatedEmitterId, setNewlyCreatedEmitterId] = useState<
-    string | null
-  >(null);
-  const prevEmitterCountRef = useRef(emitterCount);
 
   const canAddEmitter = emitterCount < 5;
   const canRemoveEmitter = emitterCount > 1;
-
-  // Track when a new emitter is added and mark it for auto-editing
-  useEffect(() => {
-    if (emitterCount > prevEmitterCountRef.current) {
-      // New emitter was added - it will be the last one
-      const lastEmitter = settings.emitters[settings.emitters.length - 1];
-      if (lastEmitter) {
-        setNewlyCreatedEmitterId(lastEmitter.id);
-        setTimeout(() => setNewlyCreatedEmitterId(null), 100);
-      }
-    }
-    prevEmitterCountRef.current = emitterCount;
-  }, [emitterCount, settings.emitters]);
-
-  const handleAddEmitter = () => {
-    if (canAddEmitter) {
-      addEmitter();
-    }
-  };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
     setDraggedIndex(index);
@@ -260,7 +228,7 @@ export const EmitterManagementPanel = memo(() => {
           Emitters ({emitterCount}/5)
         </span>
         <button
-          onClick={handleAddEmitter}
+          onClick={addEmitter}
           disabled={!canAddEmitter}
           className={`px-2 py-1 rounded text-xs flex items-center gap-1 ${
             canAddEmitter
@@ -280,7 +248,6 @@ export const EmitterManagementPanel = memo(() => {
             index={index}
             isSelected={settings.currentEmitterIndex === index}
             canRemove={canRemoveEmitter}
-            isNewlyCreated={emitter.id === newlyCreatedEmitterId}
             onSelect={() => selectEmitter(index)}
             onToggleVisibility={() => toggleEmitterVisibility(emitter.id)}
             onToggleEnabled={() => toggleEmitterExport(emitter.id)}
