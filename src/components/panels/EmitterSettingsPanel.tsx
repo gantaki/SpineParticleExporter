@@ -212,6 +212,27 @@ const ShapeSettings = memo(() => {
 
   return (
     <div className="space-y-2">
+      <TwoColumn>
+        <LabeledNumber
+          label="Position X (px)"
+          value={em.position.x}
+          onChange={(v) =>
+            updateCurrentEmitter({ position: { x: v, y: em.position.y } })
+          }
+          min={-1000}
+          max={1000}
+        />
+        <LabeledNumber
+          label="Position Y (px)"
+          value={em.position.y}
+          onChange={(v) =>
+            updateCurrentEmitter({ position: { x: em.position.x, y: v } })
+          }
+          min={-1000}
+          max={1000}
+        />
+      </TwoColumn>
+
       <LabeledSelect
         label="Shape"
         value={em.shape}
