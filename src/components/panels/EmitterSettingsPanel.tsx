@@ -116,17 +116,24 @@ const EmissionSettings = memo(() => {
         step={0.1}
       />
 
-      {/* Looping - only for continuous */}
+      {/* Looping and Prewarm - only for continuous */}
       {em.emissionType === "continuous" && (
-        <LabeledCheckbox
-          label="Looping"
-          checked={em.looping}
-          onChange={(checked) => updateCurrentEmitter({ looping: checked })}
-        />
+        <>
+          <LabeledCheckbox
+            label="Looping"
+            checked={em.looping}
+            onChange={(checked) => updateCurrentEmitter({ looping: checked })}
+          />
+          <LabeledCheckbox
+            label="Prewarm"
+            checked={em.prewarm}
+            onChange={(checked) => updateCurrentEmitter({ prewarm: checked })}
+          />
+        </>
       )}
 
-      {/* Prewarm - available for continuous and duration, independent of looping */}
-      {(em.emissionType === "continuous" || em.emissionType === "duration") && (
+      {/* Prewarm for duration - independent control */}
+      {em.emissionType === "duration" && (
         <LabeledCheckbox
           label="Prewarm"
           checked={em.prewarm}

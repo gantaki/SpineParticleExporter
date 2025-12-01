@@ -88,6 +88,38 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     setViewMax(maxValue + padding);
   }, [autoScale, curve.points, min, max]);
 
+  // Auto-initialize handles for selected point in smooth mode
+  useEffect(() => {
+    if (selectedPoint === null || curve.interpolation !== 'smooth') return;
+
+    const point = curve.points[selectedPoint];
+    if (!point) return;
+
+    // Check if handles already exist for this point
+    if (handles.has(selectedPoint)) return;
+
+    // Initialize default handles
+    const newHandles = new Map(handles);
+    const handleLength = 0.15; // Default handle length
+
+    const pointHandles: PointWithHandles = {};
+
+    // Add in-handle if not first point
+    if (selectedPoint > 0) {
+      pointHandles.inHandle = { x: -handleLength, y: 0 };
+    }
+
+    // Add out-handle if not last point
+    if (selectedPoint < curve.points.length - 1) {
+      pointHandles.outHandle = { x: handleLength, y: 0 };
+    }
+
+    if (pointHandles.inHandle || pointHandles.outHandle) {
+      newHandles.set(selectedPoint, pointHandles);
+      setHandles(newHandles);
+    }
+  }, [selectedPoint, curve.interpolation, curve.points.length, handles]);
+
   useEffect(() => {
     if (selectedPoint === null) return;
 
@@ -217,7 +249,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!selectedPoint && selectedPoint !== 0) return;
+    if (selectedPoint === null && selectedPoint !== 0) return;
 
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -225,7 +257,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    if (draggingHandle && curve.interpolation !== 'linear') {
+    if (draggingHandle && curve.interpolation === 'smooth') {
       const point = curve.points[selectedPoint];
       const px = timeToX(point.time);
       const py = valueToY(point.value);
@@ -408,6 +440,12 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
         </button>
       </div>
 
+      {curve.interpolation === 'smooth' && selectedPoint !== null && (
+        <div className="text-[10px] text-slate-400 px-1">
+          💡 Drag the pink handles to adjust curve shape
+        </div>
+      )}
+
       <div className="bg-slate-900 rounded border border-slate-700 p-1">
         <svg
           ref={svgRef}
@@ -470,68 +508,68 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
             strokeWidth="2"
           />
 
-          {curve.interpolation !== 'linear' && selectedPoint !== null && (
-            <>
-              {(() => {
-                const point = curve.points[selectedPoint];
-                const px = timeToX(point.time);
-                const py = valueToY(point.value);
-                const pointHandles = handles.get(selectedPoint);
+          {/* Render bezier handles for selected point */}
+          {curve.interpolation === 'smooth' && selectedPoint !== null && (() => {
+            const point = curve.points[selectedPoint];
+            const px = timeToX(point.time);
+            const py = valueToY(point.value);
+            const pointHandles = handles.get(selectedPoint);
 
-                return (
-                  <>
-                    {pointHandles?.inHandle && selectedPoint > 0 && (
-                      <>
-                        <line
-                          x1={px}
-                          y1={py}
-                          x2={px + pointHandles.inHandle.x * graphWidth}
-                          y2={py - pointHandles.inHandle.y * graphHeight}
-                          stroke="rgba(236, 72, 153, 0.6)"
-                          strokeWidth="1"
-                          strokeDasharray="2,2"
-                        />
-                        <circle
-                          cx={px + pointHandles.inHandle.x * graphWidth}
-                          cy={py - pointHandles.inHandle.y * graphHeight}
-                          r={3}
-                          fill="rgba(236, 72, 153, 0.8)"
-                          stroke="white"
-                          strokeWidth="1"
-                          className="cursor-move"
-                          onMouseDown={(e) => handleHandleMouseDown(e, selectedPoint, 'in')}
-                        />
-                      </>
-                    )}
-                    {pointHandles?.outHandle && selectedPoint < curve.points.length - 1 && (
-                      <>
-                        <line
-                          x1={px}
-                          y1={py}
-                          x2={px + pointHandles.outHandle.x * graphWidth}
-                          y2={py - pointHandles.outHandle.y * graphHeight}
-                          stroke="rgba(236, 72, 153, 0.6)"
-                          strokeWidth="1"
-                          strokeDasharray="2,2"
-                        />
-                        <circle
-                          cx={px + pointHandles.outHandle.x * graphWidth}
-                          cy={py - pointHandles.outHandle.y * graphHeight}
-                          r={3}
-                          fill="rgba(236, 72, 153, 0.8)"
-                          stroke="white"
-                          strokeWidth="1"
-                          className="cursor-move"
-                          onMouseDown={(e) => handleHandleMouseDown(e, selectedPoint, 'out')}
-                        />
-                      </>
-                    )}
-                  </>
-                );
-              })()}
-            </>
-          )}
+            if (!pointHandles) return null;
 
+            return (
+              <g key="handles">
+                {pointHandles.inHandle && selectedPoint > 0 && (
+                  <g>
+                    <line
+                      x1={px}
+                      y1={py}
+                      x2={px + pointHandles.inHandle.x * graphWidth}
+                      y2={py - pointHandles.inHandle.y * graphHeight}
+                      stroke="rgba(236, 72, 153, 0.6)"
+                      strokeWidth="1.5"
+                      strokeDasharray="3,2"
+                    />
+                    <circle
+                      cx={px + pointHandles.inHandle.x * graphWidth}
+                      cy={py - pointHandles.inHandle.y * graphHeight}
+                      r={4}
+                      fill="rgba(236, 72, 153, 0.9)"
+                      stroke="white"
+                      strokeWidth="1.5"
+                      className="cursor-move"
+                      onMouseDown={(e) => handleHandleMouseDown(e, selectedPoint, 'in')}
+                    />
+                  </g>
+                )}
+                {pointHandles.outHandle && selectedPoint < curve.points.length - 1 && (
+                  <g>
+                    <line
+                      x1={px}
+                      y1={py}
+                      x2={px + pointHandles.outHandle.x * graphWidth}
+                      y2={py - pointHandles.outHandle.y * graphHeight}
+                      stroke="rgba(236, 72, 153, 0.6)"
+                      strokeWidth="1.5"
+                      strokeDasharray="3,2"
+                    />
+                    <circle
+                      cx={px + pointHandles.outHandle.x * graphWidth}
+                      cy={py - pointHandles.outHandle.y * graphHeight}
+                      r={4}
+                      fill="rgba(236, 72, 153, 0.9)"
+                      stroke="white"
+                      strokeWidth="1.5"
+                      className="cursor-move"
+                      onMouseDown={(e) => handleHandleMouseDown(e, selectedPoint, 'out')}
+                    />
+                  </g>
+                )}
+              </g>
+            );
+          })()}
+
+          {/* Render curve points */}
           {curve.points.map((point, i) => (
             <g key={i}>
               <circle
