@@ -285,6 +285,77 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     setDraggingHandle(type);
   };
 
+  // Global mouse tracking for drag outside SVG
+  useEffect(() => {
+    if (!isDragging && !draggingHandle) return;
+
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      if (!svgRef.current) return;
+
+      const rect = svgRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      if (draggingHandle && curve.interpolation === 'smooth' && selectedPoint !== null) {
+        const point = curve.points[selectedPoint];
+        const px = timeToX(point.time);
+        const py = valueToY(point.value);
+
+        const handleX = (x - px) / graphWidth;
+        const handleY = (py - y) / graphHeight;
+
+        const pointHandles = handles.get(selectedPoint) || {};
+
+        if (draggingHandle === 'out') {
+          pointHandles.outHandle = { x: Math.max(0, handleX), y: handleY };
+        } else {
+          pointHandles.inHandle = { x: Math.min(0, handleX), y: handleY };
+        }
+
+        const newHandles = new Map(handles);
+        newHandles.set(selectedPoint, pointHandles);
+        setHandles(newHandles);
+        return;
+      }
+
+      if (isDragging && selectedPoint !== null) {
+        let newTime = roundToTwo(xToTime(x));
+        const proposed = yToValue(y);
+        const newValue = roundToTwo(autoScale ? proposed : clampToRange(proposed));
+
+        const newPoints = [...curve.points];
+
+        if (selectedPoint === 0) {
+          newPoints[selectedPoint] = { time: 0, value: newValue };
+        } else if (selectedPoint === newPoints.length - 1) {
+          newPoints[selectedPoint] = { time: 1, value: newValue };
+        } else {
+          const prevPoint = newPoints[selectedPoint - 1];
+          const nextPoint = newPoints[selectedPoint + 1];
+          const minTime = prevPoint.time + 0.01;
+          const maxTime = nextPoint.time - 0.01;
+          newTime = Math.max(minTime, Math.min(maxTime, newTime));
+          newPoints[selectedPoint] = { time: newTime, value: newValue };
+        }
+
+        onChange({ ...curve, points: newPoints });
+      }
+    };
+
+    const handleGlobalMouseUp = () => {
+      setIsDragging(false);
+      setDraggingHandle(null);
+    };
+
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    document.addEventListener('mouseup', handleGlobalMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleGlobalMouseMove);
+      document.removeEventListener('mouseup', handleGlobalMouseUp);
+    };
+  }, [isDragging, draggingHandle, selectedPoint, curve.points, curve.interpolation, handles, graphWidth, graphHeight, autoScale, onChange, clampToRange, roundToTwo, timeToX, valueToY, xToTime, yToValue]);
+
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (selectedPoint === null && selectedPoint !== 0) return;
 
@@ -423,14 +494,14 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
         <div className="flex items-center gap-1">
           <button
             onClick={handleCopyCurve}
-            className="p-0.5 bg-slate-700 hover:bg-slate-600 rounded"
+            className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded"
             title="Copy curve"
           >
             <Copy size={10} />
           </button>
           <button
             onClick={handlePasteCurve}
-            className="p-0.5 bg-slate-700 hover:bg-slate-600 rounded"
+            className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded"
             title="Paste curve"
             disabled={!globalCurveClipboard}
           >
@@ -447,7 +518,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
           )}
           <button
             onClick={() => setIsZoomed(!isZoomed)}
-            className="p-0.5 bg-slate-700 hover:bg-slate-600 rounded"
+            className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded"
             title={isZoomed ? "Zoom out" : "Zoom in (3x)"}
           >
             {isZoomed ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
@@ -455,7 +526,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
           {onReset && (
             <button
               onClick={onReset}
-              className="p-0.5 bg-slate-700 hover:bg-slate-600 rounded"
+              className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded"
               title="Reset to default"
             >
               <RefreshCw size={10} />
@@ -472,7 +543,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
           {selectedPoint !== null && curve.points.length > 2 && (
             <button
               onClick={handleDeletePoint}
-              className="p-0.5 bg-red-600 hover:bg-red-700 rounded"
+              className="px-1.5 py-0.5 bg-red-600 hover:bg-red-700 rounded"
               title="Delete point"
             >
               <Trash2 size={10} />
@@ -503,7 +574,6 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
           onDoubleClick={handleSvgDoubleClick}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
         >
           <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
           <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
@@ -530,6 +600,30 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
               stroke="rgba(255,200,100,0.4)"
               strokeWidth="1"
               strokeDasharray="3,3"
+            />
+          )}
+
+          {/* 0.5 and -0.5 guide lines */}
+          {viewMin <= 0.5 && viewMax >= 0.5 && (
+            <line
+              x1={padding}
+              y1={valueToY(0.5)}
+              x2={width - padding}
+              y2={valueToY(0.5)}
+              stroke="rgba(148,163,184,0.2)"
+              strokeWidth="1"
+              strokeDasharray="2,3"
+            />
+          )}
+          {viewMin <= -0.5 && viewMax >= -0.5 && (
+            <line
+              x1={padding}
+              y1={valueToY(-0.5)}
+              x2={width - padding}
+              y2={valueToY(-0.5)}
+              stroke="rgba(148,163,184,0.2)"
+              strokeWidth="1"
+              strokeDasharray="2,3"
             />
           )}
 
@@ -646,49 +740,51 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
           ))}
         </svg>
 
-        {selectedPoint !== null && (
-          <div className="mt-1 grid grid-cols-2 gap-1">
-            <input
-              type="text"
-              value={timeInput}
-              onChange={e => {
-                const raw = e.target.value;
-                setTimeInput(raw);
+        {/* Time and Value inputs - always visible when subsection is open */}
+        <div className="mt-1 grid grid-cols-2 gap-1">
+          <input
+            type="text"
+            value={selectedPoint !== null ? timeInput : ''}
+            onChange={e => {
+              if (selectedPoint === null) return;
+              const raw = e.target.value;
+              setTimeInput(raw);
 
-                const parsed = parseDecimal(raw);
-                if (Number.isNaN(parsed) || selectedPoint === null) return;
+              const parsed = parseDecimal(raw);
+              if (Number.isNaN(parsed)) return;
 
-                const newPoints = [...curve.points];
-                const clampedTime = roundToTwo(Math.max(0, Math.min(1, parsed)));
-                const nextTime = selectedPoint === 0 ? 0 : selectedPoint === newPoints.length - 1 ? 1 : clampedTime;
+              const newPoints = [...curve.points];
+              const clampedTime = roundToTwo(Math.max(0, Math.min(1, parsed)));
+              const nextTime = selectedPoint === 0 ? 0 : selectedPoint === newPoints.length - 1 ? 1 : clampedTime;
 
-                newPoints[selectedPoint] = { ...newPoints[selectedPoint], time: nextTime };
-                onChange({ ...curve, points: newPoints.sort((a, b) => a.time - b.time) });
-              }}
-              disabled={selectedPoint === 0 || selectedPoint === curve.points.length - 1}
-              className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-[10px]"
-              placeholder="Time"
-            />
-            <input
-              type="text"
-              value={valueInput}
-              onChange={e => {
-                const raw = e.target.value;
-                setValueInput(raw);
+              newPoints[selectedPoint] = { ...newPoints[selectedPoint], time: nextTime };
+              onChange({ ...curve, points: newPoints.sort((a, b) => a.time - b.time) });
+            }}
+            disabled={selectedPoint === null || selectedPoint === 0 || selectedPoint === curve.points.length - 1}
+            className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-[10px] disabled:opacity-50"
+            placeholder="Time"
+          />
+          <input
+            type="text"
+            value={selectedPoint !== null ? valueInput : ''}
+            onChange={e => {
+              if (selectedPoint === null) return;
+              const raw = e.target.value;
+              setValueInput(raw);
 
-                const parsed = parseDecimal(raw);
-                if (Number.isNaN(parsed) || selectedPoint === null) return;
+              const parsed = parseDecimal(raw);
+              if (Number.isNaN(parsed)) return;
 
-                const clampedValue = roundToTwo(autoScale ? parsed : Math.max(min, Math.min(max, parsed)));
-                const newPoints = [...curve.points];
-                newPoints[selectedPoint] = { ...newPoints[selectedPoint], value: clampedValue };
-                onChange({ ...curve, points: newPoints });
-              }}
-              className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-[10px]"
-              placeholder="Value"
-            />
-          </div>
-        )}
+              const clampedValue = roundToTwo(autoScale ? parsed : clampToRange(parsed));
+              const newPoints = [...curve.points];
+              newPoints[selectedPoint] = { ...newPoints[selectedPoint], value: clampedValue };
+              onChange({ ...curve, points: newPoints });
+            }}
+            disabled={selectedPoint === null}
+            className="w-full px-1.5 py-0.5 bg-slate-800 border border-slate-600 rounded text-[10px] disabled:opacity-50"
+            placeholder="Value"
+          />
+        </div>
       </div>
     </div>
   );
