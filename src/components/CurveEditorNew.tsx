@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { RefreshCw, Trash2, Maximize2, Minimize2 } from 'lucide-react';
+import { RefreshCw, Trash2, Maximize2, Minimize2, Copy, Clipboard } from 'lucide-react';
 import type { Curve } from '../types';
 import { evaluateCurve } from '../utils';
 import { parseDecimal } from './helpers';
@@ -29,6 +29,15 @@ interface PointWithHandles {
   inHandle?: BezierHandle;
   outHandle?: BezierHandle;
 }
+
+interface CurveClipboard {
+  curve: Curve;
+  handles: Map<number, PointWithHandles>;
+  rangeMode: '0-1' | '-1-1';
+}
+
+// Global clipboard for curve data
+let globalCurveClipboard: CurveClipboard | null = null;
 
 export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   label,
@@ -59,6 +68,46 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   const max = rangeMode === '0-1' ? 1 : 1;
 
   const roundToTwo = (val: number) => Math.round(val * 100) / 100;
+
+  // Clamp value to current range mode
+  const clampToRange = (value: number): number => {
+    const currentMin = rangeMode === '0-1' ? 0 : -1;
+    const currentMax = 1;
+    return Math.max(currentMin, Math.min(currentMax, value));
+  };
+
+  // Handle range mode toggle with value clamping
+  const handleRangeModeToggle = () => {
+    const newMode = rangeMode === '0-1' ? '-1-1' : '0-1';
+    const newMin = newMode === '0-1' ? 0 : -1;
+
+    // Clamp all point values to new range
+    const clampedPoints = curve.points.map(point => ({
+      ...point,
+      value: roundToTwo(Math.max(newMin, Math.min(1, point.value)))
+    }));
+
+    onChange({ ...curve, points: clampedPoints });
+    setRangeMode(newMode);
+  };
+
+  // Copy curve to clipboard
+  const handleCopyCurve = () => {
+    globalCurveClipboard = {
+      curve: { ...curve, points: curve.points.map(p => ({ ...p })) },
+      handles: new Map(handles),
+      rangeMode
+    };
+  };
+
+  // Paste curve from clipboard
+  const handlePasteCurve = () => {
+    if (!globalCurveClipboard) return;
+
+    onChange({ ...globalCurveClipboard.curve });
+    setHandles(new Map(globalCurveClipboard.handles));
+    setRangeMode(globalCurveClipboard.rangeMode);
+  };
 
   useEffect(() => {
     const measureWidth = () => {
@@ -268,21 +317,32 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     }
 
     if (isDragging) {
-      const newTime = roundToTwo(xToTime(x));
+      let newTime = roundToTwo(xToTime(x));
       const proposed = yToValue(y);
-      const newValue = roundToTwo(autoScale ? proposed : Math.max(min, Math.min(max, proposed)));
+      const newValue = roundToTwo(autoScale ? proposed : clampToRange(proposed));
 
       const newPoints = [...curve.points];
 
       if (selectedPoint === 0) {
+        // First point always at time 0
         newPoints[selectedPoint] = { time: 0, value: newValue };
       } else if (selectedPoint === newPoints.length - 1) {
+        // Last point always at time 1
         newPoints[selectedPoint] = { time: 1, value: newValue };
       } else {
+        // Middle points: constrain time between neighbors to prevent curve inversion
+        const prevPoint = newPoints[selectedPoint - 1];
+        const nextPoint = newPoints[selectedPoint + 1];
+
+        // Ensure time is between previous and next point with small margin
+        const minTime = prevPoint.time + 0.01;
+        const maxTime = nextPoint.time - 0.01;
+        newTime = Math.max(minTime, Math.min(maxTime, newTime));
+
         newPoints[selectedPoint] = { time: newTime, value: newValue };
       }
 
-      onChange({ ...curve, points: newPoints.sort((a, b) => a.time - b.time) });
+      onChange({ ...curve, points: newPoints });
     }
   };
 
@@ -361,9 +421,24 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
       <div className="flex items-center justify-between">
         <label className="text-xs text-slate-300">{label}</label>
         <div className="flex items-center gap-1">
+          <button
+            onClick={handleCopyCurve}
+            className="p-0.5 bg-slate-700 hover:bg-slate-600 rounded"
+            title="Copy curve"
+          >
+            <Copy size={10} />
+          </button>
+          <button
+            onClick={handlePasteCurve}
+            className="p-0.5 bg-slate-700 hover:bg-slate-600 rounded"
+            title="Paste curve"
+            disabled={!globalCurveClipboard}
+          >
+            <Clipboard size={10} className={!globalCurveClipboard ? 'opacity-50' : ''} />
+          </button>
           {allowRangeToggle && (
             <button
-              onClick={() => setRangeMode(rangeMode === '0-1' ? '-1-1' : '0-1')}
+              onClick={handleRangeModeToggle}
               className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px]"
               title={`Switch to ${rangeMode === '0-1' ? '-1 to 1' : '0 to 1'} range`}
             >
