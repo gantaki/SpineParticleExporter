@@ -494,23 +494,23 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
         <div className="flex items-center gap-1">
           <button
             onClick={handleCopyCurve}
-            className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded"
+            className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded"
             title="Copy curve"
           >
-            <Copy size={10} />
+            <Copy size={12} />
           </button>
           <button
             onClick={handlePasteCurve}
-            className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded"
+            className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded"
             title="Paste curve"
             disabled={!globalCurveClipboard}
           >
-            <Clipboard size={10} className={!globalCurveClipboard ? 'opacity-50' : ''} />
+            <Clipboard size={12} className={!globalCurveClipboard ? 'opacity-50' : ''} />
           </button>
           {allowRangeToggle && (
             <button
               onClick={handleRangeModeToggle}
-              className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px]"
+              className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium"
               title={`Switch to ${rangeMode === '0-1' ? '-1 to 1' : '0 to 1'} range`}
             >
               {rangeMode === '0-1' ? '0→1' : '-1→1'}
@@ -518,24 +518,24 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
           )}
           <button
             onClick={() => setIsZoomed(!isZoomed)}
-            className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded"
+            className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded"
             title={isZoomed ? "Zoom out" : "Zoom in (3x)"}
           >
-            {isZoomed ? <Minimize2 size={10} /> : <Maximize2 size={10} />}
+            {isZoomed ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
           </button>
           {onReset && (
             <button
               onClick={onReset}
-              className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded"
+              className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded"
               title="Reset to default"
             >
-              <RefreshCw size={10} />
+              <RefreshCw size={12} />
             </button>
           )}
           <select
             value={curve.interpolation}
             onChange={e => onChange({ ...curve, interpolation: e.target.value as any })}
-            className="px-1.5 py-0.5 bg-slate-900 border border-slate-600 rounded text-[10px]"
+            className="px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
           >
             <option value="linear">Linear</option>
             <option value="smooth">Smooth</option>
@@ -543,10 +543,10 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
           {selectedPoint !== null && curve.points.length > 2 && (
             <button
               onClick={handleDeletePoint}
-              className="px-1.5 py-0.5 bg-red-600 hover:bg-red-700 rounded"
+              className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded"
               title="Delete point"
             >
-              <Trash2 size={10} />
+              <Trash2 size={12} />
             </button>
           )}
         </div>
@@ -577,6 +577,25 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
         >
           <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
           <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
+
+          {/* Value labels on Y-axis */}
+          {[-1, 0, 1].map(value => {
+            if (value < viewMin || value > viewMax) return null;
+            const y = valueToY(value);
+            return (
+              <text
+                key={`label-${value}`}
+                x={padding - 3}
+                y={y}
+                fill="rgba(255,255,255,0.5)"
+                fontSize="9"
+                textAnchor="end"
+                dominantBaseline="middle"
+              >
+                {value}
+              </text>
+            );
+          })}
 
           {[0, 0.25, 0.5, 0.75, 1].map(t => (
             <line
