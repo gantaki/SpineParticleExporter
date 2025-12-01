@@ -11,7 +11,6 @@ import {
   LabeledNumber,
   LabeledSelect,
   LabeledCheckbox,
-  SettingsSection,
   TwoColumn,
 } from "../fields";
 import { useSettings } from "../../context/SettingsContext";
@@ -132,13 +131,6 @@ const EmissionSettings = memo(() => {
         />
       )}
 
-      <LabeledSelect
-        label="Emission Type"
-        value={em.emissionType}
-        options={EMISSION_TYPE_OPTIONS}
-        onChange={handleEmissionTypeChange}
-      />
-
       {/* Start Delay */}
       <LabeledNumber
         label="Start Delay (sec)"
@@ -146,6 +138,13 @@ const EmissionSettings = memo(() => {
         onChange={(v) => updateCurrentEmitter({ startDelay: v })}
         max={5}
         step={0.1}
+      />
+
+      <LabeledSelect
+        label="Emission Type"
+        value={em.emissionType}
+        options={EMISSION_TYPE_OPTIONS}
+        onChange={handleEmissionTypeChange}
       />
 
       {em.emissionType === "burst" && (
@@ -208,7 +207,7 @@ const EmissionSettings = memo(() => {
             max={200}
           />
           <CurveEditorNew
-            label="Rate Multiplier (-1 to 1)"
+            label="Rate Multiplier"
             curve={em.rateOverTime}
             onChange={(curve) => updateCurrentEmitter({ rateOverTime: curve })}
             onReset={() =>
@@ -219,6 +218,7 @@ const EmissionSettings = memo(() => {
             min={-1}
             max={1}
             autoScale={false}
+            allowRangeToggle={true}
           />
         </InlineCollapsible>
       )}
@@ -344,16 +344,22 @@ const ShapeSettings = memo(() => {
 ShapeSettings.displayName = "ShapeSettings";
 
 // ============================================================
-// POSITION SETTINGS SUB-COMPONENT (moved to bottom)
+// POSITION SETTINGS SUB-COMPONENT (moved to bottom as collapsible)
 // ============================================================
 
 const PositionSettings = memo(() => {
   const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [positionOpen, setPositionOpen] = useState(false);
 
   if (!em) return null;
 
   return (
-    <SettingsSection icon="📍" title="Emitter Position" color="cyan">
+    <InlineCollapsible
+      title="Emitter Position"
+      icon="📍"
+      isOpen={positionOpen}
+      onToggle={() => setPositionOpen(!positionOpen)}
+    >
       <TwoColumn>
         <LabeledNumber
           label="Position X (px)"
@@ -374,7 +380,7 @@ const PositionSettings = memo(() => {
           max={1000}
         />
       </TwoColumn>
-    </SettingsSection>
+    </InlineCollapsible>
   );
 });
 PositionSettings.displayName = "PositionSettings";

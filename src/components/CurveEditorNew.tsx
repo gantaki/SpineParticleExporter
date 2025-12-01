@@ -17,6 +17,7 @@ interface CurveEditorNewProps {
   min?: number;
   max?: number;
   autoScale?: boolean;
+  allowRangeToggle?: boolean; // Allow toggling between -1 to 1 and 0 to 1
 }
 
 interface BezierHandle {
@@ -34,9 +35,10 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   curve,
   onChange,
   onReset,
-  min = -1,
-  max = 1,
-  autoScale = true
+  min: initialMin = -1,
+  max: initialMax = 1,
+  autoScale = true,
+  allowRangeToggle = false
 }) => {
   const [selectedPoint, setSelectedPoint] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -45,11 +47,16 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   const [valueInput, setValueInput] = useState('');
   const [isZoomed, setIsZoomed] = useState(false);
   const [handles, setHandles] = useState<Map<number, PointWithHandles>>(new Map());
+  const [rangeMode, setRangeMode] = useState<'0-1' | '-1-1'>(initialMin === 0 ? '0-1' : '-1-1');
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(260);
-  const [viewMin, setViewMin] = useState(min);
-  const [viewMax, setViewMax] = useState(max);
+  const [viewMin, setViewMin] = useState(initialMin);
+  const [viewMax, setViewMax] = useState(initialMax);
+
+  // Calculate min/max based on range mode
+  const min = rangeMode === '0-1' ? 0 : -1;
+  const max = rangeMode === '0-1' ? 1 : 1;
 
   const roundToTwo = (val: number) => Math.round(val * 100) / 100;
 
@@ -354,6 +361,15 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
       <div className="flex items-center justify-between">
         <label className="text-xs text-slate-300">{label}</label>
         <div className="flex items-center gap-1">
+          {allowRangeToggle && (
+            <button
+              onClick={() => setRangeMode(rangeMode === '0-1' ? '-1-1' : '0-1')}
+              className="px-1.5 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px]"
+              title={`Switch to ${rangeMode === '0-1' ? '-1 to 1' : '0 to 1'} range`}
+            >
+              {rangeMode === '0-1' ? '0→1' : '-1→1'}
+            </button>
+          )}
           <button
             onClick={() => setIsZoomed(!isZoomed)}
             className="p-0.5 bg-slate-700 hover:bg-slate-600 rounded"
