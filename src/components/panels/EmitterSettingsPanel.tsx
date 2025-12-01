@@ -107,16 +107,7 @@ const EmissionSettings = memo(() => {
 
   return (
     <div className="space-y-2">
-      {/* Start Delay - now separate from looping */}
-      <LabeledNumber
-        label="Start Delay (sec)"
-        value={em.startDelay}
-        onChange={(v) => updateCurrentEmitter({ startDelay: v })}
-        max={5}
-        step={0.1}
-      />
-
-      {/* Looping and Prewarm - only for continuous */}
+      {/* Looping and Prewarm at the top - only for continuous */}
       {em.emissionType === "continuous" && (
         <>
           <LabeledCheckbox
@@ -132,7 +123,7 @@ const EmissionSettings = memo(() => {
         </>
       )}
 
-      {/* Prewarm for duration - independent control */}
+      {/* Prewarm for duration - independent control at top */}
       {em.emissionType === "duration" && (
         <LabeledCheckbox
           label="Prewarm"
@@ -146,6 +137,15 @@ const EmissionSettings = memo(() => {
         value={em.emissionType}
         options={EMISSION_TYPE_OPTIONS}
         onChange={handleEmissionTypeChange}
+      />
+
+      {/* Start Delay */}
+      <LabeledNumber
+        label="Start Delay (sec)"
+        value={em.startDelay}
+        onChange={(v) => updateCurrentEmitter({ startDelay: v })}
+        max={5}
+        step={0.1}
       />
 
       {em.emissionType === "burst" && (

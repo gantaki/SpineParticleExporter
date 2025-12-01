@@ -164,46 +164,6 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     return viewMin + normalized * (viewMax - viewMin);
   };
 
-  const applyPreset = (preset: 'linear' | 'easeIn' | 'easeOut' | 'easeInOut') => {
-    let newPoints: Array<{ time: number; value: number }>;
-
-    switch (preset) {
-      case 'linear':
-        newPoints = [
-          { time: 0, value: 0 },
-          { time: 1, value: 1 }
-        ];
-        onChange({ ...curve, points: newPoints, interpolation: 'linear' });
-        break;
-      case 'easeIn':
-        newPoints = [
-          { time: 0, value: 0 },
-          { time: 0.5, value: 0.2 },
-          { time: 1, value: 1 }
-        ];
-        onChange({ ...curve, points: newPoints, interpolation: 'smooth' });
-        break;
-      case 'easeOut':
-        newPoints = [
-          { time: 0, value: 0 },
-          { time: 0.5, value: 0.8 },
-          { time: 1, value: 1 }
-        ];
-        onChange({ ...curve, points: newPoints, interpolation: 'smooth' });
-        break;
-      case 'easeInOut':
-        newPoints = [
-          { time: 0, value: 0 },
-          { time: 0.3, value: 0.1 },
-          { time: 0.7, value: 0.9 },
-          { time: 1, value: 1 }
-        ];
-        onChange({ ...curve, points: newPoints, interpolation: 'smooth' });
-        break;
-    }
-    setHandles(new Map());
-  };
-
   const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (isDragging || draggingHandle) return;
 
@@ -224,6 +184,27 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
       setSelectedPoint(clickedPoint);
       return;
     }
+  };
+
+  const handleSvgDoubleClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (isDragging || draggingHandle) return;
+
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    // Check if double-clicked on existing point
+    const clickedPoint = curve.points.findIndex(p => {
+      const px = timeToX(p.time);
+      const py = valueToY(p.value);
+      const distance = Math.sqrt((x - px) ** 2 + (y - py) ** 2);
+      return distance < 8;
+    });
+
+    // Don't add new point if clicked on existing point
+    if (clickedPoint !== -1) return;
 
     const newTime = roundToTwo(xToTime(x));
     const newValue = roundToTwo(yToValue(y));
@@ -409,40 +390,15 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
         </div>
       </div>
 
-      <div className="flex gap-1 mb-1">
-        <button
-          onClick={() => applyPreset('linear')}
-          className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px]"
-          title="Linear preset"
-        >
-          Linear
-        </button>
-        <button
-          onClick={() => applyPreset('easeIn')}
-          className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px]"
-          title="Ease In preset"
-        >
-          Ease In
-        </button>
-        <button
-          onClick={() => applyPreset('easeOut')}
-          className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px]"
-          title="Ease Out preset"
-        >
-          Ease Out
-        </button>
-        <button
-          onClick={() => applyPreset('easeInOut')}
-          className="px-2 py-0.5 bg-slate-700 hover:bg-slate-600 rounded text-[10px]"
-          title="Ease In-Out preset"
-        >
-          Ease In-Out
-        </button>
-      </div>
-
       {curve.interpolation === 'smooth' && selectedPoint !== null && (
         <div className="text-[10px] text-slate-400 px-1">
           💡 Drag the pink handles to adjust curve shape
+        </div>
+      )}
+
+      {!selectedPoint && selectedPoint !== 0 && (
+        <div className="text-[10px] text-slate-400 px-1">
+          💡 Double-click to add a new point
         </div>
       )}
 
@@ -453,6 +409,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
           height={height}
           className="cursor-crosshair"
           onClick={handleSvgClick}
+          onDoubleClick={handleSvgDoubleClick}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
