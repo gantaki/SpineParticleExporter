@@ -1,21 +1,58 @@
 /**
- * EmitterSettingsPanel
- * Controls emission type, shape, rate, looping, and emitter-level settings
+ * EmitterSettingsPanel v104
+ * Enhanced emitter settings with reorganized layout and new curve editor
  */
 
-import { memo, useCallback } from "react";
+import { memo, useCallback, useState } from "react";
 import { CollapsibleSection } from "../CollapsibleSection";
-import { CurveEditor } from "../CurveEditor";
+import { CurveEditorNew } from "../CurveEditorNew";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import {
   LabeledNumber,
   LabeledSelect,
   LabeledCheckbox,
-  SettingsSection,
   TwoColumn,
 } from "../fields";
 import { useSettings } from "../../context/SettingsContext";
 import { DEFAULT_CURVE_PRESETS } from "../../types";
 import { copyCurve } from "../../utils";
+
+// ============================================================
+// INLINE COLLAPSIBLE COMPONENT FOR SUB-SECTIONS
+// ============================================================
+
+interface InlineCollapsibleProps {
+  title: string;
+  icon?: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+const InlineCollapsible = memo<InlineCollapsibleProps>(
+  ({ title, icon, isOpen, onToggle, children }) => {
+    return (
+      <div className="border border-slate-600 rounded bg-slate-800/20">
+        <button
+          onClick={onToggle}
+          className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-slate-700/30 transition-colors rounded"
+        >
+          <span className="text-xs font-medium text-slate-300 flex items-center gap-1">
+            {icon && <span>{icon}</span>}
+            {title}
+          </span>
+          {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+        {isOpen && (
+          <div className="px-2 pb-2 space-y-2">
+            {children}
+          </div>
+        )}
+      </div>
+    );
+  }
+);
+InlineCollapsible.displayName = "InlineCollapsible";
 
 // ============================================================
 // SELECT OPTIONS
@@ -41,53 +78,6 @@ const MODE_OPTIONS = [
 ];
 
 // ============================================================
-// LOOP SETTINGS SUB-COMPONENT
-// ============================================================
-
-const LoopSettings = memo(() => {
-  const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
-
-  if (!em) return null;
-
-  return (
-    <SettingsSection icon="🔄" title="Loop Settings" color="blue">
-      {em.emissionType === "continuous" && (
-        <>
-          <LabeledCheckbox
-            label="Looping"
-            checked={em.looping}
-            onChange={(checked) =>
-              updateCurrentEmitter({
-                looping: checked,
-                prewarm: checked ? em.prewarm : false,
-              })
-            }
-            className="mb-2"
-          />
-          {em.looping && (
-            <LabeledCheckbox
-              label="Prewarm"
-              checked={em.prewarm}
-              onChange={(checked) => updateCurrentEmitter({ prewarm: checked })}
-              indent
-              className="mb-2"
-            />
-          )}
-        </>
-      )}
-      <LabeledNumber
-        label="Start Delay (sec)"
-        value={em.startDelay}
-        onChange={(v) => updateCurrentEmitter({ startDelay: v })}
-        max={5}
-        step={0.1}
-      />
-    </SettingsSection>
-  );
-});
-LoopSettings.displayName = "LoopSettings";
-
-// ============================================================
 // EMISSION SETTINGS SUB-COMPONENT
 // ============================================================
 
@@ -98,12 +88,14 @@ const EmissionSettings = memo(() => {
     updateCurrentEmitter,
   } = useSettings();
 
+  const [emissionRateOpen, setEmissionRateOpen] = useState(false);
+
   const handleEmissionTypeChange = useCallback(
     (type: string) => {
       const updates: Record<string, unknown> = { emissionType: type };
-      if (type !== "continuous") {
+      // Don't automatically disable prewarm/looping when changing type
+      if (type === "burst") {
         updates.looping = false;
-        updates.prewarm = false;
       }
       updateCurrentEmitter(updates);
     },
@@ -114,21 +106,46 @@ const EmissionSettings = memo(() => {
 
   return (
     <div className="space-y-2">
+      {/* Looping and Prewarm at the top - only for continuous */}
+      {em.emissionType === "continuous" && (
+        <>
+          <LabeledCheckbox
+            label="Looping"
+            checked={em.looping}
+            onChange={(checked) => updateCurrentEmitter({ looping: checked })}
+          />
+          <LabeledCheckbox
+            label="Prewarm"
+            checked={em.prewarm}
+            onChange={(checked) => updateCurrentEmitter({ prewarm: checked })}
+          />
+        </>
+      )}
+
+      {/* Prewarm for duration - independent control at top */}
+      {em.emissionType === "duration" && (
+        <LabeledCheckbox
+          label="Prewarm"
+          checked={em.prewarm}
+          onChange={(checked) => updateCurrentEmitter({ prewarm: checked })}
+        />
+      )}
+
+      {/* Start Delay */}
+      <LabeledNumber
+        label="Start Delay (sec)"
+        value={em.startDelay}
+        onChange={(v) => updateCurrentEmitter({ startDelay: v })}
+        max={5}
+        step={0.1}
+      />
+
       <LabeledSelect
         label="Emission Type"
         value={em.emissionType}
         options={EMISSION_TYPE_OPTIONS}
         onChange={handleEmissionTypeChange}
       />
-
-      {em.emissionType === "continuous" && (
-        <LabeledNumber
-          label="Rate (per sec)"
-          value={em.rate}
-          onChange={(v) => updateCurrentEmitter({ rate: v })}
-          max={200}
-        />
-      )}
 
       {em.emissionType === "burst" && (
         <div className="space-y-2 pl-2 border-l-2 border-purple-500">
@@ -172,29 +189,38 @@ const EmissionSettings = memo(() => {
               step={0.1}
             />
           </TwoColumn>
+        </div>
+      )}
+
+      {/* Emission Rate Collapsible Section */}
+      {em.emissionType !== "burst" && (
+        <InlineCollapsible
+          title="Emission Rate"
+          icon="📊"
+          isOpen={emissionRateOpen}
+          onToggle={() => setEmissionRateOpen(!emissionRateOpen)}
+        >
           <LabeledNumber
             label="Rate (per sec)"
             value={em.rate}
             onChange={(v) => updateCurrentEmitter({ rate: v })}
             max={200}
           />
-        </div>
-      )}
-
-      {em.emissionType !== "burst" && (
-        <CurveEditor
-          label="Rate Multiplier (-1 to 1)"
-          curve={em.rateOverTime}
-          onChange={(curve) => updateCurrentEmitter({ rateOverTime: curve })}
-          onReset={() =>
-            updateCurrentEmitter({
-              rateOverTime: copyCurve(DEFAULT_CURVE_PRESETS.rate),
-            })
-          }
-          min={-1}
-          max={1}
-          autoScale={false}
-        />
+          <CurveEditorNew
+            label="Rate Multiplier"
+            curve={em.rateOverTime}
+            onChange={(curve) => updateCurrentEmitter({ rateOverTime: curve })}
+            onReset={() =>
+              updateCurrentEmitter({
+                rateOverTime: copyCurve(DEFAULT_CURVE_PRESETS.rate),
+              })
+            }
+            min={-1}
+            max={1}
+            autoScale={false}
+            allowRangeToggle={true}
+          />
+        </InlineCollapsible>
       )}
     </div>
   );
@@ -202,37 +228,22 @@ const EmissionSettings = memo(() => {
 EmissionSettings.displayName = "EmissionSettings";
 
 // ============================================================
-// SHAPE SETTINGS SUB-COMPONENT
+// SHAPE & EMISSION SETTINGS SUB-COMPONENT
 // ============================================================
 
 const ShapeSettings = memo(() => {
   const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [shapeOpen, setShapeOpen] = useState(false);
 
   if (!em) return null;
 
   return (
-    <div className="space-y-2">
-      <TwoColumn>
-        <LabeledNumber
-          label="Position X (px)"
-          value={em.position.x}
-          onChange={(v) =>
-            updateCurrentEmitter({ position: { x: v, y: em.position.y } })
-          }
-          min={-1000}
-          max={1000}
-        />
-        <LabeledNumber
-          label="Position Y (px)"
-          value={em.position.y}
-          onChange={(v) =>
-            updateCurrentEmitter({ position: { x: em.position.x, y: v } })
-          }
-          min={-1000}
-          max={1000}
-        />
-      </TwoColumn>
-
+    <InlineCollapsible
+      title="Shape & Emission Direction"
+      icon="🔷"
+      isOpen={shapeOpen}
+      onToggle={() => setShapeOpen(!shapeOpen)}
+    >
       <LabeledSelect
         label="Shape"
         value={em.shape}
@@ -327,10 +338,52 @@ const ShapeSettings = memo(() => {
           max={360}
         />
       </TwoColumn>
-    </div>
+    </InlineCollapsible>
   );
 });
 ShapeSettings.displayName = "ShapeSettings";
+
+// ============================================================
+// POSITION SETTINGS SUB-COMPONENT (moved to bottom as collapsible)
+// ============================================================
+
+const PositionSettings = memo(() => {
+  const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [positionOpen, setPositionOpen] = useState(false);
+
+  if (!em) return null;
+
+  return (
+    <InlineCollapsible
+      title="Emitter Position"
+      icon="📍"
+      isOpen={positionOpen}
+      onToggle={() => setPositionOpen(!positionOpen)}
+    >
+      <TwoColumn>
+        <LabeledNumber
+          label="Position X (px)"
+          value={em.position.x}
+          onChange={(v) =>
+            updateCurrentEmitter({ position: { x: v, y: em.position.y } })
+          }
+          min={-1000}
+          max={1000}
+        />
+        <LabeledNumber
+          label="Position Y (px)"
+          value={em.position.y}
+          onChange={(v) =>
+            updateCurrentEmitter({ position: { x: em.position.x, y: v } })
+          }
+          min={-1000}
+          max={1000}
+        />
+      </TwoColumn>
+    </InlineCollapsible>
+  );
+});
+PositionSettings.displayName = "PositionSettings";
 
 // ============================================================
 // MAIN PANEL COMPONENT
@@ -350,9 +403,9 @@ export const EmitterSettingsPanel = memo<EmitterSettingsPanelProps>(
         onToggle={onToggle}
       >
         <div className="space-y-2">
-          <LoopSettings />
           <EmissionSettings />
           <ShapeSettings />
+          <PositionSettings />
         </div>
       </CollapsibleSection>
     );
