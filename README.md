@@ -1,4 +1,4 @@
-# Spine Particle Exporter v103
+# Spine Particle Exporter v104
 
 A React/TypeScript application for converting particle system animations into Spine 4.2 skeletal animation format. Features a clean, layered architecture with FSM-based state management and Observer pattern for high-performance rendering.
 
@@ -182,7 +182,24 @@ See [`src/export/EXPORT.md`](src/export/EXPORT.md) for detailed documentation on
 
 ## Version History
 
-### v103 (Current)
+### v104 (Current)
+
+Major release focusing on Emitter Settings Panel improvements and advanced curve editing:
+
+- **Enhanced Prewarm Control**: Prewarm is now independent of looping and available for both Continuous and Duration emission modes
+- **Reorganized Settings Layout**:
+  - Start Delay moved to separate control (no longer grouped with loop settings)
+  - Emission Rate and Rate Multiplier combined into collapsible sub-section
+  - Shape, Angle, Spread, and emission direction grouped into collapsible "Shape & Emission Direction" sub-section
+  - Emitter Position moved to bottom of panel for better workflow
+- **Advanced Curve Editor (CurveEditorNew.tsx)**:
+  - New curve presets: Ease In, Ease Out, Ease In-Out
+  - Bezier handles for fine-tuning curve points (available in Smooth mode)
+  - 3x zoom button for precise curve adjustments
+  - First implementation in Emission Rate section (foundation for future curve editor updates)
+- Improved panel organization with inline collapsible sections for better space efficiency
+
+### v103
 
 - Enhanced Emitters Panel with advanced management features:
   - Double-click to rename emitters with auto-selection

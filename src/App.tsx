@@ -1,8 +1,8 @@
 /**
- * Particle → Spine Exporter v103
+ * Particle → Spine Exporter v104
  *
- * Version: 103
- * Date: 2025-11-29
+ * Version: 104
+ * Date: 2025-12-01
  *
  * Architecture:
  * - SOLID/GRASP/DRY principles applied
@@ -87,7 +87,9 @@ const ParticleEditor: React.FC = () => {
   const { updateCurrentEmitter } = useSettings();
   useEffect(() => {
     if (!em) return;
-    if (em.emissionType !== "continuous" && (em.looping || em.prewarm)) {
+    // Only disable looping for non-continuous modes
+    // Prewarm is now available for both continuous and duration modes
+    if (em.emissionType === "burst" && (em.looping || em.prewarm)) {
       updateCurrentEmitter({ looping: false, prewarm: false });
     }
   }, [em?.emissionType, em?.looping, em?.prewarm, updateCurrentEmitter]);
@@ -103,10 +105,10 @@ const ParticleEditor: React.FC = () => {
         {/* Header */}
         <header className="mb-4">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Particle → Spine Exporter v103
+            Particle → Spine Exporter v104
           </h1>
           <p className="text-xs text-slate-400">
-            Refactored Architecture • FSM State Management • Observer Pattern
+            Enhanced Emitter Settings • Advanced Curve Editor • Improved Prewarm Control
           </p>
         </header>
 
