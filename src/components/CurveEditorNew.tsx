@@ -3,7 +3,7 @@
  * Enhanced curve editor with bezier handles, additional presets, and zoom capability
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { RefreshCw, Trash2, Maximize2, Minimize2, Copy, Clipboard } from 'lucide-react';
 import type { Curve } from '../types';
 import { evaluateCurve } from '../utils';
@@ -67,14 +67,14 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   const min = rangeMode === '0-1' ? 0 : -1;
   const max = rangeMode === '0-1' ? 1 : 1;
 
-  const roundToTwo = (val: number) => Math.round(val * 100) / 100;
+  const roundToTwo = useCallback((val: number) => Math.round(val * 100) / 100, []);
 
   // Clamp value to current range mode
-  const clampToRange = (value: number): number => {
+  const clampToRange = useCallback((value: number): number => {
     const currentMin = rangeMode === '0-1' ? 0 : -1;
     const currentMax = 1;
     return Math.max(currentMin, Math.min(currentMax, value));
-  };
+  }, [rangeMode]);
 
   // Handle range mode toggle with value clamping
   const handleRangeModeToggle = () => {
@@ -202,23 +202,23 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   const graphWidth = width - padding * 2;
   const graphHeight = height - padding * 2;
 
-  const valueToY = (value: number) => {
+  const valueToY = useCallback((value: number) => {
     const normalized = viewMax === viewMin ? 0.5 : (value - viewMin) / (viewMax - viewMin);
     return height - padding - normalized * graphHeight;
-  };
+  }, [viewMax, viewMin, height, graphHeight]);
 
-  const timeToX = (time: number) => {
+  const timeToX = useCallback((time: number) => {
     return padding + time * graphWidth;
-  };
+  }, [graphWidth]);
 
-  const xToTime = (x: number) => {
+  const xToTime = useCallback((x: number) => {
     return Math.max(0, Math.min(1, (x - padding) / graphWidth));
-  };
+  }, [graphWidth]);
 
-  const yToValue = (y: number) => {
+  const yToValue = useCallback((y: number) => {
     const normalized = (height - padding - y) / graphHeight;
     return viewMin + normalized * (viewMax - viewMin);
-  };
+  }, [height, graphHeight, viewMin, viewMax]);
 
   const handleSvgClick = (e: React.MouseEvent<SVGSVGElement>) => {
     if (isDragging || draggingHandle) return;
@@ -285,60 +285,78 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     setDraggingHandle(type);
   };
 
+  // Memoized function to process handle dragging
+  const processDragHandle = useCallback((x: number, y: number, pointIndex: number, handleType: 'in' | 'out') => {
+    if (curve.interpolation !== 'smooth') return;
+
+    const point = curve.points[pointIndex];
+    const px = timeToX(point.time);
+    const py = valueToY(point.value);
+
+    const handleX = (x - px) / graphWidth;
+    const handleY = (py - y) / graphHeight;
+
+    const pointHandles = handles.get(pointIndex) || {};
+
+    if (handleType === 'out') {
+      pointHandles.outHandle = { x: Math.max(0, handleX), y: handleY };
+    } else {
+      pointHandles.inHandle = { x: Math.min(0, handleX), y: handleY };
+    }
+
+    const newHandles = new Map(handles);
+    newHandles.set(pointIndex, pointHandles);
+    setHandles(newHandles);
+  }, [curve.interpolation, curve.points, handles, graphWidth, graphHeight]);
+
+  // Memoized function to process point dragging
+  const processDragPoint = useCallback((x: number, y: number, pointIndex: number) => {
+    let newTime = roundToTwo(xToTime(x));
+    const proposed = yToValue(y);
+    const newValue = roundToTwo(autoScale ? proposed : clampToRange(proposed));
+
+    const newPoints = [...curve.points];
+
+    if (pointIndex === 0) {
+      // First point always at time 0
+      newPoints[pointIndex] = { time: 0, value: newValue };
+    } else if (pointIndex === newPoints.length - 1) {
+      // Last point always at time 1
+      newPoints[pointIndex] = { time: 1, value: newValue };
+    } else {
+      // Middle points: constrain time between neighbors to prevent curve inversion
+      const prevPoint = newPoints[pointIndex - 1];
+      const nextPoint = newPoints[pointIndex + 1];
+
+      // Ensure time is between previous and next point with small margin
+      const minTime = prevPoint.time + 0.01;
+      const maxTime = nextPoint.time - 0.01;
+      newTime = Math.max(minTime, Math.min(maxTime, newTime));
+
+      newPoints[pointIndex] = { time: newTime, value: newValue };
+    }
+
+    onChange({ ...curve, points: newPoints });
+  }, [curve.points, autoScale, roundToTwo, xToTime, yToValue, clampToRange, onChange]);
+
   // Global mouse tracking for drag outside SVG
   useEffect(() => {
     if (!isDragging && !draggingHandle) return;
 
     const handleGlobalMouseMove = (e: MouseEvent) => {
-      if (!svgRef.current) return;
+      if (!svgRef.current || selectedPoint === null) return;
 
       const rect = svgRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      if (draggingHandle && curve.interpolation === 'smooth' && selectedPoint !== null) {
-        const point = curve.points[selectedPoint];
-        const px = timeToX(point.time);
-        const py = valueToY(point.value);
-
-        const handleX = (x - px) / graphWidth;
-        const handleY = (py - y) / graphHeight;
-
-        const pointHandles = handles.get(selectedPoint) || {};
-
-        if (draggingHandle === 'out') {
-          pointHandles.outHandle = { x: Math.max(0, handleX), y: handleY };
-        } else {
-          pointHandles.inHandle = { x: Math.min(0, handleX), y: handleY };
-        }
-
-        const newHandles = new Map(handles);
-        newHandles.set(selectedPoint, pointHandles);
-        setHandles(newHandles);
+      if (draggingHandle) {
+        processDragHandle(x, y, selectedPoint, draggingHandle);
         return;
       }
 
-      if (isDragging && selectedPoint !== null) {
-        let newTime = roundToTwo(xToTime(x));
-        const proposed = yToValue(y);
-        const newValue = roundToTwo(autoScale ? proposed : clampToRange(proposed));
-
-        const newPoints = [...curve.points];
-
-        if (selectedPoint === 0) {
-          newPoints[selectedPoint] = { time: 0, value: newValue };
-        } else if (selectedPoint === newPoints.length - 1) {
-          newPoints[selectedPoint] = { time: 1, value: newValue };
-        } else {
-          const prevPoint = newPoints[selectedPoint - 1];
-          const nextPoint = newPoints[selectedPoint + 1];
-          const minTime = prevPoint.time + 0.01;
-          const maxTime = nextPoint.time - 0.01;
-          newTime = Math.max(minTime, Math.min(maxTime, newTime));
-          newPoints[selectedPoint] = { time: newTime, value: newValue };
-        }
-
-        onChange({ ...curve, points: newPoints });
+      if (isDragging) {
+        processDragPoint(x, y, selectedPoint);
       }
     };
 
@@ -354,10 +372,10 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
       document.removeEventListener('mousemove', handleGlobalMouseMove);
       document.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  }, [isDragging, draggingHandle, selectedPoint, curve.points, curve.interpolation, handles, graphWidth, graphHeight, autoScale, onChange, clampToRange, roundToTwo, timeToX, valueToY, xToTime, yToValue]);
+  }, [isDragging, draggingHandle, selectedPoint, processDragHandle, processDragPoint]);
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (selectedPoint === null && selectedPoint !== 0) return;
+    if (selectedPoint === null) return;
 
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -365,55 +383,13 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    if (draggingHandle && curve.interpolation === 'smooth') {
-      const point = curve.points[selectedPoint];
-      const px = timeToX(point.time);
-      const py = valueToY(point.value);
-
-      const handleX = (x - px) / graphWidth;
-      const handleY = (py - y) / graphHeight;
-
-      const pointHandles = handles.get(selectedPoint) || {};
-
-      if (draggingHandle === 'out') {
-        pointHandles.outHandle = { x: Math.max(0, handleX), y: handleY };
-      } else {
-        pointHandles.inHandle = { x: Math.min(0, handleX), y: handleY };
-      }
-
-      const newHandles = new Map(handles);
-      newHandles.set(selectedPoint, pointHandles);
-      setHandles(newHandles);
+    if (draggingHandle) {
+      processDragHandle(x, y, selectedPoint, draggingHandle);
       return;
     }
 
     if (isDragging) {
-      let newTime = roundToTwo(xToTime(x));
-      const proposed = yToValue(y);
-      const newValue = roundToTwo(autoScale ? proposed : clampToRange(proposed));
-
-      const newPoints = [...curve.points];
-
-      if (selectedPoint === 0) {
-        // First point always at time 0
-        newPoints[selectedPoint] = { time: 0, value: newValue };
-      } else if (selectedPoint === newPoints.length - 1) {
-        // Last point always at time 1
-        newPoints[selectedPoint] = { time: 1, value: newValue };
-      } else {
-        // Middle points: constrain time between neighbors to prevent curve inversion
-        const prevPoint = newPoints[selectedPoint - 1];
-        const nextPoint = newPoints[selectedPoint + 1];
-
-        // Ensure time is between previous and next point with small margin
-        const minTime = prevPoint.time + 0.01;
-        const maxTime = nextPoint.time - 0.01;
-        newTime = Math.max(minTime, Math.min(maxTime, newTime));
-
-        newPoints[selectedPoint] = { time: newTime, value: newValue };
-      }
-
-      onChange({ ...curve, points: newPoints });
+      processDragPoint(x, y, selectedPoint);
     }
   };
 
