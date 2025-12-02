@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { RefreshCw, Trash2, Maximize2, Minimize2, Copy, Clipboard } from 'lucide-react';
+import { RefreshCw, Trash2, Maximize2, Minimize2 } from 'lucide-react';
 import type { Curve, PointWithHandles } from '../types';
 import { evaluateCurve } from '../utils';
 import { parseDecimal } from './helpers';
@@ -44,7 +44,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   const [draggingHandle, setDraggingHandle] = useState<'in' | 'out' | null>(null);
   const [timeInput, setTimeInput] = useState('');
   const [valueInput, setValueInput] = useState('');
-  const [isZoomed, setIsZoomed] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(curve.zoom ?? false);
   const [handles, setHandles] = useState<Map<number, PointWithHandles>>(() => {
     // Initialize from curve.handles if available
     if (curve.handles) {
@@ -86,6 +86,13 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     setHandles(newHandles);
     onChange({ ...curve, handles: handlesMapToRecord(newHandles) });
   }, [curve, onChange, handlesMapToRecord]);
+
+  // Toggle zoom and persist to curve
+  const toggleZoom = useCallback(() => {
+    const newZoom = !isZoomed;
+    setIsZoomed(newZoom);
+    onChange({ ...curve, zoom: newZoom });
+  }, [isZoomed, curve, onChange]);
 
   // Handle range mode toggle with value clamping
   const handleRangeModeToggle = () => {
@@ -496,81 +503,79 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   };
 
   return (
-    <div className="space-y-1" ref={containerRef}>
-      <div className="flex items-center justify-between">
-        <label className="text-xs text-slate-300">{label}</label>
-        <div className="flex items-center gap-1">
+    <div className="space-y-1.5" ref={containerRef}>
+      {/* Label */}
+      <label className="text-xs text-slate-300 block">{label}</label>
+
+      {/* Controls Row */}
+      <div className="flex items-center justify-between gap-2">
+        {/* Left: Copy/Paste */}
+        <div className="flex items-center gap-1.5">
           <button
             onClick={handleCopyCurve}
-            className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded"
+            className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[10px] font-medium transition-colors"
             title="Copy curve"
           >
-            <Copy size={12} />
+            Copy
           </button>
           <button
             onClick={handlePasteCurve}
-            className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded"
+            className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[10px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Paste curve"
             disabled={!globalCurveClipboard}
           >
-            <Clipboard size={12} className={!globalCurveClipboard ? 'opacity-50' : ''} />
+            Paste
           </button>
+        </div>
+
+        {/* Right: Range, Zoom, Reset, Interpolation Switch, Delete */}
+        <div className="flex items-center gap-1.5">
           {allowRangeToggle && (
             <button
               onClick={handleRangeModeToggle}
-              className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-xs font-medium"
+              className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[10px] font-medium transition-colors"
               title={`Switch to ${rangeMode === '0-1' ? '-1 to 1' : '0 to 1'} range`}
             >
               {rangeMode === '0-1' ? '0→1' : '-1→1'}
             </button>
           )}
           <button
-            onClick={() => setIsZoomed(!isZoomed)}
-            className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded"
+            onClick={toggleZoom}
+            className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded transition-colors"
             title={isZoomed ? "Zoom out" : "Zoom in (3x)"}
           >
-            {isZoomed ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+            {isZoomed ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
           </button>
           {onReset && (
             <button
               onClick={onReset}
-              className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded"
+              className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded transition-colors"
               title="Reset to default"
             >
-              <RefreshCw size={12} />
+              <RefreshCw size={13} />
             </button>
           )}
-          <select
-            value={curve.interpolation}
-            onChange={e => onChange({ ...curve, interpolation: e.target.value as any })}
-            className="px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+
+          {/* Interpolation Switch */}
+          <button
+            onClick={() => onChange({ ...curve, interpolation: curve.interpolation === 'linear' ? 'smooth' : 'linear' })}
+            className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[10px] font-medium transition-colors"
+            title={`Switch to ${curve.interpolation === 'linear' ? 'Smooth' : 'Linear'} interpolation`}
           >
-            <option value="linear">Linear</option>
-            <option value="smooth">Smooth</option>
-          </select>
+            {curve.interpolation === 'linear' ? 'Linear' : 'Smooth'}
+          </button>
+
           {selectedPoint !== null && curve.points.length > 2 && (
             <button
               onClick={handleDeletePoint}
-              className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded"
+              className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded transition-colors"
               title="Delete point"
             >
-              <Trash2 size={12} />
+              <Trash2 size={13} />
             </button>
           )}
         </div>
       </div>
-
-      {curve.interpolation === 'smooth' && selectedPoint !== null && (
-        <div className="text-[10px] text-slate-400 px-1">
-          💡 Drag the pink handles to adjust curve shape
-        </div>
-      )}
-
-      {!selectedPoint && selectedPoint !== 0 && (
-        <div className="text-[10px] text-slate-400 px-1">
-          💡 Double-click to add a new point
-        </div>
-      )}
 
       <div className="bg-slate-900 rounded border border-slate-700 p-1">
         <svg

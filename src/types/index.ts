@@ -38,6 +38,7 @@ interface Curve {
   points: CurvePoint[];
   interpolation: "linear" | "smooth";
   handles?: Record<number, PointWithHandles>; // Bezier handles for smooth interpolation
+  zoom?: boolean; // Zoom state persistence
 }
 
 interface RangeValue {
