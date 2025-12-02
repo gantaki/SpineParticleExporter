@@ -288,9 +288,9 @@ export const Viewport = memo(() => {
       const x = (e.clientX - rect.left) * (settings.frameSize / rect.width);
       const y = (e.clientY - rect.top) * (settings.frameSize / rect.height);
 
-      // Convert to world coordinates (canvas center is 0,0)
+      // Convert to world coordinates (canvas center is 0,0, Y inverted)
       const worldX = x - settings.frameSize / 2;
-      const worldY = y - settings.frameSize / 2;
+      const worldY = settings.frameSize / 2 - y; // Invert Y axis
 
       // Determine drag mode:
       // Shift + LMB = drag background (if available)
@@ -330,9 +330,9 @@ export const Viewport = memo(() => {
       if (dragMode === "background") {
         setBgPosition({ x: x - dragStart.x, y: y - dragStart.y });
       } else if (dragMode === "emitter" && currentEmitterSettings) {
-        // Convert to world coordinates
+        // Convert to world coordinates (Y inverted)
         const worldX = x - settings.frameSize / 2;
-        const worldY = y - settings.frameSize / 2;
+        const worldY = settings.frameSize / 2 - y; // Invert Y axis
 
         const newX = worldX - dragStart.x;
         const newY = worldY - dragStart.y;
