@@ -552,7 +552,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
           )}
           <button
             onClick={toggleZoom}
-            className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded transition-colors"
+            className="px-2 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition-colors"
             title={isZoomed ? "Zoom out" : "Zoom in (3x)"}
           >
             {isZoomed ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
@@ -560,7 +560,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
           {onReset && (
             <button
               onClick={onReset}
-              className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded transition-colors"
+              className="px-2 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition-colors"
               title="Reset to default"
             >
               <RefreshCw size={13} />
@@ -579,7 +579,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
           {selectedPoint !== null && curve.points.length > 2 && (
             <button
               onClick={handleDeletePoint}
-              className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded transition-colors"
+              className="px-2 py-1.5 bg-red-600 hover:bg-red-700 rounded transition-colors"
               title="Delete point"
             >
               <Trash2 size={13} />
