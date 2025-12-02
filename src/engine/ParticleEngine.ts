@@ -1032,16 +1032,17 @@ export class ParticleEngine {
           // Draw center rectangle
           ctx.strokeRect(x, y, w, h);
         } else {
-          // Partial perimeter - draw only arc portion
-          const perimeter = 2 * (w + h);
-          const arcLength = perimeter * arcFraction;
-
+          // Partial perimeter - draw only crop portion
           // Helper function to draw partial rectangle outline
           const drawPartialRect = (rx: number, ry: number, rw: number, rh: number) => {
+            // Calculate arc length for this specific rectangle size
+            const rectPerimeter = 2 * (rw + rh);
+            const arcLength = rectPerimeter * arcFraction;
             let remaining = arcLength;
+
             ctx.beginPath();
 
-            // Top edge
+            // Top edge (starting from top-left corner)
             if (remaining > 0) {
               const len = Math.min(remaining, rw);
               ctx.moveTo(rx, ry);
@@ -1139,7 +1140,7 @@ export class ParticleEngine {
             ctx.closePath();
             ctx.stroke();
           } else {
-            // Partial perimeter - simplified visualization
+            // Partial perimeter - draw crop portion
             const straightWidth = ow - 2 * or;
             const straightHeight = oh - 2 * or;
             const fullPerimeter = 2 * (straightWidth + straightHeight) + 2 * Math.PI * or;
@@ -1148,13 +1149,60 @@ export class ParticleEngine {
 
             ctx.beginPath();
             // Start from top-left corner after radius
-            ctx.moveTo(ox + or, oy);
+            const startX = ox + or;
+            const startY = oy;
+            ctx.moveTo(startX, startY);
 
             // Top edge
-            if (remaining > 0) {
+            if (remaining > 0 && straightWidth > 0) {
               const len = Math.min(remaining, straightWidth);
               ctx.lineTo(ox + or + len, oy);
               remaining -= len;
+
+              if (remaining > 0) {
+                // Top-right corner
+                const cornerArc = (Math.PI * or) / 2;
+                if (remaining >= cornerArc) {
+                  ctx.arcTo(ox + ow, oy, ox + ow, oy + or, or);
+                  remaining -= cornerArc;
+
+                  if (remaining > 0 && straightHeight > 0) {
+                    // Right edge
+                    const len = Math.min(remaining, straightHeight);
+                    ctx.lineTo(ox + ow, oy + or + len);
+                    remaining -= len;
+
+                    if (remaining > 0) {
+                      // Bottom-right corner
+                      if (remaining >= cornerArc) {
+                        ctx.arcTo(ox + ow, oy + oh, ox + ow - or, oy + oh, or);
+                        remaining -= cornerArc;
+
+                        if (remaining > 0 && straightWidth > 0) {
+                          // Bottom edge
+                          const len = Math.min(remaining, straightWidth);
+                          ctx.lineTo(ox + ow - or - len, oy + oh);
+                          remaining -= len;
+
+                          if (remaining > 0) {
+                            // Bottom-left corner
+                            if (remaining >= cornerArc) {
+                              ctx.arcTo(ox, oy + oh, ox, oy + oh - or, or);
+                              remaining -= cornerArc;
+
+                              if (remaining > 0 && straightHeight > 0) {
+                                // Left edge
+                                const len = Math.min(remaining, straightHeight);
+                                ctx.lineTo(ox, oy + oh - or - len);
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
 
             ctx.stroke();

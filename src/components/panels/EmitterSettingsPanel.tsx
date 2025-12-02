@@ -334,19 +334,21 @@ const ShapeSettings = memo(() => {
           </TwoColumn>
           <TwoColumn>
             <LabeledNumber
-              label="Arc (°)"
-              value={em.rectangleArc}
-              onChange={(v) => updateCurrentEmitter({ rectangleArc: v })}
-              min={0}
-              max={360}
-            />
-            <LabeledNumber
               label="Emitter Rotation (°)"
               value={em.shapeRotation}
               onChange={(v) => updateCurrentEmitter({ shapeRotation: v })}
               min={-180}
               max={180}
             />
+            {em.emissionMode === "edge" && (
+              <LabeledNumber
+                label="Crop (°)"
+                value={em.rectangleArc}
+                onChange={(v) => updateCurrentEmitter({ rectangleArc: v })}
+                min={0}
+                max={360}
+              />
+            )}
           </TwoColumn>
           {em.emissionMode === "edge" && (
             <LabeledNumber
