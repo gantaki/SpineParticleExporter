@@ -492,12 +492,12 @@ export class ParticleEngine {
         offsetX = (Math.random() - 0.5) * em.shapeWidth;
         offsetY = (Math.random() - 0.5) * em.shapeHeight;
       } else {
-        // Edge mode with arc and thickness support
+        // Edge mode with crop and thickness support
         const w = em.shapeWidth;
         const h = em.shapeHeight;
         const perimeter = 2 * (w + h);
-        const arcFraction = em.rectangleArc / 360;
-        const activePerimeter = perimeter * arcFraction;
+        const cropFraction = em.rectangleArc / 360;
+        const activePerimeter = perimeter * cropFraction;
         const thickness = em.rectangleThickness;
 
         // Random position along the active perimeter (starting from top-left, going clockwise)
@@ -564,7 +564,7 @@ export class ParticleEngine {
       offsetX = (Math.random() - 0.5) * em.shapeWidth;
       offsetY = (Math.random() - 0.5) * em.shapeHeight;
     } else {
-      // Edge mode with arc and thickness support
+      // Edge mode with crop and thickness support
       const w = em.shapeWidth;
       const h = em.shapeHeight;
       const r = Math.min(em.roundRadius, w / 2, h / 2);
@@ -573,8 +573,8 @@ export class ParticleEngine {
       const straightWidth = w - 2 * r;
       const straightHeight = h - 2 * r;
       const perimeter = 2 * (straightWidth + straightHeight) + 2 * Math.PI * r;
-      const arcFraction = em.rectangleArc / 360;
-      const activePerimeter = perimeter * arcFraction;
+      const cropFraction = em.rectangleArc / 360;
+      const activePerimeter = perimeter * cropFraction;
       const t = Math.random() * activePerimeter;
 
       // Random offset perpendicular to edge (within thickness)
@@ -1007,9 +1007,9 @@ export class ParticleEngine {
         ctx.fillRect(x, y, w, h);
         ctx.strokeRect(x, y, w, h);
       } else {
-        // Edge mode with arc and thickness visualization
+        // Edge mode with crop and thickness visualization
         const thickness = em.rectangleThickness;
-        const arcFraction = em.rectangleArc / 360;
+        const cropFraction = em.rectangleArc / 360;
 
         // Draw outer rectangle
         const outerX = x - thickness / 2;
@@ -1023,7 +1023,7 @@ export class ParticleEngine {
         const innerW = w - thickness;
         const innerH = h - thickness;
 
-        if (arcFraction >= 1) {
+        if (cropFraction >= 1) {
           // Full perimeter
           ctx.strokeRect(outerX, outerY, outerW, outerH);
           if (innerW > 0 && innerH > 0) {
@@ -1035,10 +1035,10 @@ export class ParticleEngine {
           // Partial perimeter - draw only crop portion
           // Helper function to draw partial rectangle outline
           const drawPartialRect = (rx: number, ry: number, rw: number, rh: number) => {
-            // Calculate arc length for this specific rectangle size
+            // Calculate crop length for this specific rectangle size
             const rectPerimeter = 2 * (rw + rh);
-            const arcLength = rectPerimeter * arcFraction;
-            let remaining = arcLength;
+            const cropLength = rectPerimeter * cropFraction;
+            let remaining = cropLength;
 
             ctx.beginPath();
 
@@ -1111,9 +1111,9 @@ export class ParticleEngine {
         ctx.fill();
         ctx.stroke();
       } else {
-        // Edge mode with arc and thickness visualization
+        // Edge mode with crop and thickness visualization
         const thickness = em.rectangleThickness;
-        const arcFraction = em.rectangleArc / 360;
+        const cropFraction = em.rectangleArc / 360;
 
         // Helper function to draw rounded rectangle outline
         const drawRoundedRect = (offset: number) => {
@@ -1125,7 +1125,7 @@ export class ParticleEngine {
 
           if (ow <= 0 || oh <= 0) return;
 
-          if (arcFraction >= 1) {
+          if (cropFraction >= 1) {
             // Full perimeter
             ctx.beginPath();
             ctx.moveTo(ox + or, oy);
@@ -1144,8 +1144,8 @@ export class ParticleEngine {
             const straightWidth = ow - 2 * or;
             const straightHeight = oh - 2 * or;
             const fullPerimeter = 2 * (straightWidth + straightHeight) + 2 * Math.PI * or;
-            const arcLength = fullPerimeter * arcFraction;
-            let remaining = arcLength;
+            const cropLength = fullPerimeter * cropFraction;
+            let remaining = cropLength;
 
             ctx.beginPath();
             // Start from top-left corner after radius

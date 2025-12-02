@@ -71,7 +71,7 @@ interface EmitterInstanceSettings {
   circleThickness: number; // Thickness of the circle outline in edge mode
   circleArc: number; // Arc angle in degrees (360 = full circle, 0 = no arc)
   rectangleThickness: number; // Thickness of the rectangle outline in edge mode
-  rectangleArc: number; // Arc percentage (360 = full perimeter, 0 = no arc)
+  rectangleArc: number; // Crop angle in degrees (360 = full perimeter, 0 = no perimeter)
   angle: number;
   angleSpread: number;
   rate: number;
