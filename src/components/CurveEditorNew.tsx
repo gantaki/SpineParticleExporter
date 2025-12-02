@@ -5,7 +5,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { RefreshCw, Trash2, Maximize2, Minimize2, Copy, Clipboard } from 'lucide-react';
-import type { Curve } from '../types';
+import type { Curve, PointWithHandles } from '../types';
 import { evaluateCurve } from '../utils';
 import { parseDecimal } from './helpers';
 
@@ -18,16 +18,6 @@ interface CurveEditorNewProps {
   max?: number;
   autoScale?: boolean;
   allowRangeToggle?: boolean; // Allow toggling between -1 to 1 and 0 to 1
-}
-
-interface BezierHandle {
-  x: number;
-  y: number;
-}
-
-interface PointWithHandles {
-  inHandle?: BezierHandle;
-  outHandle?: BezierHandle;
 }
 
 interface CurveClipboard {
@@ -55,7 +45,13 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   const [timeInput, setTimeInput] = useState('');
   const [valueInput, setValueInput] = useState('');
   const [isZoomed, setIsZoomed] = useState(false);
-  const [handles, setHandles] = useState<Map<number, PointWithHandles>>(new Map());
+  const [handles, setHandles] = useState<Map<number, PointWithHandles>>(() => {
+    // Initialize from curve.handles if available
+    if (curve.handles) {
+      return new Map(Object.entries(curve.handles).map(([k, v]) => [parseInt(k), v]));
+    }
+    return new Map();
+  });
   const [rangeMode, setRangeMode] = useState<'0-1' | '-1-1'>(initialMin === 0 ? '0-1' : '-1-1');
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -75,6 +71,21 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     const currentMax = 1;
     return Math.max(currentMin, Math.min(currentMax, value));
   }, [rangeMode]);
+
+  // Helper function to convert Map to Record for curve storage
+  const handlesMapToRecord = useCallback((handlesMap: Map<number, PointWithHandles>): Record<number, PointWithHandles> => {
+    const record: Record<number, PointWithHandles> = {};
+    handlesMap.forEach((value, key) => {
+      record[key] = value;
+    });
+    return record;
+  }, []);
+
+  // Helper function to update handles and persist to curve
+  const updateHandles = useCallback((newHandles: Map<number, PointWithHandles>) => {
+    setHandles(newHandles);
+    onChange({ ...curve, handles: handlesMapToRecord(newHandles) });
+  }, [curve, onChange, handlesMapToRecord]);
 
   // Handle range mode toggle with value clamping
   const handleRangeModeToggle = () => {
@@ -172,9 +183,9 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
 
     if (pointHandles.inHandle || pointHandles.outHandle) {
       newHandles.set(selectedPoint, pointHandles);
-      setHandles(newHandles);
+      updateHandles(newHandles);
     }
-  }, [selectedPoint, curve.interpolation, curve.points.length, handles]);
+  }, [selectedPoint, curve.interpolation, curve.points.length, handles, updateHandles]);
 
   useEffect(() => {
     if (selectedPoint === null) return;
@@ -238,7 +249,9 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
 
     if (clickedPoint !== -1) {
       setSelectedPoint(clickedPoint);
-      return;
+    } else {
+      // Click outside any point - deselect
+      setSelectedPoint(null);
     }
   };
 
@@ -308,8 +321,8 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
 
     const newHandles = new Map(handles);
     newHandles.set(pointIndex, pointHandles);
-    setHandles(newHandles);
-  }, [curve.interpolation, curve.points, handles, graphWidth, graphHeight]);
+    updateHandles(newHandles);
+  }, [curve.interpolation, curve.points, handles, graphWidth, graphHeight, timeToX, valueToY, updateHandles]);
 
   // Memoized function to process point dragging
   const processDragPoint = useCallback((x: number, y: number, pointIndex: number) => {
@@ -420,10 +433,11 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     if (selectedPoint === null || curve.points.length <= 2) return;
 
     const newPoints = curve.points.filter((_, i) => i !== selectedPoint);
-    onChange({ ...curve, points: newPoints });
 
     const newHandles = new Map(handles);
     newHandles.delete(selectedPoint);
+
+    onChange({ ...curve, points: newPoints, handles: handlesMapToRecord(newHandles) });
     setHandles(newHandles);
     setSelectedPoint(null);
   };
