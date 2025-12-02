@@ -56,6 +56,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(260);
+  const [isWidthInitialized, setIsWidthInitialized] = useState(false);
   const [viewMin, setViewMin] = useState(initialMin);
   const [viewMax, setViewMax] = useState(initialMax);
 
@@ -134,6 +135,9 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
       if (containerRef.current) {
         const nextWidth = Math.max(260, containerRef.current.clientWidth);
         setWidth(nextWidth);
+        if (!isWidthInitialized) {
+          setIsWidthInitialized(true);
+        }
       }
     };
 
@@ -150,7 +154,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     return () => {
       resizeObserver.disconnect();
     };
-  }, []);
+  }, [isWidthInitialized]);
 
   useEffect(() => {
     if (!autoScale) {
@@ -585,16 +589,20 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
       </div>
 
       <div className="bg-slate-900 rounded border border-slate-700 p-1">
-        <svg
-          ref={svgRef}
-          width={width}
-          height={height}
-          className="cursor-crosshair"
-          onClick={handleSvgClick}
-          onDoubleClick={handleSvgDoubleClick}
-          onMouseMove={handleMouseMove}
-          onMouseUp={handleMouseUp}
-        >
+        {!isWidthInitialized ? (
+          // Placeholder to prevent layout shift while measuring width
+          <div style={{ width: '100%', height: `${height}px` }} />
+        ) : (
+          <svg
+            ref={svgRef}
+            width={width}
+            height={height}
+            className="cursor-crosshair"
+            onClick={handleSvgClick}
+            onDoubleClick={handleSvgDoubleClick}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+          >
           <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
           <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
 
@@ -778,6 +786,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
             </g>
           ))}
         </svg>
+        )}
 
         {/* Time and Value inputs - always visible when subsection is open */}
         <div className="mt-1 grid grid-cols-2 gap-1">
