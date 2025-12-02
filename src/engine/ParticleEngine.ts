@@ -465,15 +465,23 @@ export class ParticleEngine {
       pos.x += Math.cos(angleRad) * distance;
       pos.y += Math.sin(angleRad) * distance;
     } else if (em.shape === "circle") {
+      // Calculate arc range (default 360° = full circle)
+      const arcRad = (em.circleArc * Math.PI) / 180;
+      const startAngle = -arcRad / 2; // Center the arc
+      const angle = startAngle + Math.random() * arcRad;
+
       if (em.emissionMode === "area") {
-        const angle = Math.random() * Math.PI * 2;
         const radius = Math.random() * em.shapeRadius;
         pos.x += Math.cos(angle) * radius;
         pos.y += Math.sin(angle) * radius;
       } else {
-        const angle = Math.random() * Math.PI * 2;
-        pos.x += Math.cos(angle) * em.shapeRadius;
-        pos.y += Math.sin(angle) * em.shapeRadius;
+        // Edge mode with thickness
+        const thickness = em.circleThickness;
+        const minRadius = Math.max(0, em.shapeRadius - thickness / 2);
+        const maxRadius = em.shapeRadius + thickness / 2;
+        const radius = minRadius + Math.random() * (maxRadius - minRadius);
+        pos.x += Math.cos(angle) * radius;
+        pos.y += Math.sin(angle) * radius;
       }
     } else if (em.shape === "rectangle") {
       let offsetX = 0;
@@ -861,10 +869,69 @@ export class ParticleEngine {
       ctx.arc(x2, y2, 3, 0, Math.PI * 2);
       ctx.fill();
     } else if (em.shape === "circle") {
-      ctx.beginPath();
-      ctx.arc(em.position.x, em.position.y, em.shapeRadius, 0, Math.PI * 2);
-      if (em.emissionMode === "area") ctx.fill();
-      ctx.stroke();
+      const arcRad = (em.circleArc * Math.PI) / 180;
+      const startAngle = -arcRad / 2;
+      const endAngle = startAngle + arcRad;
+
+      if (em.emissionMode === "area") {
+        // Area mode: draw filled arc
+        ctx.beginPath();
+        ctx.arc(em.position.x, em.position.y, em.shapeRadius, startAngle, endAngle);
+        // Close path to center if not full circle
+        if (em.circleArc < 360) {
+          ctx.lineTo(em.position.x, em.position.y);
+          ctx.closePath();
+        }
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // Edge mode: draw arc with thickness visualization
+        const thickness = em.circleThickness;
+        const innerRadius = Math.max(0, em.shapeRadius - thickness / 2);
+        const outerRadius = em.shapeRadius + thickness / 2;
+
+        // Draw outer arc
+        ctx.beginPath();
+        ctx.arc(em.position.x, em.position.y, outerRadius, startAngle, endAngle);
+        ctx.stroke();
+
+        // Draw inner arc if thickness is visible
+        if (innerRadius > 0) {
+          ctx.beginPath();
+          ctx.arc(em.position.x, em.position.y, innerRadius, startAngle, endAngle);
+          ctx.stroke();
+        }
+
+        // Draw connecting lines at arc ends if not full circle
+        if (em.circleArc < 360) {
+          ctx.beginPath();
+          ctx.moveTo(
+            em.position.x + Math.cos(startAngle) * innerRadius,
+            em.position.y + Math.sin(startAngle) * innerRadius
+          );
+          ctx.lineTo(
+            em.position.x + Math.cos(startAngle) * outerRadius,
+            em.position.y + Math.sin(startAngle) * outerRadius
+          );
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(
+            em.position.x + Math.cos(endAngle) * innerRadius,
+            em.position.y + Math.sin(endAngle) * innerRadius
+          );
+          ctx.lineTo(
+            em.position.x + Math.cos(endAngle) * outerRadius,
+            em.position.y + Math.sin(endAngle) * outerRadius
+          );
+          ctx.stroke();
+        }
+
+        // Draw center line at main radius
+        ctx.beginPath();
+        ctx.arc(em.position.x, em.position.y, em.shapeRadius, startAngle, endAngle);
+        ctx.stroke();
+      }
     } else if (em.shape === "rectangle") {
       ctx.save();
       ctx.translate(em.position.x, em.position.y);

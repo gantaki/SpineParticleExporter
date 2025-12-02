@@ -68,6 +68,8 @@ interface EmitterInstanceSettings {
   lineLength: number;
   lineSpreadRotation: number;
   emissionMode: "area" | "edge";
+  circleThickness: number; // Thickness of the circle outline in edge mode
+  circleArc: number; // Arc angle in degrees (360 = full circle, 0 = no arc)
   angle: number;
   angleSpread: number;
   rate: number;
@@ -354,6 +356,8 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     lineLength: 100,
     lineSpreadRotation: 0,
     emissionMode: "area",
+    circleThickness: 10,
+    circleArc: 360,
     angle: -90,
     angleSpread: 30,
     rate: 10,

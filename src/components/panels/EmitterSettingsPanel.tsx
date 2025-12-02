@@ -69,7 +69,7 @@ const SHAPE_OPTIONS = [
   { value: "line", label: "➖ Line" },
   { value: "circle", label: "⭕ Circle" },
   { value: "rectangle", label: "⬜ Rectangle" },
-  { value: "roundedRect", label: "▢ Rounded" },
+  { value: "roundedRect", label: "🔲 Rounded Rectangle" },
 ];
 
 const MODE_OPTIONS = [
@@ -281,12 +281,30 @@ const ShapeSettings = memo(() => {
       )}
 
       {em.shape === "circle" && (
-        <LabeledNumber
-          label="Radius"
-          value={em.shapeRadius}
-          onChange={(v) => updateCurrentEmitter({ shapeRadius: v })}
-          max={1000}
-        />
+        <>
+          <LabeledNumber
+            label="Radius"
+            value={em.shapeRadius}
+            onChange={(v) => updateCurrentEmitter({ shapeRadius: v })}
+            max={1000}
+          />
+          <LabeledNumber
+            label="Arc (°)"
+            value={em.circleArc}
+            onChange={(v) => updateCurrentEmitter({ circleArc: v })}
+            min={0}
+            max={360}
+          />
+          {em.emissionMode === "edge" && (
+            <LabeledNumber
+              label="Thickness"
+              value={em.circleThickness}
+              onChange={(v) => updateCurrentEmitter({ circleThickness: v })}
+              min={0}
+              max={em.shapeRadius}
+            />
+          )}
+        </>
       )}
 
       {(em.shape === "rectangle" || em.shape === "roundedRect") && (
@@ -326,13 +344,13 @@ const ShapeSettings = memo(() => {
 
       <TwoColumn>
         <LabeledNumber
-          label="Angle"
+          label="Emission Angle"
           value={em.angle}
           onChange={(v) => updateCurrentEmitter({ angle: v })}
           max={180}
         />
         <LabeledNumber
-          label="Spread"
+          label="Emission Spread"
           value={em.angleSpread}
           onChange={(v) => updateCurrentEmitter({ angleSpread: v })}
           max={360}
