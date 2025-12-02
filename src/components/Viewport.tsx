@@ -215,7 +215,7 @@ export const Viewport = memo(() => {
   } = bridge;
 
   // Settings context (for duration, fps, current emitter state)
-  const { settings, currentEmitterSettings, setDuration, setFps } =
+  const { settings, currentEmitterSettings, updateCurrentEmitter, setDuration, setFps } =
     useSettings();
 
   // Subscribe to engine time updates for Timeline
@@ -245,16 +245,19 @@ export const Viewport = memo(() => {
     setBgPosition,
   } = viewport;
 
-  // Local state for background dragging
+  // Local state for dragging
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const [dragMode, setDragMode] = useState<"emitter" | "background" | null>(
+    null
+  );
 
   // Derived state
   const isLooping = currentEmitterSettings?.looping ?? false;
   const isPrewarm = currentEmitterSettings?.prewarm ?? false;
 
   // ============================================================
-  // BACKGROUND IMAGE HANDLERS
+  // DRAG & DROP HANDLERS (Emitter + Background)
   // ============================================================
 
   const handleImageUpload = useCallback(
@@ -279,40 +282,81 @@ export const Viewport = memo(() => {
 
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!backgroundImage || !canvasRef.current) return;
-      const rect = canvasRef.current.getBoundingClientRect();
+      if (!canvasRef.current) return;
 
+      const rect = canvasRef.current.getBoundingClientRect();
       const x = (e.clientX - rect.left) * (settings.frameSize / rect.width);
       const y = (e.clientY - rect.top) * (settings.frameSize / rect.height);
 
+      // Convert to world coordinates (canvas center is 0,0)
+      const worldX = x - settings.frameSize / 2;
+      const worldY = y - settings.frameSize / 2;
+
+      // Determine drag mode:
+      // Shift + LMB = drag background (if available)
+      // LMB = drag emitter (if not locked)
+      if (e.shiftKey && backgroundImage) {
+        setDragMode("background");
+        setDragStart({ x: x - bgPosition.x, y: y - bgPosition.y });
+      } else if (currentEmitterSettings && !currentEmitterSettings.positionLocked) {
+        setDragMode("emitter");
+        setDragStart({
+          x: worldX - currentEmitterSettings.position.x,
+          y: worldY - currentEmitterSettings.position.y
+        });
+      } else {
+        return; // No drag action
+      }
+
       setIsDragging(true);
-      setDragStart({ x: x - bgPosition.x, y: y - bgPosition.y });
     },
-    [backgroundImage, canvasRef, settings.frameSize, bgPosition]
+    [
+      backgroundImage,
+      canvasRef,
+      settings.frameSize,
+      bgPosition,
+      currentEmitterSettings,
+    ]
   );
 
   const handleCanvasMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      if (!isDragging || !backgroundImage || !canvasRef.current) return;
-      const rect = canvasRef.current.getBoundingClientRect();
+      if (!isDragging || !canvasRef.current || !dragMode) return;
 
+      const rect = canvasRef.current.getBoundingClientRect();
       const x = (e.clientX - rect.left) * (settings.frameSize / rect.width);
       const y = (e.clientY - rect.top) * (settings.frameSize / rect.height);
 
-      setBgPosition({ x: x - dragStart.x, y: y - dragStart.y });
+      if (dragMode === "background") {
+        setBgPosition({ x: x - dragStart.x, y: y - dragStart.y });
+      } else if (dragMode === "emitter" && currentEmitterSettings) {
+        // Convert to world coordinates
+        const worldX = x - settings.frameSize / 2;
+        const worldY = y - settings.frameSize / 2;
+
+        const newX = worldX - dragStart.x;
+        const newY = worldY - dragStart.y;
+
+        updateCurrentEmitter({
+          position: { x: newX, y: newY }
+        });
+      }
     },
     [
       isDragging,
-      backgroundImage,
+      dragMode,
       canvasRef,
       settings.frameSize,
       dragStart,
       setBgPosition,
+      currentEmitterSettings,
+      updateCurrentEmitter,
     ]
   );
 
   const handleCanvasMouseUp = useCallback(() => {
     setIsDragging(false);
+    setDragMode(null);
   }, []);
 
   // ============================================================
@@ -352,10 +396,12 @@ export const Viewport = memo(() => {
           className="w-full h-[400px]"
           style={{
             imageRendering: "pixelated",
-            cursor: backgroundImage
-              ? isDragging
-                ? "grabbing"
-                : "grab"
+            cursor: isDragging
+              ? "grabbing"
+              : currentEmitterSettings && !currentEmitterSettings.positionLocked
+              ? "grab"
+              : backgroundImage
+              ? "grab"
               : "default",
           }}
           onMouseDown={handleCanvasMouseDown}

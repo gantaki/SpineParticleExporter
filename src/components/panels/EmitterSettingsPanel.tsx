@@ -407,6 +407,11 @@ const PositionSettings = memo(() => {
       isOpen={positionOpen}
       onToggle={() => setPositionOpen(!positionOpen)}
     >
+      <LabeledCheckbox
+        label="🔒 Lock Position"
+        checked={em.positionLocked}
+        onChange={(checked) => updateCurrentEmitter({ positionLocked: checked })}
+      />
       <TwoColumn>
         <LabeledNumber
           label="Position X (px)"
