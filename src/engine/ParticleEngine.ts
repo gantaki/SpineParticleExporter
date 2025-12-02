@@ -465,15 +465,24 @@ export class ParticleEngine {
       pos.x += Math.cos(angleRad) * distance;
       pos.y += Math.sin(angleRad) * distance;
     } else if (em.shape === "circle") {
+      // Calculate arc range (default 360° = full circle)
+      const arcRad = (em.circleArc * Math.PI) / 180;
+      const rotationRad = (em.shapeRotation * Math.PI) / 180;
+      const startAngle = -arcRad / 2 + rotationRad; // Center the arc and apply rotation
+      const angle = startAngle + Math.random() * arcRad;
+
       if (em.emissionMode === "area") {
-        const angle = Math.random() * Math.PI * 2;
         const radius = Math.random() * em.shapeRadius;
         pos.x += Math.cos(angle) * radius;
         pos.y += Math.sin(angle) * radius;
       } else {
-        const angle = Math.random() * Math.PI * 2;
-        pos.x += Math.cos(angle) * em.shapeRadius;
-        pos.y += Math.sin(angle) * em.shapeRadius;
+        // Edge mode with thickness
+        const thickness = em.circleThickness;
+        const minRadius = Math.max(0, em.shapeRadius - thickness / 2);
+        const maxRadius = em.shapeRadius + thickness / 2;
+        const radius = minRadius + Math.random() * (maxRadius - minRadius);
+        pos.x += Math.cos(angle) * radius;
+        pos.y += Math.sin(angle) * radius;
       }
     } else if (em.shape === "rectangle") {
       let offsetX = 0;
@@ -483,22 +492,52 @@ export class ParticleEngine {
         offsetX = (Math.random() - 0.5) * em.shapeWidth;
         offsetY = (Math.random() - 0.5) * em.shapeHeight;
       } else {
-        const perimeter = 2 * (em.shapeWidth + em.shapeHeight);
-        const t = Math.random() * perimeter;
+        // Edge mode with crop and thickness support
+        const w = em.shapeWidth;
+        const h = em.shapeHeight;
+        const perimeter = 2 * (w + h);
+        const cropFraction = em.rectangleArc / 360;
+        const activePerimeter = perimeter * cropFraction;
+        const thickness = em.rectangleThickness;
 
-        if (t < em.shapeWidth) {
-          offsetX = t - em.shapeWidth / 2;
-          offsetY = -em.shapeHeight / 2;
-        } else if (t < em.shapeWidth + em.shapeHeight) {
-          offsetX = em.shapeWidth / 2;
-          offsetY = t - em.shapeWidth - em.shapeHeight / 2;
-        } else if (t < 2 * em.shapeWidth + em.shapeHeight) {
-          offsetX = 2 * em.shapeWidth + em.shapeHeight - t - em.shapeWidth / 2;
-          offsetY = em.shapeHeight / 2;
+        // Random position along the active perimeter (starting from top-left, going clockwise)
+        const t = Math.random() * activePerimeter;
+
+        // Random offset perpendicular to edge (within thickness)
+        const thicknessOffset = (Math.random() - 0.5) * thickness;
+
+        let normalX = 0;
+        let normalY = 0;
+
+        if (t < w) {
+          // Top edge
+          offsetX = t - w / 2;
+          offsetY = -h / 2;
+          normalX = 0;
+          normalY = -1; // Normal points outward (up)
+        } else if (t < w + h) {
+          // Right edge
+          offsetX = w / 2;
+          offsetY = (t - w) - h / 2;
+          normalX = 1; // Normal points outward (right)
+          normalY = 0;
+        } else if (t < 2 * w + h) {
+          // Bottom edge
+          offsetX = w - (t - w - h) - w / 2;
+          offsetY = h / 2;
+          normalX = 0;
+          normalY = 1; // Normal points outward (down)
         } else {
-          offsetX = -em.shapeWidth / 2;
-          offsetY = perimeter - t - em.shapeHeight / 2;
+          // Left edge
+          offsetX = -w / 2;
+          offsetY = h - (t - 2 * w - h) - h / 2;
+          normalX = -1; // Normal points outward (left)
+          normalY = 0;
         }
+
+        // Apply thickness offset along the normal
+        offsetX += normalX * thicknessOffset;
+        offsetY += normalY * thicknessOffset;
       }
 
       // Apply rotation
@@ -518,38 +557,53 @@ export class ParticleEngine {
     em: EmitterInstance["settings"],
     pos: Vec2
   ): Vec2 {
-    const w = em.shapeWidth;
-    const h = em.shapeHeight;
-    const r = Math.min(em.roundRadius, w / 2, h / 2);
-
     let offsetX = 0;
     let offsetY = 0;
 
     if (em.emissionMode === "area") {
-      offsetX = (Math.random() - 0.5) * w;
-      offsetY = (Math.random() - 0.5) * h;
+      offsetX = (Math.random() - 0.5) * em.shapeWidth;
+      offsetY = (Math.random() - 0.5) * em.shapeHeight;
     } else {
+      // Edge mode with crop and thickness support
+      const w = em.shapeWidth;
+      const h = em.shapeHeight;
+      const r = Math.min(em.roundRadius, w / 2, h / 2);
+      const thickness = em.rectangleThickness;
+
       const straightWidth = w - 2 * r;
       const straightHeight = h - 2 * r;
       const perimeter = 2 * (straightWidth + straightHeight) + 2 * Math.PI * r;
-      const t = Math.random() * perimeter;
+      const cropFraction = em.rectangleArc / 360;
+      const activePerimeter = perimeter * cropFraction;
+      const t = Math.random() * activePerimeter;
+
+      // Random offset perpendicular to edge (within thickness)
+      const thicknessOffset = (Math.random() - 0.5) * thickness;
 
       if (t < straightWidth) {
         // Top edge
         offsetX = t - w / 2 + r;
         offsetY = -h / 2;
+        // Apply thickness offset (normal points up)
+        offsetY += -thicknessOffset;
       } else if (t < straightWidth + (Math.PI * r) / 2) {
         // Top-right corner
         const arcProgress = (t - straightWidth) / r;
         const angle = arcProgress - Math.PI / 2;
         const centerX = w / 2 - r;
         const centerY = -h / 2 + r;
+        // Base position on the center radius
         offsetX = centerX + Math.cos(angle) * r;
         offsetY = centerY + Math.sin(angle) * r;
+        // Apply thickness offset radially
+        offsetX += Math.cos(angle) * thicknessOffset;
+        offsetY += Math.sin(angle) * thicknessOffset;
       } else if (t < straightWidth + (Math.PI * r) / 2 + straightHeight) {
         // Right edge
         offsetX = w / 2;
-        offsetY = t - (straightWidth + (Math.PI * r) / 2) - h / 2 + r;
+        offsetY = (t - straightWidth - (Math.PI * r) / 2) - h / 2 + r;
+        // Apply thickness offset (normal points right)
+        offsetX += thicknessOffset;
       } else if (t < straightWidth + Math.PI * r + straightHeight) {
         // Bottom-right corner
         const arcProgress =
@@ -559,10 +613,15 @@ export class ParticleEngine {
         const centerY = h / 2 - r;
         offsetX = centerX + Math.cos(angle) * r;
         offsetY = centerY + Math.sin(angle) * r;
+        // Apply thickness offset radially
+        offsetX += Math.cos(angle) * thicknessOffset;
+        offsetY += Math.sin(angle) * thicknessOffset;
       } else if (t < 2 * straightWidth + Math.PI * r + straightHeight) {
         // Bottom edge
         offsetX = (w / 2 - r) - (t - (straightWidth + Math.PI * r + straightHeight));
         offsetY = h / 2;
+        // Apply thickness offset (normal points down)
+        offsetY += thicknessOffset;
       } else if (
         t <
         2 * straightWidth + (3 * Math.PI * r) / 2 + straightHeight
@@ -575,6 +634,9 @@ export class ParticleEngine {
         const centerY = h / 2 - r;
         offsetX = centerX + Math.cos(angle) * r;
         offsetY = centerY + Math.sin(angle) * r;
+        // Apply thickness offset radially
+        offsetX += Math.cos(angle) * thicknessOffset;
+        offsetY += Math.sin(angle) * thicknessOffset;
       } else if (
         t <
         2 * straightWidth + (3 * Math.PI * r) / 2 + 2 * straightHeight
@@ -584,6 +646,8 @@ export class ParticleEngine {
         offsetY =
           (h / 2 - r) -
           (t - (2 * straightWidth + (3 * Math.PI * r) / 2 + straightHeight));
+        // Apply thickness offset (normal points left)
+        offsetX += -thicknessOffset;
       } else {
         // Top-left corner
         const arcProgress =
@@ -595,6 +659,9 @@ export class ParticleEngine {
         const centerY = -h / 2 + r;
         offsetX = centerX + Math.cos(angle) * r;
         offsetY = centerY + Math.sin(angle) * r;
+        // Apply thickness offset radially
+        offsetX += Math.cos(angle) * thicknessOffset;
+        offsetY += Math.sin(angle) * thicknessOffset;
       }
     }
 
@@ -861,10 +928,70 @@ export class ParticleEngine {
       ctx.arc(x2, y2, 3, 0, Math.PI * 2);
       ctx.fill();
     } else if (em.shape === "circle") {
-      ctx.beginPath();
-      ctx.arc(em.position.x, em.position.y, em.shapeRadius, 0, Math.PI * 2);
-      if (em.emissionMode === "area") ctx.fill();
-      ctx.stroke();
+      const arcRad = (em.circleArc * Math.PI) / 180;
+      const rotationRad = (em.shapeRotation * Math.PI) / 180;
+      const startAngle = -arcRad / 2 + rotationRad;
+      const endAngle = startAngle + arcRad;
+
+      if (em.emissionMode === "area") {
+        // Area mode: draw filled arc
+        ctx.beginPath();
+        ctx.arc(em.position.x, em.position.y, em.shapeRadius, startAngle, endAngle);
+        // Close path to center if not full circle
+        if (em.circleArc < 360) {
+          ctx.lineTo(em.position.x, em.position.y);
+          ctx.closePath();
+        }
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // Edge mode: draw arc with thickness visualization
+        const thickness = em.circleThickness;
+        const innerRadius = Math.max(0, em.shapeRadius - thickness / 2);
+        const outerRadius = em.shapeRadius + thickness / 2;
+
+        // Draw outer arc
+        ctx.beginPath();
+        ctx.arc(em.position.x, em.position.y, outerRadius, startAngle, endAngle);
+        ctx.stroke();
+
+        // Draw inner arc if thickness is visible
+        if (innerRadius > 0) {
+          ctx.beginPath();
+          ctx.arc(em.position.x, em.position.y, innerRadius, startAngle, endAngle);
+          ctx.stroke();
+        }
+
+        // Draw connecting lines at arc ends if not full circle
+        if (em.circleArc < 360) {
+          ctx.beginPath();
+          ctx.moveTo(
+            em.position.x + Math.cos(startAngle) * innerRadius,
+            em.position.y + Math.sin(startAngle) * innerRadius
+          );
+          ctx.lineTo(
+            em.position.x + Math.cos(startAngle) * outerRadius,
+            em.position.y + Math.sin(startAngle) * outerRadius
+          );
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(
+            em.position.x + Math.cos(endAngle) * innerRadius,
+            em.position.y + Math.sin(endAngle) * innerRadius
+          );
+          ctx.lineTo(
+            em.position.x + Math.cos(endAngle) * outerRadius,
+            em.position.y + Math.sin(endAngle) * outerRadius
+          );
+          ctx.stroke();
+        }
+
+        // Draw center line at main radius
+        ctx.beginPath();
+        ctx.arc(em.position.x, em.position.y, em.shapeRadius, startAngle, endAngle);
+        ctx.stroke();
+      }
     } else if (em.shape === "rectangle") {
       ctx.save();
       ctx.translate(em.position.x, em.position.y);
@@ -872,9 +999,89 @@ export class ParticleEngine {
 
       const x = -em.shapeWidth / 2;
       const y = -em.shapeHeight / 2;
-      if (em.emissionMode === "area")
-        ctx.fillRect(x, y, em.shapeWidth, em.shapeHeight);
-      ctx.strokeRect(x, y, em.shapeWidth, em.shapeHeight);
+      const w = em.shapeWidth;
+      const h = em.shapeHeight;
+
+      if (em.emissionMode === "area") {
+        // Area mode: draw filled rectangle (or partial if arc < 360)
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeRect(x, y, w, h);
+      } else {
+        // Edge mode with crop and thickness visualization
+        const thickness = em.rectangleThickness;
+        const cropFraction = em.rectangleArc / 360;
+
+        // Draw outer rectangle
+        const outerX = x - thickness / 2;
+        const outerY = y - thickness / 2;
+        const outerW = w + thickness;
+        const outerH = h + thickness;
+
+        // Draw inner rectangle
+        const innerX = x + thickness / 2;
+        const innerY = y + thickness / 2;
+        const innerW = w - thickness;
+        const innerH = h - thickness;
+
+        if (cropFraction >= 1) {
+          // Full perimeter
+          ctx.strokeRect(outerX, outerY, outerW, outerH);
+          if (innerW > 0 && innerH > 0) {
+            ctx.strokeRect(innerX, innerY, innerW, innerH);
+          }
+          // Draw center rectangle
+          ctx.strokeRect(x, y, w, h);
+        } else {
+          // Partial perimeter - draw only crop portion
+          // Helper function to draw partial rectangle outline
+          const drawPartialRect = (rx: number, ry: number, rw: number, rh: number) => {
+            // Calculate crop length for this specific rectangle size
+            const rectPerimeter = 2 * (rw + rh);
+            const cropLength = rectPerimeter * cropFraction;
+            let remaining = cropLength;
+
+            ctx.beginPath();
+
+            // Top edge (starting from top-left corner)
+            if (remaining > 0) {
+              const len = Math.min(remaining, rw);
+              ctx.moveTo(rx, ry);
+              ctx.lineTo(rx + len, ry);
+              remaining -= len;
+
+              if (remaining > 0) {
+                // Right edge
+                const len = Math.min(remaining, rh);
+                ctx.lineTo(rx + rw, ry);
+                ctx.lineTo(rx + rw, ry + len);
+                remaining -= len;
+
+                if (remaining > 0) {
+                  // Bottom edge
+                  const len = Math.min(remaining, rw);
+                  ctx.lineTo(rx + rw, ry + rh);
+                  ctx.lineTo(rx + rw - len, ry + rh);
+                  remaining -= len;
+
+                  if (remaining > 0) {
+                    // Left edge
+                    const len = Math.min(remaining, rh);
+                    ctx.lineTo(rx, ry + rh);
+                    ctx.lineTo(rx, ry + rh - len);
+                  }
+                }
+              }
+            }
+            ctx.stroke();
+          };
+
+          drawPartialRect(outerX, outerY, outerW, outerH);
+          if (innerW > 0 && innerH > 0) {
+            drawPartialRect(innerX, innerY, innerW, innerH);
+          }
+          drawPartialRect(x, y, w, h);
+        }
+      }
 
       ctx.restore();
     } else if (em.shape === "roundedRect") {
@@ -884,28 +1091,129 @@ export class ParticleEngine {
 
       const x = -em.shapeWidth / 2;
       const y = -em.shapeHeight / 2;
-      const r = Math.min(em.roundRadius, em.shapeWidth / 2, em.shapeHeight / 2);
+      const w = em.shapeWidth;
+      const h = em.shapeHeight;
+      const r = Math.min(em.roundRadius, w / 2, h / 2);
 
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.lineTo(x + em.shapeWidth - r, y);
-      ctx.arcTo(x + em.shapeWidth, y, x + em.shapeWidth, y + r, r);
-      ctx.lineTo(x + em.shapeWidth, y + em.shapeHeight - r);
-      ctx.arcTo(
-        x + em.shapeWidth,
-        y + em.shapeHeight,
-        x + em.shapeWidth - r,
-        y + em.shapeHeight,
-        r
-      );
-      ctx.lineTo(x + r, y + em.shapeHeight);
-      ctx.arcTo(x, y + em.shapeHeight, x, y + em.shapeHeight - r, r);
-      ctx.lineTo(x, y + r);
-      ctx.arcTo(x, y, x + r, y, r);
-      ctx.closePath();
+      if (em.emissionMode === "area") {
+        // Area mode: draw filled rounded rectangle
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // Edge mode with crop and thickness visualization
+        const thickness = em.rectangleThickness;
+        const cropFraction = em.rectangleArc / 360;
 
-      if (em.emissionMode === "area") ctx.fill();
-      ctx.stroke();
+        // Helper function to draw rounded rectangle outline
+        const drawRoundedRect = (offset: number) => {
+          const ox = x + offset;
+          const oy = y + offset;
+          const ow = w - 2 * offset;
+          const oh = h - 2 * offset;
+          const or = Math.max(0, r + offset);
+
+          if (ow <= 0 || oh <= 0) return;
+
+          if (cropFraction >= 1) {
+            // Full perimeter
+            ctx.beginPath();
+            ctx.moveTo(ox + or, oy);
+            ctx.lineTo(ox + ow - or, oy);
+            ctx.arcTo(ox + ow, oy, ox + ow, oy + or, or);
+            ctx.lineTo(ox + ow, oy + oh - or);
+            ctx.arcTo(ox + ow, oy + oh, ox + ow - or, oy + oh, or);
+            ctx.lineTo(ox + or, oy + oh);
+            ctx.arcTo(ox, oy + oh, ox, oy + oh - or, or);
+            ctx.lineTo(ox, oy + or);
+            ctx.arcTo(ox, oy, ox + or, oy, or);
+            ctx.closePath();
+            ctx.stroke();
+          } else {
+            // Partial perimeter - draw crop portion
+            const straightWidth = ow - 2 * or;
+            const straightHeight = oh - 2 * or;
+            const fullPerimeter = 2 * (straightWidth + straightHeight) + 2 * Math.PI * or;
+            const cropLength = fullPerimeter * cropFraction;
+            let remaining = cropLength;
+
+            ctx.beginPath();
+            // Start from top-left corner after radius
+            const startX = ox + or;
+            const startY = oy;
+            ctx.moveTo(startX, startY);
+
+            // Top edge
+            if (remaining > 0 && straightWidth > 0) {
+              const len = Math.min(remaining, straightWidth);
+              ctx.lineTo(ox + or + len, oy);
+              remaining -= len;
+
+              if (remaining > 0) {
+                // Top-right corner
+                const cornerArc = (Math.PI * or) / 2;
+                if (remaining >= cornerArc) {
+                  ctx.arcTo(ox + ow, oy, ox + ow, oy + or, or);
+                  remaining -= cornerArc;
+
+                  if (remaining > 0 && straightHeight > 0) {
+                    // Right edge
+                    const len = Math.min(remaining, straightHeight);
+                    ctx.lineTo(ox + ow, oy + or + len);
+                    remaining -= len;
+
+                    if (remaining > 0) {
+                      // Bottom-right corner
+                      if (remaining >= cornerArc) {
+                        ctx.arcTo(ox + ow, oy + oh, ox + ow - or, oy + oh, or);
+                        remaining -= cornerArc;
+
+                        if (remaining > 0 && straightWidth > 0) {
+                          // Bottom edge
+                          const len = Math.min(remaining, straightWidth);
+                          ctx.lineTo(ox + ow - or - len, oy + oh);
+                          remaining -= len;
+
+                          if (remaining > 0) {
+                            // Bottom-left corner
+                            if (remaining >= cornerArc) {
+                              ctx.arcTo(ox, oy + oh, ox, oy + oh - or, or);
+                              remaining -= cornerArc;
+
+                              if (remaining > 0 && straightHeight > 0) {
+                                // Left edge
+                                const len = Math.min(remaining, straightHeight);
+                                ctx.lineTo(ox, oy + oh - or - len);
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+
+            ctx.stroke();
+          }
+        };
+
+        // Draw three outlines (outer, center, inner)
+        drawRoundedRect(-thickness / 2); // Outer
+        drawRoundedRect(0); // Center
+        drawRoundedRect(thickness / 2); // Inner
+      }
 
       ctx.restore();
     }

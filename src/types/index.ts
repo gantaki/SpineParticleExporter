@@ -63,11 +63,15 @@ interface EmitterInstanceSettings {
   shapeRadius: number;
   shapeWidth: number;
   shapeHeight: number;
-  shapeRotation: number; // Rotation of the emitter shape itself (for rectangle and rounded)
+  shapeRotation: number; // Rotation of the emitter shape itself (for circle, rectangle and rounded)
   roundRadius: number;
   lineLength: number;
   lineSpreadRotation: number;
   emissionMode: "area" | "edge";
+  circleThickness: number; // Thickness of the circle outline in edge mode
+  circleArc: number; // Arc angle in degrees (360 = full circle, 0 = no arc)
+  rectangleThickness: number; // Thickness of the rectangle outline in edge mode
+  rectangleArc: number; // Crop angle in degrees (360 = full perimeter, 0 = no perimeter)
   angle: number;
   angleSpread: number;
   rate: number;
@@ -354,6 +358,10 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     lineLength: 100,
     lineSpreadRotation: 0,
     emissionMode: "area",
+    circleThickness: 10,
+    circleArc: 360,
+    rectangleThickness: 10,
+    rectangleArc: 360,
     angle: -90,
     angleSpread: 30,
     rate: 10,

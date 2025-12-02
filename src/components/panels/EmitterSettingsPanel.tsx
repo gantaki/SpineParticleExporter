@@ -69,7 +69,7 @@ const SHAPE_OPTIONS = [
   { value: "line", label: "➖ Line" },
   { value: "circle", label: "⭕ Circle" },
   { value: "rectangle", label: "⬜ Rectangle" },
-  { value: "roundedRect", label: "▢ Rounded" },
+  { value: "roundedRect", label: "🔲 Rounded Rectangle" },
 ];
 
 const MODE_OPTIONS = [
@@ -281,12 +281,39 @@ const ShapeSettings = memo(() => {
       )}
 
       {em.shape === "circle" && (
-        <LabeledNumber
-          label="Radius"
-          value={em.shapeRadius}
-          onChange={(v) => updateCurrentEmitter({ shapeRadius: v })}
-          max={1000}
-        />
+        <>
+          <LabeledNumber
+            label="Radius"
+            value={em.shapeRadius}
+            onChange={(v) => updateCurrentEmitter({ shapeRadius: v })}
+            max={1000}
+          />
+          <TwoColumn>
+            <LabeledNumber
+              label="Arc (°)"
+              value={em.circleArc}
+              onChange={(v) => updateCurrentEmitter({ circleArc: v })}
+              min={0}
+              max={360}
+            />
+            <LabeledNumber
+              label="Emitter Rotation (°)"
+              value={em.shapeRotation}
+              onChange={(v) => updateCurrentEmitter({ shapeRotation: v })}
+              min={-180}
+              max={180}
+            />
+          </TwoColumn>
+          {em.emissionMode === "edge" && (
+            <LabeledNumber
+              label="Thickness"
+              value={em.circleThickness}
+              onChange={(v) => updateCurrentEmitter({ circleThickness: v })}
+              min={0}
+              max={em.shapeRadius}
+            />
+          )}
+        </>
       )}
 
       {(em.shape === "rectangle" || em.shape === "roundedRect") && (
@@ -305,13 +332,33 @@ const ShapeSettings = memo(() => {
               max={2000}
             />
           </TwoColumn>
-          <LabeledNumber
-            label="Emitter Rotation (°)"
-            value={em.shapeRotation}
-            onChange={(v) => updateCurrentEmitter({ shapeRotation: v })}
-            min={-180}
-            max={180}
-          />
+          <TwoColumn>
+            <LabeledNumber
+              label="Emitter Rotation (°)"
+              value={em.shapeRotation}
+              onChange={(v) => updateCurrentEmitter({ shapeRotation: v })}
+              min={-180}
+              max={180}
+            />
+            {em.emissionMode === "edge" && (
+              <LabeledNumber
+                label="Crop (°)"
+                value={em.rectangleArc}
+                onChange={(v) => updateCurrentEmitter({ rectangleArc: v })}
+                min={0}
+                max={360}
+              />
+            )}
+          </TwoColumn>
+          {em.emissionMode === "edge" && (
+            <LabeledNumber
+              label="Thickness"
+              value={em.rectangleThickness}
+              onChange={(v) => updateCurrentEmitter({ rectangleThickness: v })}
+              min={0}
+              max={Math.min(em.shapeWidth, em.shapeHeight) / 2}
+            />
+          )}
         </>
       )}
 
@@ -320,19 +367,19 @@ const ShapeSettings = memo(() => {
           label="Corner Radius"
           value={em.roundRadius}
           onChange={(v) => updateCurrentEmitter({ roundRadius: v })}
-          max={Math.min(70, em.shapeWidth / 2, em.shapeHeight / 2)}
+          max={Math.min(90, em.shapeWidth / 2, em.shapeHeight / 2)}
         />
       )}
 
       <TwoColumn>
         <LabeledNumber
-          label="Angle"
+          label="Emission Angle"
           value={em.angle}
           onChange={(v) => updateCurrentEmitter({ angle: v })}
           max={180}
         />
         <LabeledNumber
-          label="Spread"
+          label="Emission Spread"
           value={em.angleSpread}
           onChange={(v) => updateCurrentEmitter({ angleSpread: v })}
           max={360}
