@@ -24,9 +24,21 @@ interface CurvePoint {
   value: number;
 }
 
+interface BezierHandle {
+  x: number;
+  y: number;
+}
+
+interface PointWithHandles {
+  inHandle?: BezierHandle;
+  outHandle?: BezierHandle;
+}
+
 interface Curve {
   points: CurvePoint[];
   interpolation: "linear" | "smooth";
+  handles?: Record<number, PointWithHandles>; // Bezier handles for smooth interpolation
+  zoom?: boolean; // Zoom state persistence
 }
 
 interface RangeValue {
@@ -465,6 +477,8 @@ export {
   type Vec2,
   type Color,
   type CurvePoint,
+  type BezierHandle,
+  type PointWithHandles,
   type Curve,
   type RangeValue,
   type ColorPoint,
