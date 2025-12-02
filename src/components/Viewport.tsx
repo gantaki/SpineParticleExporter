@@ -340,8 +340,8 @@ export const Viewport = memo(() => {
           y: worldY - dragStart.y
         });
       } else if (dragMode === "emitter" && currentEmitterSettings) {
-        const newX = worldX - dragStart.x;
-        const newY = worldY - dragStart.y;
+        const newX = Math.round((worldX - dragStart.x) * 100) / 100;
+        const newY = Math.round((worldY - dragStart.y) * 100) / 100;
 
         updateCurrentEmitter({
           position: { x: newX, y: newY }

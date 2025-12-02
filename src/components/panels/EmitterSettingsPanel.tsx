@@ -415,9 +415,14 @@ const PositionSettings = memo(() => {
       <TwoColumn>
         <LabeledNumber
           label="Position X (px)"
-          value={em.position.x}
+          value={Math.round(em.position.x * 100) / 100}
           onChange={(v) =>
-            updateCurrentEmitter({ position: { x: v, y: em.position.y } })
+            updateCurrentEmitter({
+              position: {
+                x: Math.round(v * 100) / 100,
+                y: em.position.y
+              }
+            })
           }
           min={-1000}
           max={1000}
@@ -425,9 +430,14 @@ const PositionSettings = memo(() => {
         />
         <LabeledNumber
           label="Position Y (px)"
-          value={em.position.y}
+          value={Math.round(em.position.y * 100) / 100}
           onChange={(v) =>
-            updateCurrentEmitter({ position: { x: em.position.x, y: v } })
+            updateCurrentEmitter({
+              position: {
+                x: em.position.x,
+                y: Math.round(v * 100) / 100
+              }
+            })
           }
           min={-1000}
           max={1000}
