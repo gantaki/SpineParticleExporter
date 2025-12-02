@@ -274,12 +274,14 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent, index: number) => {
+    e.preventDefault();
     e.stopPropagation();
     setSelectedPoint(index);
     setIsDragging(true);
   };
 
   const handleHandleMouseDown = (e: React.MouseEvent, index: number, type: 'in' | 'out') => {
+    e.preventDefault();
     e.stopPropagation();
     setSelectedPoint(index);
     setDraggingHandle(type);
@@ -338,6 +340,22 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
 
     onChange({ ...curve, points: newPoints });
   }, [curve.points, autoScale, roundToTwo, xToTime, yToValue, clampToRange, onChange]);
+
+  // Prevent text selection during drag
+  useEffect(() => {
+    if (isDragging || draggingHandle) {
+      document.body.style.userSelect = 'none';
+      document.body.style.webkitUserSelect = 'none';
+    } else {
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+    }
+
+    return () => {
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+    };
+  }, [isDragging, draggingHandle]);
 
   // Global mouse tracking for drag outside SVG
   useEffect(() => {
@@ -670,7 +688,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
                     <circle
                       cx={px + pointHandles.inHandle.x * graphWidth}
                       cy={py - pointHandles.inHandle.y * graphHeight}
-                      r={4}
+                      r={6}
                       fill="rgba(236, 72, 153, 0.9)"
                       stroke="white"
                       strokeWidth="1.5"
@@ -693,7 +711,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
                     <circle
                       cx={px + pointHandles.outHandle.x * graphWidth}
                       cy={py - pointHandles.outHandle.y * graphHeight}
-                      r={4}
+                      r={6}
                       fill="rgba(236, 72, 153, 0.9)"
                       stroke="white"
                       strokeWidth="1.5"
@@ -712,7 +730,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
               <circle
                 cx={timeToX(point.time)}
                 cy={valueToY(point.value)}
-                r={selectedPoint === i ? 5 : 4}
+                r={selectedPoint === i ? 7 : 6}
                 fill={selectedPoint === i ? "rgb(236, 72, 153)" : "rgb(168, 85, 247)"}
                 stroke="white"
                 strokeWidth="1.5"
