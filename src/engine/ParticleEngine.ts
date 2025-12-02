@@ -467,7 +467,8 @@ export class ParticleEngine {
     } else if (em.shape === "circle") {
       // Calculate arc range (default 360° = full circle)
       const arcRad = (em.circleArc * Math.PI) / 180;
-      const startAngle = -arcRad / 2; // Center the arc
+      const rotationRad = (em.shapeRotation * Math.PI) / 180;
+      const startAngle = -arcRad / 2 + rotationRad; // Center the arc and apply rotation
       const angle = startAngle + Math.random() * arcRad;
 
       if (em.emissionMode === "area") {
@@ -491,21 +492,37 @@ export class ParticleEngine {
         offsetX = (Math.random() - 0.5) * em.shapeWidth;
         offsetY = (Math.random() - 0.5) * em.shapeHeight;
       } else {
-        const perimeter = 2 * (em.shapeWidth + em.shapeHeight);
-        const t = Math.random() * perimeter;
+        // Edge mode with arc and thickness support
+        const fullPerimeter = 2 * (em.shapeWidth + em.shapeHeight);
+        const arcFraction = em.rectangleArc / 360;
+        const activePerimeter = fullPerimeter * arcFraction;
+        const thickness = em.rectangleThickness;
 
-        if (t < em.shapeWidth) {
-          offsetX = t - em.shapeWidth / 2;
-          offsetY = -em.shapeHeight / 2;
-        } else if (t < em.shapeWidth + em.shapeHeight) {
-          offsetX = em.shapeWidth / 2;
-          offsetY = t - em.shapeWidth - em.shapeHeight / 2;
-        } else if (t < 2 * em.shapeWidth + em.shapeHeight) {
-          offsetX = 2 * em.shapeWidth + em.shapeHeight - t - em.shapeWidth / 2;
-          offsetY = em.shapeHeight / 2;
+        // Determine if we spawn on outer or inner perimeter (for thickness)
+        const spawnOnOuter = Math.random() < 0.5;
+        const offset = spawnOnOuter ? thickness / 2 : -thickness / 2;
+
+        const w = em.shapeWidth + offset * 2;
+        const h = em.shapeHeight + offset * 2;
+        const perimeter = 2 * (w + h);
+        const t = Math.random() * activePerimeter * (perimeter / fullPerimeter);
+
+        if (t < w) {
+          // Top edge
+          offsetX = t - w / 2;
+          offsetY = -h / 2;
+        } else if (t < w + h) {
+          // Right edge
+          offsetX = w / 2;
+          offsetY = t - w - h / 2;
+        } else if (t < 2 * w + h) {
+          // Bottom edge
+          offsetX = 2 * w + h - t - w / 2;
+          offsetY = h / 2;
         } else {
-          offsetX = -em.shapeWidth / 2;
-          offsetY = perimeter - t - em.shapeHeight / 2;
+          // Left edge
+          offsetX = -w / 2;
+          offsetY = perimeter - t - h / 2;
         }
       }
 
@@ -526,21 +543,28 @@ export class ParticleEngine {
     em: EmitterInstance["settings"],
     pos: Vec2
   ): Vec2 {
-    const w = em.shapeWidth;
-    const h = em.shapeHeight;
-    const r = Math.min(em.roundRadius, w / 2, h / 2);
-
     let offsetX = 0;
     let offsetY = 0;
 
     if (em.emissionMode === "area") {
-      offsetX = (Math.random() - 0.5) * w;
-      offsetY = (Math.random() - 0.5) * h;
+      offsetX = (Math.random() - 0.5) * em.shapeWidth;
+      offsetY = (Math.random() - 0.5) * em.shapeHeight;
     } else {
+      // Edge mode with arc and thickness support
+      const thickness = em.rectangleThickness;
+      const spawnOnOuter = Math.random() < 0.5;
+      const offset = spawnOnOuter ? thickness / 2 : -thickness / 2;
+
+      const w = em.shapeWidth + offset * 2;
+      const h = em.shapeHeight + offset * 2;
+      const r = Math.min(em.roundRadius + offset, w / 2, h / 2);
+
       const straightWidth = w - 2 * r;
       const straightHeight = h - 2 * r;
-      const perimeter = 2 * (straightWidth + straightHeight) + 2 * Math.PI * r;
-      const t = Math.random() * perimeter;
+      const fullPerimeter = 2 * (straightWidth + straightHeight) + 2 * Math.PI * r;
+      const arcFraction = em.rectangleArc / 360;
+      const activePerimeter = fullPerimeter * arcFraction;
+      const t = Math.random() * activePerimeter;
 
       if (t < straightWidth) {
         // Top edge
@@ -870,7 +894,8 @@ export class ParticleEngine {
       ctx.fill();
     } else if (em.shape === "circle") {
       const arcRad = (em.circleArc * Math.PI) / 180;
-      const startAngle = -arcRad / 2;
+      const rotationRad = (em.shapeRotation * Math.PI) / 180;
+      const startAngle = -arcRad / 2 + rotationRad;
       const endAngle = startAngle + arcRad;
 
       if (em.emissionMode === "area") {
@@ -939,9 +964,88 @@ export class ParticleEngine {
 
       const x = -em.shapeWidth / 2;
       const y = -em.shapeHeight / 2;
-      if (em.emissionMode === "area")
-        ctx.fillRect(x, y, em.shapeWidth, em.shapeHeight);
-      ctx.strokeRect(x, y, em.shapeWidth, em.shapeHeight);
+      const w = em.shapeWidth;
+      const h = em.shapeHeight;
+
+      if (em.emissionMode === "area") {
+        // Area mode: draw filled rectangle (or partial if arc < 360)
+        ctx.fillRect(x, y, w, h);
+        ctx.strokeRect(x, y, w, h);
+      } else {
+        // Edge mode with arc and thickness visualization
+        const thickness = em.rectangleThickness;
+        const arcFraction = em.rectangleArc / 360;
+
+        // Draw outer rectangle
+        const outerX = x - thickness / 2;
+        const outerY = y - thickness / 2;
+        const outerW = w + thickness;
+        const outerH = h + thickness;
+
+        // Draw inner rectangle
+        const innerX = x + thickness / 2;
+        const innerY = y + thickness / 2;
+        const innerW = w - thickness;
+        const innerH = h - thickness;
+
+        if (arcFraction >= 1) {
+          // Full perimeter
+          ctx.strokeRect(outerX, outerY, outerW, outerH);
+          if (innerW > 0 && innerH > 0) {
+            ctx.strokeRect(innerX, innerY, innerW, innerH);
+          }
+          // Draw center rectangle
+          ctx.strokeRect(x, y, w, h);
+        } else {
+          // Partial perimeter - draw only arc portion
+          const perimeter = 2 * (w + h);
+          const arcLength = perimeter * arcFraction;
+
+          // Helper function to draw partial rectangle outline
+          const drawPartialRect = (rx: number, ry: number, rw: number, rh: number) => {
+            let remaining = arcLength;
+            ctx.beginPath();
+
+            // Top edge
+            if (remaining > 0) {
+              const len = Math.min(remaining, rw);
+              ctx.moveTo(rx, ry);
+              ctx.lineTo(rx + len, ry);
+              remaining -= len;
+
+              if (remaining > 0) {
+                // Right edge
+                const len = Math.min(remaining, rh);
+                ctx.lineTo(rx + rw, ry);
+                ctx.lineTo(rx + rw, ry + len);
+                remaining -= len;
+
+                if (remaining > 0) {
+                  // Bottom edge
+                  const len = Math.min(remaining, rw);
+                  ctx.lineTo(rx + rw, ry + rh);
+                  ctx.lineTo(rx + rw - len, ry + rh);
+                  remaining -= len;
+
+                  if (remaining > 0) {
+                    // Left edge
+                    const len = Math.min(remaining, rh);
+                    ctx.lineTo(rx, ry + rh);
+                    ctx.lineTo(rx, ry + rh - len);
+                  }
+                }
+              }
+            }
+            ctx.stroke();
+          };
+
+          drawPartialRect(outerX, outerY, outerW, outerH);
+          if (innerW > 0 && innerH > 0) {
+            drawPartialRect(innerX, innerY, innerW, innerH);
+          }
+          drawPartialRect(x, y, w, h);
+        }
+      }
 
       ctx.restore();
     } else if (em.shape === "roundedRect") {
@@ -951,28 +1055,82 @@ export class ParticleEngine {
 
       const x = -em.shapeWidth / 2;
       const y = -em.shapeHeight / 2;
-      const r = Math.min(em.roundRadius, em.shapeWidth / 2, em.shapeHeight / 2);
+      const w = em.shapeWidth;
+      const h = em.shapeHeight;
+      const r = Math.min(em.roundRadius, w / 2, h / 2);
 
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.lineTo(x + em.shapeWidth - r, y);
-      ctx.arcTo(x + em.shapeWidth, y, x + em.shapeWidth, y + r, r);
-      ctx.lineTo(x + em.shapeWidth, y + em.shapeHeight - r);
-      ctx.arcTo(
-        x + em.shapeWidth,
-        y + em.shapeHeight,
-        x + em.shapeWidth - r,
-        y + em.shapeHeight,
-        r
-      );
-      ctx.lineTo(x + r, y + em.shapeHeight);
-      ctx.arcTo(x, y + em.shapeHeight, x, y + em.shapeHeight - r, r);
-      ctx.lineTo(x, y + r);
-      ctx.arcTo(x, y, x + r, y, r);
-      ctx.closePath();
+      if (em.emissionMode === "area") {
+        // Area mode: draw filled rounded rectangle
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.lineTo(x + w - r, y);
+        ctx.arcTo(x + w, y, x + w, y + r, r);
+        ctx.lineTo(x + w, y + h - r);
+        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+        ctx.lineTo(x + r, y + h);
+        ctx.arcTo(x, y + h, x, y + h - r, r);
+        ctx.lineTo(x, y + r);
+        ctx.arcTo(x, y, x + r, y, r);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // Edge mode with arc and thickness visualization
+        const thickness = em.rectangleThickness;
+        const arcFraction = em.rectangleArc / 360;
 
-      if (em.emissionMode === "area") ctx.fill();
-      ctx.stroke();
+        // Helper function to draw rounded rectangle outline
+        const drawRoundedRect = (offset: number) => {
+          const ox = x + offset;
+          const oy = y + offset;
+          const ow = w - 2 * offset;
+          const oh = h - 2 * offset;
+          const or = Math.max(0, r + offset);
+
+          if (ow <= 0 || oh <= 0) return;
+
+          if (arcFraction >= 1) {
+            // Full perimeter
+            ctx.beginPath();
+            ctx.moveTo(ox + or, oy);
+            ctx.lineTo(ox + ow - or, oy);
+            ctx.arcTo(ox + ow, oy, ox + ow, oy + or, or);
+            ctx.lineTo(ox + ow, oy + oh - or);
+            ctx.arcTo(ox + ow, oy + oh, ox + ow - or, oy + oh, or);
+            ctx.lineTo(ox + or, oy + oh);
+            ctx.arcTo(ox, oy + oh, ox, oy + oh - or, or);
+            ctx.lineTo(ox, oy + or);
+            ctx.arcTo(ox, oy, ox + or, oy, or);
+            ctx.closePath();
+            ctx.stroke();
+          } else {
+            // Partial perimeter - simplified visualization
+            const straightWidth = ow - 2 * or;
+            const straightHeight = oh - 2 * or;
+            const fullPerimeter = 2 * (straightWidth + straightHeight) + 2 * Math.PI * or;
+            const arcLength = fullPerimeter * arcFraction;
+            let remaining = arcLength;
+
+            ctx.beginPath();
+            // Start from top-left corner after radius
+            ctx.moveTo(ox + or, oy);
+
+            // Top edge
+            if (remaining > 0) {
+              const len = Math.min(remaining, straightWidth);
+              ctx.lineTo(ox + or + len, oy);
+              remaining -= len;
+            }
+
+            ctx.stroke();
+          }
+        };
+
+        // Draw three outlines (outer, center, inner)
+        drawRoundedRect(-thickness / 2); // Outer
+        drawRoundedRect(0); // Center
+        drawRoundedRect(thickness / 2); // Inner
+      }
 
       ctx.restore();
     }

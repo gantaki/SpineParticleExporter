@@ -288,13 +288,22 @@ const ShapeSettings = memo(() => {
             onChange={(v) => updateCurrentEmitter({ shapeRadius: v })}
             max={1000}
           />
-          <LabeledNumber
-            label="Arc (°)"
-            value={em.circleArc}
-            onChange={(v) => updateCurrentEmitter({ circleArc: v })}
-            min={0}
-            max={360}
-          />
+          <TwoColumn>
+            <LabeledNumber
+              label="Arc (°)"
+              value={em.circleArc}
+              onChange={(v) => updateCurrentEmitter({ circleArc: v })}
+              min={0}
+              max={360}
+            />
+            <LabeledNumber
+              label="Emitter Rotation (°)"
+              value={em.shapeRotation}
+              onChange={(v) => updateCurrentEmitter({ shapeRotation: v })}
+              min={-180}
+              max={180}
+            />
+          </TwoColumn>
           {em.emissionMode === "edge" && (
             <LabeledNumber
               label="Thickness"
@@ -330,6 +339,22 @@ const ShapeSettings = memo(() => {
             min={-180}
             max={180}
           />
+          <LabeledNumber
+            label="Arc (°)"
+            value={em.rectangleArc}
+            onChange={(v) => updateCurrentEmitter({ rectangleArc: v })}
+            min={0}
+            max={360}
+          />
+          {em.emissionMode === "edge" && (
+            <LabeledNumber
+              label="Thickness"
+              value={em.rectangleThickness}
+              onChange={(v) => updateCurrentEmitter({ rectangleThickness: v })}
+              min={0}
+              max={Math.min(em.shapeWidth, em.shapeHeight) / 2}
+            />
+          )}
         </>
       )}
 
@@ -338,7 +363,7 @@ const ShapeSettings = memo(() => {
           label="Corner Radius"
           value={em.roundRadius}
           onChange={(v) => updateCurrentEmitter({ roundRadius: v })}
-          max={Math.min(70, em.shapeWidth / 2, em.shapeHeight / 2)}
+          max={Math.min(90, em.shapeWidth / 2, em.shapeHeight / 2)}
         />
       )}
 
