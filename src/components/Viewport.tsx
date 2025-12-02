@@ -21,6 +21,7 @@ import { useParticleBridge } from "../hooks/useParticleBridge";
 import { useSettings } from "../context/SettingsContext";
 import { useViewport } from "../context/ViewportContext";
 import { Timeline } from "./Timeline";
+import { roundToDecimals } from "../utils";
 
 // ============================================================
 // VIEWPORT CONTROLS (Memoized)
@@ -260,6 +261,18 @@ export const Viewport = memo(() => {
   // DRAG & DROP HANDLERS (Emitter + Background)
   // ============================================================
 
+  // Helper: Convert canvas coordinates to world coordinates
+  const canvasToWorld = useCallback(
+    (canvasX: number, canvasY: number) => {
+      const halfSize = settings.frameSize / 2;
+      return {
+        x: canvasX - halfSize,
+        y: halfSize - canvasY, // Invert Y axis
+      };
+    },
+    [settings.frameSize]
+  );
+
   const handleImageUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -285,12 +298,9 @@ export const Viewport = memo(() => {
       if (!canvasRef.current) return;
 
       const rect = canvasRef.current.getBoundingClientRect();
-      const x = (e.clientX - rect.left) * (settings.frameSize / rect.width);
-      const y = (e.clientY - rect.top) * (settings.frameSize / rect.height);
-
-      // Convert to world coordinates (canvas center is 0,0, Y inverted)
-      const worldX = x - settings.frameSize / 2;
-      const worldY = settings.frameSize / 2 - y; // Invert Y axis
+      const canvasX = (e.clientX - rect.left) * (settings.frameSize / rect.width);
+      const canvasY = (e.clientY - rect.top) * (settings.frameSize / rect.height);
+      const world = canvasToWorld(canvasX, canvasY);
 
       // Determine drag mode:
       // Shift + LMB = drag background (if available)
@@ -298,14 +308,14 @@ export const Viewport = memo(() => {
       if (e.shiftKey && backgroundImage) {
         setDragMode("background");
         setDragStart({
-          x: worldX - bgPosition.x,
-          y: worldY - bgPosition.y
+          x: world.x - bgPosition.x,
+          y: world.y - bgPosition.y
         });
       } else if (currentEmitterSettings && !currentEmitterSettings.positionLocked) {
         setDragMode("emitter");
         setDragStart({
-          x: worldX - currentEmitterSettings.position.x,
-          y: worldY - currentEmitterSettings.position.y
+          x: world.x - currentEmitterSettings.position.x,
+          y: world.y - currentEmitterSettings.position.y
         });
       } else {
         return; // No drag action
@@ -319,6 +329,7 @@ export const Viewport = memo(() => {
       settings.frameSize,
       bgPosition,
       currentEmitterSettings,
+      canvasToWorld,
     ]
   );
 
@@ -327,24 +338,21 @@ export const Viewport = memo(() => {
       if (!isDragging || !canvasRef.current || !dragMode) return;
 
       const rect = canvasRef.current.getBoundingClientRect();
-      const x = (e.clientX - rect.left) * (settings.frameSize / rect.width);
-      const y = (e.clientY - rect.top) * (settings.frameSize / rect.height);
-
-      // Convert to world coordinates (Y inverted)
-      const worldX = x - settings.frameSize / 2;
-      const worldY = settings.frameSize / 2 - y; // Invert Y axis
+      const canvasX = (e.clientX - rect.left) * (settings.frameSize / rect.width);
+      const canvasY = (e.clientY - rect.top) * (settings.frameSize / rect.height);
+      const world = canvasToWorld(canvasX, canvasY);
 
       if (dragMode === "background") {
         setBgPosition({
-          x: worldX - dragStart.x,
-          y: worldY - dragStart.y
+          x: world.x - dragStart.x,
+          y: world.y - dragStart.y
         });
       } else if (dragMode === "emitter" && currentEmitterSettings) {
-        const newX = Math.round((worldX - dragStart.x) * 100) / 100;
-        const newY = Math.round((worldY - dragStart.y) * 100) / 100;
-
         updateCurrentEmitter({
-          position: { x: newX, y: newY }
+          position: {
+            x: roundToDecimals(world.x - dragStart.x),
+            y: roundToDecimals(world.y - dragStart.y)
+          }
         });
       }
     },
@@ -357,6 +365,7 @@ export const Viewport = memo(() => {
       setBgPosition,
       currentEmitterSettings,
       updateCurrentEmitter,
+      canvasToWorld,
     ]
   );
 

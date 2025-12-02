@@ -33,6 +33,11 @@ function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
 
+function roundToDecimals(value: number, decimals: number = 2): number {
+  const multiplier = Math.pow(10, decimals);
+  return Math.round(value * multiplier) / multiplier;
+}
+
 function sampleRange(range: RangeValue): number {
   return range.min + Math.random() * (range.max - range.min);
 }
@@ -107,6 +112,7 @@ export {
   simpleNoise,
   noise2D,
   clamp01,
+  roundToDecimals,
   sampleRange,
   copyCurve,
   evaluateCurve,

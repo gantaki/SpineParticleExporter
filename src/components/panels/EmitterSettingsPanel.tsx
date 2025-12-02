@@ -15,7 +15,7 @@ import {
 } from "../fields";
 import { useSettings } from "../../context/SettingsContext";
 import { DEFAULT_CURVE_PRESETS } from "../../types";
-import { copyCurve } from "../../utils";
+import { copyCurve, roundToDecimals } from "../../utils";
 
 // ============================================================
 // INLINE COLLAPSIBLE COMPONENT FOR SUB-SECTIONS
@@ -415,11 +415,11 @@ const PositionSettings = memo(() => {
       <TwoColumn>
         <LabeledNumber
           label="Position X (px)"
-          value={Math.round(em.position.x * 100) / 100}
+          value={roundToDecimals(em.position.x)}
           onChange={(v) =>
             updateCurrentEmitter({
               position: {
-                x: Math.round(v * 100) / 100,
+                x: roundToDecimals(v),
                 y: em.position.y
               }
             })
@@ -430,12 +430,12 @@ const PositionSettings = memo(() => {
         />
         <LabeledNumber
           label="Position Y (px)"
-          value={Math.round(em.position.y * 100) / 100}
+          value={roundToDecimals(em.position.y)}
           onChange={(v) =>
             updateCurrentEmitter({
               position: {
                 x: em.position.x,
-                y: Math.round(v * 100) / 100
+                y: roundToDecimals(v)
               }
             })
           }
