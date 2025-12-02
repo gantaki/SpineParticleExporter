@@ -128,6 +128,8 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   };
 
   useEffect(() => {
+    if (!containerRef.current) return;
+
     const measureWidth = () => {
       if (containerRef.current) {
         const nextWidth = Math.max(260, containerRef.current.clientWidth);
@@ -135,13 +137,18 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
       }
     };
 
+    // Measure immediately
     measureWidth();
-    const timeoutId = setTimeout(measureWidth, 10);
 
-    window.addEventListener('resize', measureWidth);
+    // Use ResizeObserver to detect container size changes (e.g., when collapsible expands)
+    const resizeObserver = new ResizeObserver(() => {
+      measureWidth();
+    });
+
+    resizeObserver.observe(containerRef.current);
+
     return () => {
-      window.removeEventListener('resize', measureWidth);
-      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
     };
   }, []);
 
