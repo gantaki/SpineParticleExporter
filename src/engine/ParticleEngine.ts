@@ -493,37 +493,51 @@ export class ParticleEngine {
         offsetY = (Math.random() - 0.5) * em.shapeHeight;
       } else {
         // Edge mode with arc and thickness support
-        const fullPerimeter = 2 * (em.shapeWidth + em.shapeHeight);
+        const w = em.shapeWidth;
+        const h = em.shapeHeight;
+        const perimeter = 2 * (w + h);
         const arcFraction = em.rectangleArc / 360;
-        const activePerimeter = fullPerimeter * arcFraction;
+        const activePerimeter = perimeter * arcFraction;
         const thickness = em.rectangleThickness;
 
-        // Determine if we spawn on outer or inner perimeter (for thickness)
-        const spawnOnOuter = Math.random() < 0.5;
-        const offset = spawnOnOuter ? thickness / 2 : -thickness / 2;
+        // Random position along the active perimeter (starting from top-left, going clockwise)
+        const t = Math.random() * activePerimeter;
 
-        const w = em.shapeWidth + offset * 2;
-        const h = em.shapeHeight + offset * 2;
-        const perimeter = 2 * (w + h);
-        const t = Math.random() * activePerimeter * (perimeter / fullPerimeter);
+        // Random offset perpendicular to edge (within thickness)
+        const thicknessOffset = (Math.random() - 0.5) * thickness;
+
+        let normalX = 0;
+        let normalY = 0;
 
         if (t < w) {
           // Top edge
           offsetX = t - w / 2;
           offsetY = -h / 2;
+          normalX = 0;
+          normalY = -1; // Normal points outward (up)
         } else if (t < w + h) {
           // Right edge
           offsetX = w / 2;
-          offsetY = t - w - h / 2;
+          offsetY = (t - w) - h / 2;
+          normalX = 1; // Normal points outward (right)
+          normalY = 0;
         } else if (t < 2 * w + h) {
           // Bottom edge
-          offsetX = 2 * w + h - t - w / 2;
+          offsetX = w - (t - w - h) - w / 2;
           offsetY = h / 2;
+          normalX = 0;
+          normalY = 1; // Normal points outward (down)
         } else {
           // Left edge
           offsetX = -w / 2;
-          offsetY = perimeter - t - h / 2;
+          offsetY = h - (t - 2 * w - h) - h / 2;
+          normalX = -1; // Normal points outward (left)
+          normalY = 0;
         }
+
+        // Apply thickness offset along the normal
+        offsetX += normalX * thicknessOffset;
+        offsetY += normalY * thicknessOffset;
       }
 
       // Apply rotation
@@ -551,37 +565,45 @@ export class ParticleEngine {
       offsetY = (Math.random() - 0.5) * em.shapeHeight;
     } else {
       // Edge mode with arc and thickness support
+      const w = em.shapeWidth;
+      const h = em.shapeHeight;
+      const r = Math.min(em.roundRadius, w / 2, h / 2);
       const thickness = em.rectangleThickness;
-      const spawnOnOuter = Math.random() < 0.5;
-      const offset = spawnOnOuter ? thickness / 2 : -thickness / 2;
-
-      const w = em.shapeWidth + offset * 2;
-      const h = em.shapeHeight + offset * 2;
-      const r = Math.min(em.roundRadius + offset, w / 2, h / 2);
 
       const straightWidth = w - 2 * r;
       const straightHeight = h - 2 * r;
-      const fullPerimeter = 2 * (straightWidth + straightHeight) + 2 * Math.PI * r;
+      const perimeter = 2 * (straightWidth + straightHeight) + 2 * Math.PI * r;
       const arcFraction = em.rectangleArc / 360;
-      const activePerimeter = fullPerimeter * arcFraction;
+      const activePerimeter = perimeter * arcFraction;
       const t = Math.random() * activePerimeter;
+
+      // Random offset perpendicular to edge (within thickness)
+      const thicknessOffset = (Math.random() - 0.5) * thickness;
 
       if (t < straightWidth) {
         // Top edge
         offsetX = t - w / 2 + r;
         offsetY = -h / 2;
+        // Apply thickness offset (normal points up)
+        offsetY += -thicknessOffset;
       } else if (t < straightWidth + (Math.PI * r) / 2) {
         // Top-right corner
         const arcProgress = (t - straightWidth) / r;
         const angle = arcProgress - Math.PI / 2;
         const centerX = w / 2 - r;
         const centerY = -h / 2 + r;
+        // Base position on the center radius
         offsetX = centerX + Math.cos(angle) * r;
         offsetY = centerY + Math.sin(angle) * r;
+        // Apply thickness offset radially
+        offsetX += Math.cos(angle) * thicknessOffset;
+        offsetY += Math.sin(angle) * thicknessOffset;
       } else if (t < straightWidth + (Math.PI * r) / 2 + straightHeight) {
         // Right edge
         offsetX = w / 2;
-        offsetY = t - (straightWidth + (Math.PI * r) / 2) - h / 2 + r;
+        offsetY = (t - straightWidth - (Math.PI * r) / 2) - h / 2 + r;
+        // Apply thickness offset (normal points right)
+        offsetX += thicknessOffset;
       } else if (t < straightWidth + Math.PI * r + straightHeight) {
         // Bottom-right corner
         const arcProgress =
@@ -591,10 +613,15 @@ export class ParticleEngine {
         const centerY = h / 2 - r;
         offsetX = centerX + Math.cos(angle) * r;
         offsetY = centerY + Math.sin(angle) * r;
+        // Apply thickness offset radially
+        offsetX += Math.cos(angle) * thicknessOffset;
+        offsetY += Math.sin(angle) * thicknessOffset;
       } else if (t < 2 * straightWidth + Math.PI * r + straightHeight) {
         // Bottom edge
         offsetX = (w / 2 - r) - (t - (straightWidth + Math.PI * r + straightHeight));
         offsetY = h / 2;
+        // Apply thickness offset (normal points down)
+        offsetY += thicknessOffset;
       } else if (
         t <
         2 * straightWidth + (3 * Math.PI * r) / 2 + straightHeight
@@ -607,6 +634,9 @@ export class ParticleEngine {
         const centerY = h / 2 - r;
         offsetX = centerX + Math.cos(angle) * r;
         offsetY = centerY + Math.sin(angle) * r;
+        // Apply thickness offset radially
+        offsetX += Math.cos(angle) * thicknessOffset;
+        offsetY += Math.sin(angle) * thicknessOffset;
       } else if (
         t <
         2 * straightWidth + (3 * Math.PI * r) / 2 + 2 * straightHeight
@@ -616,6 +646,8 @@ export class ParticleEngine {
         offsetY =
           (h / 2 - r) -
           (t - (2 * straightWidth + (3 * Math.PI * r) / 2 + straightHeight));
+        // Apply thickness offset (normal points left)
+        offsetX += -thicknessOffset;
       } else {
         // Top-left corner
         const arcProgress =
@@ -627,6 +659,9 @@ export class ParticleEngine {
         const centerY = -h / 2 + r;
         offsetX = centerX + Math.cos(angle) * r;
         offsetY = centerY + Math.sin(angle) * r;
+        // Apply thickness offset radially
+        offsetX += Math.cos(angle) * thicknessOffset;
+        offsetY += Math.sin(angle) * thicknessOffset;
       }
     }
 
