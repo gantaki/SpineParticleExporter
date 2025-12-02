@@ -297,7 +297,10 @@ export const Viewport = memo(() => {
       // LMB = drag emitter (if not locked)
       if (e.shiftKey && backgroundImage) {
         setDragMode("background");
-        setDragStart({ x: x - bgPosition.x, y: y - bgPosition.y });
+        setDragStart({
+          x: worldX - bgPosition.x,
+          y: worldY - bgPosition.y
+        });
       } else if (currentEmitterSettings && !currentEmitterSettings.positionLocked) {
         setDragMode("emitter");
         setDragStart({
@@ -327,13 +330,16 @@ export const Viewport = memo(() => {
       const x = (e.clientX - rect.left) * (settings.frameSize / rect.width);
       const y = (e.clientY - rect.top) * (settings.frameSize / rect.height);
 
-      if (dragMode === "background") {
-        setBgPosition({ x: x - dragStart.x, y: y - dragStart.y });
-      } else if (dragMode === "emitter" && currentEmitterSettings) {
-        // Convert to world coordinates (Y inverted)
-        const worldX = x - settings.frameSize / 2;
-        const worldY = settings.frameSize / 2 - y; // Invert Y axis
+      // Convert to world coordinates (Y inverted)
+      const worldX = x - settings.frameSize / 2;
+      const worldY = settings.frameSize / 2 - y; // Invert Y axis
 
+      if (dragMode === "background") {
+        setBgPosition({
+          x: worldX - dragStart.x,
+          y: worldY - dragStart.y
+        });
+      } else if (dragMode === "emitter" && currentEmitterSettings) {
         const newX = worldX - dragStart.x;
         const newY = worldY - dragStart.y;
 

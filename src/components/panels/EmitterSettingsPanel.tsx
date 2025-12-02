@@ -421,6 +421,7 @@ const PositionSettings = memo(() => {
           }
           min={-1000}
           max={1000}
+          step={0.01}
         />
         <LabeledNumber
           label="Position Y (px)"
@@ -430,6 +431,7 @@ const PositionSettings = memo(() => {
           }
           min={-1000}
           max={1000}
+          step={0.01}
         />
       </TwoColumn>
     </InlineCollapsible>
