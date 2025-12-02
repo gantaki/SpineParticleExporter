@@ -550,6 +550,16 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
               {rangeMode === '0-1' ? '0→1' : '-1→1'}
             </button>
           )}
+
+          {/* Interpolation Switch */}
+          <button
+            onClick={() => onChange({ ...curve, interpolation: curve.interpolation === 'linear' ? 'smooth' : 'linear' })}
+            className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[10px] font-medium transition-colors"
+            title={`Switch to ${curve.interpolation === 'linear' ? 'Smooth' : 'Linear'} interpolation`}
+          >
+            {curve.interpolation === 'linear' ? 'Linear' : 'Smooth'}
+          </button>
+
           <button
             onClick={toggleZoom}
             className="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded transition-colors"
@@ -566,15 +576,6 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
               <RefreshCw size={14} />
             </button>
           )}
-
-          {/* Interpolation Switch */}
-          <button
-            onClick={() => onChange({ ...curve, interpolation: curve.interpolation === 'linear' ? 'smooth' : 'linear' })}
-            className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 rounded text-[10px] font-medium transition-colors"
-            title={`Switch to ${curve.interpolation === 'linear' ? 'Smooth' : 'Linear'} interpolation`}
-          >
-            {curve.interpolation === 'linear' ? 'Linear' : 'Smooth'}
-          </button>
 
           {selectedPoint !== null && curve.points.length > 2 && (
             <button
