@@ -40,19 +40,12 @@ export function bakeParticleAnimation(settings: ParticleSettings): {
       const emitter = settings.emitters.find((e) => e.id === p.emitterId);
       if (!emitter) continue;
 
-      const rotationDegrees = (p.rotation * 180) / Math.PI;
-
-      // Debug logging for rotation
-      if (particlesSnapshot.size < 3) {
-        console.log(`[Baking Debug] Particle ${p.id} - rotation(rad): ${p.rotation.toFixed(4)}, rotation(deg): ${rotationDegrees.toFixed(2)}`);
-      }
-
       particlesSnapshot.set(makeParticleKey(p.emitterId, p.id), {
         emitterId: p.emitterId,
         localId: p.id,
         x: p.x - emitter.settings.position.x,
         y: p.y - emitter.settings.position.y,
-        rotation: rotationDegrees,
+        rotation: (p.rotation * 180) / Math.PI,
         scale: p.scale,
         scaleX: p.scaleX,
         scaleY: p.scaleY,

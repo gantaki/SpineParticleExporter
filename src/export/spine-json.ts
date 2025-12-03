@@ -532,16 +532,7 @@ function buildParticleKeyframes(
     }
   }
 
-  // Debug logging for rotation collection
-  if (track.particleId === 0 && allAngles.length > 0) {
-    console.log(`[Spine JSON Debug] Particle 0 - collected ${allAngles.length} angles, first 3:`, allAngles.slice(0, 3).map(a => a.toFixed(2)));
-  }
-
   const smoothedAngles = smoothAngles(allAngles, 3);
-
-  if (track.particleId === 0 && smoothedAngles.length > 0) {
-    console.log(`[Spine JSON Debug] Particle 0 - smoothed angles, first 3:`, smoothedAngles.slice(0, 3).map(a => a.toFixed(2)));
-  }
 
   let prevPos: { x: number; y: number } | null = null;
   let prevRotation: number | null = null;
@@ -638,12 +629,7 @@ function buildParticleKeyframes(
           Math.abs(rotationDelta) > ROTATION_THRESHOLD);
 
       if (shouldWriteRotate) {
-        const angleValue = Math.round(-normalizedAngle * 100) / 100;
-
-        // Debug logging for rotation keyframes
-        if (track.particleId === 0 && rotateKeys.length < 3) {
-          console.log(`[Spine JSON Debug] Particle 0 - writing rotation key at ${frame.time.toFixed(3)}s: normalizedAngle=${normalizedAngle.toFixed(2)}°, exported angle=${angleValue.toFixed(2)}°`);
-        }
+        const angleValue = Math.round(normalizedAngle * 100) / 100;
 
         pushKeyWithCurve(rotateKeys, {
           time: Math.round(frame.time * 1000) / 1000,
@@ -726,7 +712,7 @@ function buildParticleKeyframes(
         if (settings.exportSettings.exportRotate && prevRotation !== null) {
           pushKeyWithCurve(rotateKeys, {
             time,
-            value: Math.round(-prevRotation * 100) / 100,
+            value: Math.round(prevRotation * 100) / 100,
           });
         }
         if (settings.exportSettings.exportScale && prevScale !== null) {

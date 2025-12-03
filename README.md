@@ -184,13 +184,13 @@ See [`src/export/EXPORT.md`](src/export/EXPORT.md) for detailed documentation on
 
 ### v106 (Current)
 
-Spine export rotation fix:
+Spine export rotation fixes:
 
-- **Fixed Rotation Export Bug**: Corrected the conversion of rotation values from degrees to radians for `spinRange` and `angularVelocityRange`
-  - UI inputs are in degrees/second but were being used as radians/second internally
-  - Added proper conversion: `(degrees * Math.PI) / 180` when sampling spin and angular velocity ranges
-  - This ensures particle rotation values are correctly exported to Spine skeletal animation format
-  - Affects both initial spawn rotation and rotation changes over particle lifetime
+- **Fixed Rotation Export to Spine JSON**:
+  - Changed rotation keyframe field from `"angle"` to `"value"` to match Spine 4.2 JSON format specification
+  - Fixed conversion of `spinRange` and `angularVelocityRange` from degrees/second to radians/second
+  - Rotation values now export correctly without sign inversion (positive = clockwise in Spine)
+  - This ensures particle rotation works properly in Spine and matches the numerical values from the editor
 
 ### v105
 

@@ -417,11 +417,6 @@ export class ParticleEngine {
         break;
     }
 
-    // Debug logging for initial rotation
-    if (state.nextParticleId < 3) {
-      console.log(`[Spawn Debug] Mode: ${em.spawnAngleMode}, angleRad: ${angleRad.toFixed(4)}, initialRotation: ${initialRotation.toFixed(4)} (${(initialRotation * 180 / Math.PI).toFixed(2)}°)`);
-    }
-
     const particle: Particle = {
       id: state.nextParticleId++,
       emitterId,
