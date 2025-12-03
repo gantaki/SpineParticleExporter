@@ -448,14 +448,28 @@ export class ParticleEngine {
       baseSpeedScale: sampleRange(em.speedRange),
       baseWeight: sampleRange(em.weightRange),
       // Size - use uniform or separate modes
-      baseSizeX: em.separateSize ? sampleRange(em.sizeXRange) : sampleRange(em.sizeRange),
-      baseSizeY: em.separateSize ? sampleRange(em.sizeYRange) : sampleRange(em.sizeRange),
+      // In uniform mode, both axes must use the same sampled value for proportional scaling
+      baseSizeX: 0, // Will be set below
+      baseSizeY: 0, // Will be set below
       scale: 1,
       scaleX: 1,
       scaleY: 1,
       color: { r: 255, g: 255, b: 255, a: 255 },
       alpha: 1,
     };
+
+    // Set size values based on mode
+    if (em.separateSize) {
+      // Separate mode - sample X and Y independently
+      particle.baseSizeX = sampleRange(em.sizeXRange);
+      particle.baseSizeY = sampleRange(em.sizeYRange);
+    } else {
+      // Uniform mode - sample once and use for both axes (proportional scaling)
+      const uniformSize = sampleRange(em.sizeRange);
+      particle.baseSizeX = uniformSize;
+      particle.baseSizeY = uniformSize;
+    }
+
     particle.maxLife = particle.life;
 
     this.particles.push(particle);
