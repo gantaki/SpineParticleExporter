@@ -59,6 +59,7 @@ interface ColorGradient {
 interface EmitterInstanceSettings {
   // Emitter shape and position
   position: Vec2;
+  positionLocked: boolean; // Locks emitter position from dragging in preview
   shape: "point" | "circle" | "rectangle" | "roundedRect" | "line";
   shapeRadius: number;
   shapeWidth: number;
@@ -349,6 +350,7 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
   return {
     // Emitter shape and position
     position: { x: 0, y: 0 },
+    positionLocked: false,
     shape: "point",
     shapeRadius: 20,
     shapeWidth: 100,

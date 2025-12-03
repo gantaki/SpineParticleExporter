@@ -15,7 +15,7 @@ import {
 } from "../fields";
 import { useSettings } from "../../context/SettingsContext";
 import { DEFAULT_CURVE_PRESETS } from "../../types";
-import { copyCurve } from "../../utils";
+import { copyCurve, roundToDecimals } from "../../utils";
 
 // ============================================================
 // INLINE COLLAPSIBLE COMPONENT FOR SUB-SECTIONS
@@ -407,24 +407,41 @@ const PositionSettings = memo(() => {
       isOpen={positionOpen}
       onToggle={() => setPositionOpen(!positionOpen)}
     >
+      <LabeledCheckbox
+        label="🔒 Lock Position"
+        checked={em.positionLocked}
+        onChange={(checked) => updateCurrentEmitter({ positionLocked: checked })}
+      />
       <TwoColumn>
         <LabeledNumber
           label="Position X (px)"
-          value={em.position.x}
+          value={roundToDecimals(em.position.x)}
           onChange={(v) =>
-            updateCurrentEmitter({ position: { x: v, y: em.position.y } })
+            updateCurrentEmitter({
+              position: {
+                x: roundToDecimals(v),
+                y: em.position.y
+              }
+            })
           }
           min={-1000}
           max={1000}
+          step={0.01}
         />
         <LabeledNumber
           label="Position Y (px)"
-          value={em.position.y}
+          value={roundToDecimals(em.position.y)}
           onChange={(v) =>
-            updateCurrentEmitter({ position: { x: em.position.x, y: v } })
+            updateCurrentEmitter({
+              position: {
+                x: em.position.x,
+                y: roundToDecimals(v)
+              }
+            })
           }
           min={-1000}
           max={1000}
+          step={0.01}
         />
       </TwoColumn>
     </InlineCollapsible>
