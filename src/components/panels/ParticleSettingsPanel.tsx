@@ -140,6 +140,7 @@ const SpawnAngleSettings = memo(() => {
           value={em.spawnAngle}
           onChange={(v) => updateCurrentEmitter({ spawnAngle: v })}
           max={360}
+          integer={true}
         />
       )}
 
@@ -151,6 +152,7 @@ const SpawnAngleSettings = memo(() => {
             onChange={(v) => updateCurrentEmitter({ spawnAngleMin: v })}
             min={-180}
             max={180}
+            integer={true}
           />
           <LabeledNumber
             label="Max (°)"
@@ -158,6 +160,7 @@ const SpawnAngleSettings = memo(() => {
             onChange={(v) => updateCurrentEmitter({ spawnAngleMax: v })}
             min={-180}
             max={180}
+            integer={true}
           />
         </TwoColumn>
       )}

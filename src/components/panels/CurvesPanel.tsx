@@ -53,6 +53,7 @@ const SizeCurvesSection = memo(() => {
           updateCurrentEmitter({ sizeXOverLifetime: curve })
         }
         curvePresetKey="sizeX"
+        allowRangeToggle={true}
       />
       <RangeCurveCombo
         rangeLabel="Size Y Base Range"
@@ -65,6 +66,7 @@ const SizeCurvesSection = memo(() => {
           updateCurrentEmitter({ sizeYOverLifetime: curve })
         }
         curvePresetKey="sizeY"
+        allowRangeToggle={true}
       />
     </>
   );
@@ -93,6 +95,7 @@ const MotionCurvesSection = memo(() => {
           updateCurrentEmitter({ speedOverLifetime: curve })
         }
         curvePresetKey="speed"
+        allowRangeToggle={true}
       />
       <RangeCurveCombo
         rangeLabel="Weight Base Range"
@@ -105,6 +108,7 @@ const MotionCurvesSection = memo(() => {
           updateCurrentEmitter({ weightOverLifetime: curve })
         }
         curvePresetKey="weight"
+        allowRangeToggle={true}
       />
       <RangeCurveCombo
         rangeLabel="Attraction Base Range"
@@ -119,6 +123,7 @@ const MotionCurvesSection = memo(() => {
           updateCurrentEmitter({ attractionOverLifetime: curve })
         }
         curvePresetKey="attraction"
+        allowRangeToggle={true}
       />
     </>
   );
@@ -147,6 +152,7 @@ const SpinCurvesSection = memo(() => {
           updateCurrentEmitter({ spinOverLifetime: curve })
         }
         curvePresetKey="spin"
+        allowRangeToggle={true}
       />
     </div>
   );

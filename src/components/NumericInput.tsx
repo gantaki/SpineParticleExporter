@@ -10,6 +10,7 @@ import { parseDecimal } from './helpers';
 type NumericInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> & {
   value: number;
   onValueChange: (value: number) => void;
+  integer?: boolean; // If true, rounds values to integers
 };
 
 export const NumericInput: React.FC<NumericInputProps> = ({
@@ -18,20 +19,28 @@ export const NumericInput: React.FC<NumericInputProps> = ({
   min,
   max,
   step,
+  integer = false,
   className,
   onBlur,
   ...rest
 }) => {
   const [text, setText] = useState<string>(Number.isFinite(value) ? String(value) : '');
   const [isScrubbing, setIsScrubbing] = useState(false);
+  const [isDragStarted, setIsDragStarted] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const scrubStartXRef = useRef<number>(0);
+  const scrubStartYRef = useRef<number>(0);
   const scrubStartValueRef = useRef<number>(0);
 
   const parsedMin = min !== undefined ? parseDecimal(String(min)) : undefined;
   const parsedMax = max !== undefined ? parseDecimal(String(max)) : undefined;
 
-  const clampValue = (val: number) => {
+  // Round value if integer mode is enabled
+  const applyRounding = useCallback((val: number) => {
+    return integer ? Math.round(val) : val;
+  }, [integer]);
+
+  const clampValue = useCallback((val: number) => {
     let next = val;
     if (!Number.isNaN(parsedMin as number) && parsedMin !== undefined) {
       next = Math.max(parsedMin, next);
@@ -39,8 +48,8 @@ export const NumericInput: React.FC<NumericInputProps> = ({
     if (!Number.isNaN(parsedMax as number) && parsedMax !== undefined) {
       next = Math.min(parsedMax, next);
     }
-    return next;
-  };
+    return applyRounding(next);
+  }, [parsedMin, parsedMax, applyRounding]);
 
   useEffect(() => {
     const parsedDisplay = parseDecimal(text);
@@ -84,43 +93,63 @@ export const NumericInput: React.FC<NumericInputProps> = ({
     // Don't scrub if input is focused (user is typing)
     if (document.activeElement === inputRef.current) return;
 
-    e.preventDefault();
-    setIsScrubbing(true);
+    // Start tracking drag, but don't enable scrubbing yet
+    setIsDragStarted(true);
     scrubStartXRef.current = e.clientX;
+    scrubStartYRef.current = e.clientY;
     scrubStartValueRef.current = value;
   }, [value]);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
+    // If drag started but scrubbing not yet enabled, check threshold
+    if (isDragStarted && !isScrubbing) {
+      const deltaX = Math.abs(e.clientX - scrubStartXRef.current);
+      const deltaY = Math.abs(e.clientY - scrubStartYRef.current);
+
+      // Horizontal movement threshold (4px)
+      const THRESHOLD = 4;
+
+      // Enable scrubbing only if horizontal movement exceeds threshold
+      if (deltaX > THRESHOLD && deltaX > deltaY) {
+        setIsScrubbing(true);
+        // Prevent text selection when scrubbing starts
+        e.preventDefault();
+      }
+
+      // If vertical movement or within threshold, allow normal selection
+      return;
+    }
+
     if (!isScrubbing) return;
 
     const deltaX = e.clientX - scrubStartXRef.current;
 
-    // Calculate step size based on step prop or intelligent default
-    const stepSize = step !== undefined ? parseDecimal(String(step)) :
-                     Math.abs(scrubStartValueRef.current) < 1 ? 0.01 : 0.1;
+    // Calculate step size: use step prop or default to 1
+    const stepSize = step !== undefined ? parseDecimal(String(step)) : 1;
 
-    const delta = deltaX * (Number.isNaN(stepSize) ? 0.1 : stepSize);
+    const delta = deltaX * (Number.isNaN(stepSize) ? 1 : stepSize);
     const newValue = clampValue(scrubStartValueRef.current + delta);
 
     onValueChange(newValue);
-  }, [isScrubbing, step, clampValue, onValueChange]);
+  }, [isDragStarted, isScrubbing, step, clampValue, onValueChange]);
 
   const handleMouseUp = useCallback(() => {
-    if (isScrubbing) {
-      setIsScrubbing(false);
-    }
-  }, [isScrubbing]);
+    setIsScrubbing(false);
+    setIsDragStarted(false);
+  }, []);
 
-  // Set up global mouse tracking for scrubbing
+  // Set up global mouse tracking for drag/scrubbing
   useEffect(() => {
-    if (!isScrubbing) return;
+    if (!isDragStarted && !isScrubbing) return;
 
     document.addEventListener('mousemove', handleMouseMove);
     document.addEventListener('mouseup', handleMouseUp);
 
-    // Prevent text selection during scrubbing
-    document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'ew-resize';
+    // Prevent text selection only during active scrubbing
+    if (isScrubbing) {
+      document.body.style.userSelect = 'none';
+      document.body.style.cursor = 'ew-resize';
+    }
 
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
@@ -128,7 +157,7 @@ export const NumericInput: React.FC<NumericInputProps> = ({
       document.body.style.userSelect = '';
       document.body.style.cursor = '';
     };
-  }, [isScrubbing, handleMouseMove, handleMouseUp]);
+  }, [isDragStarted, isScrubbing, handleMouseMove, handleMouseUp]);
 
   return (
     <input
