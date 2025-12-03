@@ -487,7 +487,7 @@ function buildAnimationData(
 
 interface Keyframes {
   translateKeys: Array<{ time: number; x: number; y: number; curve?: string }>;
-  rotateKeys: Array<{ time: number; angle: number; curve?: string }>;
+  rotateKeys: Array<{ time: number; value: number; curve?: string }>;
   scaleKeys: Array<{ time: number; x: number; y: number; curve?: string }>;
   attachmentKeys: Array<{ time: number; name: string | null }>;
   colorKeys: Array<{ time: number; color: string; curve?: string }>;
@@ -629,9 +629,11 @@ function buildParticleKeyframes(
           Math.abs(rotationDelta) > ROTATION_THRESHOLD);
 
       if (shouldWriteRotate) {
+        const angleValue = Math.round(normalizedAngle * 100) / 100;
+
         pushKeyWithCurve(rotateKeys, {
           time: Math.round(frame.time * 1000) / 1000,
-          angle: Math.round(-normalizedAngle * 100) / 100,
+          value: angleValue,
         });
         prevRotation = normalizedAngle;
       }
@@ -710,7 +712,7 @@ function buildParticleKeyframes(
         if (settings.exportSettings.exportRotate && prevRotation !== null) {
           pushKeyWithCurve(rotateKeys, {
             time,
-            angle: Math.round(-prevRotation * 100) / 100,
+            value: Math.round(prevRotation * 100) / 100,
           });
         }
         if (settings.exportSettings.exportScale && prevScale !== null) {
@@ -814,7 +816,7 @@ function addLoopSeamKeys(
   for (const boneName in loopAnimation.bones) {
     const bone = loopAnimation.bones[boneName] as Record<
       string,
-      Array<{ time: number; x?: number; y?: number; angle?: number }>
+      Array<{ time: number; x?: number; y?: number; value?: number }>
     >;
     const track = loopData.trackByBoneName.get(boneName);
     const firstParticle = track
@@ -835,7 +837,7 @@ function addLoopSeamKeys(
         const firstKey = bone.rotate[0];
         bone.rotate.push({
           time: Math.round(loopDuration * 1000) / 1000,
-          angle: firstKey.angle,
+          value: firstKey.value,
         });
       }
 

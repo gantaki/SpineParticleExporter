@@ -1,4 +1,4 @@
-# Spine Particle Exporter v105
+# Spine Particle Exporter v106
 
 A React/TypeScript application for converting particle system animations into Spine 4.2 skeletal animation format. Features a clean, layered architecture with FSM-based state management and Observer pattern for high-performance rendering.
 
@@ -182,7 +182,17 @@ See [`src/export/EXPORT.md`](src/export/EXPORT.md) for detailed documentation on
 
 ## Version History
 
-### v105 (Current)
+### v106 (Current)
+
+Spine export rotation fixes:
+
+- **Fixed Rotation Export to Spine JSON**:
+  - Changed rotation keyframe field from `"angle"` to `"value"` to match Spine 4.2 JSON format specification
+  - Fixed conversion of `spinRange` and `angularVelocityRange` from degrees/second to radians/second
+  - Rotation values now export correctly without sign inversion (positive = clockwise in Spine)
+  - This ensures particle rotation works properly in Spine and matches the numerical values from the editor
+
+### v105
 
 UI/UX improvements release:
 

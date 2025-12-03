@@ -119,7 +119,7 @@ const KeyframeThresholds = memo(() => {
         onChange={(v) => updateExportSettings({ rotationThreshold: roundToDecimals(v) })}
         min={0}
         step={0.1}
-        max={180}
+        max={360}
       />
       <LabeledNumber
         label="Scale Threshold"
