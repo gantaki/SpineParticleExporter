@@ -4,8 +4,12 @@
  * Features Value Scrubbing: drag left/right to decrease/increase value
  */
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { parseDecimal } from './helpers';
+
+// Constants
+const SCRUB_THRESHOLD = 5; // px
+const DEFAULT_STEP_SIZE = 1;
 
 type NumericInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> & {
   value: number;
@@ -27,13 +31,25 @@ export const NumericInput: React.FC<NumericInputProps> = ({
   const [text, setText] = useState<string>(Number.isFinite(value) ? String(value) : '');
   const [isScrubbing, setIsScrubbing] = useState(false);
   const [isDragStarted, setIsDragStarted] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
   const scrubStartXRef = useRef<number>(0);
   const scrubStartYRef = useRef<number>(0);
   const scrubStartValueRef = useRef<number>(0);
 
-  const parsedMin = min !== undefined ? parseDecimal(String(min)) : undefined;
-  const parsedMax = max !== undefined ? parseDecimal(String(max)) : undefined;
+  // Memoize parsed min/max to avoid recalculation
+  const parsedMin = useMemo(() =>
+    min !== undefined ? parseDecimal(String(min)) : undefined,
+    [min]
+  );
+  const parsedMax = useMemo(() =>
+    max !== undefined ? parseDecimal(String(max)) : undefined,
+    [max]
+  );
+
+  // Memoize step size
+  const stepSize = useMemo(() =>
+    step !== undefined ? parseDecimal(String(step)) : DEFAULT_STEP_SIZE,
+    [step]
+  );
 
   // Round value if integer mode is enabled
   const applyRounding = useCallback((val: number) => {
@@ -103,11 +119,8 @@ export const NumericInput: React.FC<NumericInputProps> = ({
       const deltaX = Math.abs(e.clientX - scrubStartXRef.current);
       const deltaY = Math.abs(e.clientY - scrubStartYRef.current);
 
-      // Horizontal movement threshold (5px)
-      const THRESHOLD = 5;
-
       // Enable scrubbing only if horizontal movement exceeds threshold
-      if (deltaX > THRESHOLD && deltaX > deltaY) {
+      if (deltaX > SCRUB_THRESHOLD && deltaX > deltaY) {
         setIsScrubbing(true);
         // Prevent text selection when scrubbing starts
         e.preventDefault();
@@ -120,15 +133,11 @@ export const NumericInput: React.FC<NumericInputProps> = ({
     if (!isScrubbing) return;
 
     const deltaX = e.clientX - scrubStartXRef.current;
-
-    // Calculate step size: use step prop or default to 1
-    const stepSize = step !== undefined ? parseDecimal(String(step)) : 1;
-
-    const delta = deltaX * (Number.isNaN(stepSize) ? 1 : stepSize);
+    const delta = deltaX * (Number.isNaN(stepSize) ? DEFAULT_STEP_SIZE : stepSize);
     const newValue = clampValue(scrubStartValueRef.current + delta);
 
     onValueChange(newValue);
-  }, [isDragStarted, isScrubbing, step, clampValue, onValueChange]);
+  }, [isDragStarted, isScrubbing, stepSize, clampValue, onValueChange]);
 
   const handleMouseUp = useCallback(() => {
     setIsScrubbing(false);
@@ -158,7 +167,6 @@ export const NumericInput: React.FC<NumericInputProps> = ({
 
   return (
     <input
-      ref={inputRef}
       type="text"
       inputMode="decimal"
       value={text}
