@@ -53,12 +53,16 @@ const LifetimeSettings = memo(() => {
         label="Life Min (s)"
         value={em.lifeTimeMin}
         onChange={(v) => updateCurrentEmitter({ lifeTimeMin: v })}
+        min={0}
+        max={100}
         step={0.1}
       />
       <LabeledNumber
         label="Life Max (s)"
         value={em.lifeTimeMax}
         onChange={(v) => updateCurrentEmitter({ lifeTimeMax: v })}
+        min={0}
+        max={100}
         step={0.1}
       />
     </TwoColumn>

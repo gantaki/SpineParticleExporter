@@ -108,6 +108,7 @@ const KeyframeThresholds = memo(() => {
         label="Position Threshold (px)"
         value={settings.exportSettings.positionThreshold}
         onChange={(v) => updateExportSettings({ positionThreshold: v })}
+        min={0}
         step={0.1}
         max={50}
       />
@@ -115,6 +116,7 @@ const KeyframeThresholds = memo(() => {
         label="Rotation Threshold (°)"
         value={settings.exportSettings.rotationThreshold}
         onChange={(v) => updateExportSettings({ rotationThreshold: v })}
+        min={0}
         step={0.1}
         max={180}
       />
@@ -122,6 +124,7 @@ const KeyframeThresholds = memo(() => {
         label="Scale Threshold"
         value={settings.exportSettings.scaleThreshold}
         onChange={(v) => updateExportSettings({ scaleThreshold: v })}
+        min={0}
         step={0.01}
         max={2}
       />
@@ -129,8 +132,10 @@ const KeyframeThresholds = memo(() => {
         label="Color Threshold (RGBA Sum)"
         value={settings.exportSettings.colorThreshold}
         onChange={(v) => updateExportSettings({ colorThreshold: v })}
+        min={0}
         step={1}
         max={1020}
+        integer={true}
       />
     </div>
   );

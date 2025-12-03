@@ -90,9 +90,6 @@ export const NumericInput: React.FC<NumericInputProps> = ({
     // Only start scrubbing on left mouse button
     if (e.button !== 0) return;
 
-    // Don't scrub if input is focused (user is typing)
-    if (document.activeElement === inputRef.current) return;
-
     // Start tracking drag, but don't enable scrubbing yet
     setIsDragStarted(true);
     scrubStartXRef.current = e.clientX;
@@ -106,8 +103,8 @@ export const NumericInput: React.FC<NumericInputProps> = ({
       const deltaX = Math.abs(e.clientX - scrubStartXRef.current);
       const deltaY = Math.abs(e.clientY - scrubStartYRef.current);
 
-      // Horizontal movement threshold (4px)
-      const THRESHOLD = 4;
+      // Horizontal movement threshold (5px)
+      const THRESHOLD = 5;
 
       // Enable scrubbing only if horizontal movement exceeds threshold
       if (deltaX > THRESHOLD && deltaX > deltaY) {
