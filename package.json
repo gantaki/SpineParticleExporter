@@ -1,9 +1,9 @@
 {
   "name": "spine-particle-exporter",
   "private": true,
-  "version": "101.0.0",
+  "version": "105.0.0",
   "type": "module",
-  "description": "Particle to Spine Exporter - Vite Edition v101",
+  "description": "Particle to Spine Exporter - Vite Edition v105",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

@@ -3,9 +3,12 @@
  * Input for min/max range values
  */
 
-import React from 'react';
+import { memo, useCallback } from 'react';
 import type { RangeValue } from '../types';
 import { NumericInput } from './NumericInput';
+
+// Constants
+const RANGE_INPUT_CLASS = "w-full px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs";
 
 interface RangeInputProps {
   label: string;
@@ -14,10 +17,14 @@ interface RangeInputProps {
   helper?: string;
 }
 
-export const RangeInput: React.FC<RangeInputProps> = ({ label, range, onChange, helper }) => {
-  const handleChange = (key: 'min' | 'max') => (value: number) => {
-    onChange({ ...range, [key]: value });
-  };
+export const RangeInput = memo<RangeInputProps>(({ label, range, onChange, helper }) => {
+  const handleMinChange = useCallback((value: number) => {
+    onChange({ ...range, min: value });
+  }, [range, onChange]);
+
+  const handleMaxChange = useCallback((value: number) => {
+    onChange({ ...range, max: value });
+  }, [range, onChange]);
 
   return (
     <div className="mb-2">
@@ -28,17 +35,18 @@ export const RangeInput: React.FC<RangeInputProps> = ({ label, range, onChange, 
       <div className="grid grid-cols-2 gap-2 mt-1">
         <NumericInput
           value={range.min}
-          onValueChange={handleChange('min')}
-          className="w-full px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+          onValueChange={handleMinChange}
+          className={RANGE_INPUT_CLASS}
           placeholder="Min"
         />
         <NumericInput
           value={range.max}
-          onValueChange={handleChange('max')}
-          className="w-full px-2 py-1 bg-slate-900 border border-slate-600 rounded text-xs"
+          onValueChange={handleMaxChange}
+          className={RANGE_INPUT_CLASS}
           placeholder="Max"
         />
       </div>
     </div>
   );
-};
+});
+RangeInput.displayName = "RangeInput";

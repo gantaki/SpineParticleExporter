@@ -8,6 +8,7 @@ import { CollapsibleSection } from "../CollapsibleSection";
 import { LabeledNumber, LabeledCheckbox } from "../fields";
 import { useSettings } from "../../context/SettingsContext";
 import { useParticleBridge } from "../../hooks/useParticleBridge";
+import { roundToDecimals } from "../../utils";
 import type { EmitterInstance } from "../../types";
 
 // Export functionality
@@ -106,22 +107,25 @@ const KeyframeThresholds = memo(() => {
       </div>
       <LabeledNumber
         label="Position Threshold (px)"
-        value={settings.exportSettings.positionThreshold}
-        onChange={(v) => updateExportSettings({ positionThreshold: v })}
+        value={roundToDecimals(settings.exportSettings.positionThreshold)}
+        onChange={(v) => updateExportSettings({ positionThreshold: roundToDecimals(v) })}
+        min={0}
         step={0.1}
         max={50}
       />
       <LabeledNumber
         label="Rotation Threshold (°)"
-        value={settings.exportSettings.rotationThreshold}
-        onChange={(v) => updateExportSettings({ rotationThreshold: v })}
+        value={roundToDecimals(settings.exportSettings.rotationThreshold)}
+        onChange={(v) => updateExportSettings({ rotationThreshold: roundToDecimals(v) })}
+        min={0}
         step={0.1}
         max={180}
       />
       <LabeledNumber
         label="Scale Threshold"
-        value={settings.exportSettings.scaleThreshold}
-        onChange={(v) => updateExportSettings({ scaleThreshold: v })}
+        value={roundToDecimals(settings.exportSettings.scaleThreshold)}
+        onChange={(v) => updateExportSettings({ scaleThreshold: roundToDecimals(v) })}
+        min={0}
         step={0.01}
         max={2}
       />
@@ -129,8 +133,10 @@ const KeyframeThresholds = memo(() => {
         label="Color Threshold (RGBA Sum)"
         value={settings.exportSettings.colorThreshold}
         onChange={(v) => updateExportSettings({ colorThreshold: v })}
+        min={0}
         step={1}
         max={1020}
+        integer={true}
       />
     </div>
   );

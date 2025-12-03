@@ -37,6 +37,7 @@ const GravityDragSection = memo(() => {
           updateCurrentEmitter({ gravityOverLifetime: curve })
         }
         curvePresetKey="gravity"
+        allowRangeToggle={true}
       />
       <RangeCurveCombo
         rangeLabel="Drag Base Range"
@@ -49,6 +50,7 @@ const GravityDragSection = memo(() => {
           updateCurrentEmitter({ dragOverLifetime: curve })
         }
         curvePresetKey="drag"
+        allowRangeToggle={true}
       />
     </SettingsSection>
   );
@@ -79,6 +81,7 @@ const NoiseFieldSection = memo(() => {
           updateCurrentEmitter({ noiseStrengthOverLifetime: curve })
         }
         curvePresetKey="noise"
+        allowRangeToggle={true}
       />
       <TwoColumn>
         <RangeInput
@@ -125,6 +128,7 @@ const VortexForceSection = memo(() => {
           updateCurrentEmitter({ vortexStrengthOverLifetime: curve })
         }
         curvePresetKey="vortex"
+        allowRangeToggle={true}
       />
       <TwoColumn>
         <LabeledNumber
@@ -135,6 +139,7 @@ const VortexForceSection = memo(() => {
               vortexPoint: { ...em.vortexPoint, x: v },
             })
           }
+          integer={true}
         />
         <LabeledNumber
           label="Vortex Y"
@@ -144,6 +149,7 @@ const VortexForceSection = memo(() => {
               vortexPoint: { ...em.vortexPoint, y: v },
             })
           }
+          integer={true}
         />
       </TwoColumn>
       <LabeledCheckbox
@@ -183,6 +189,7 @@ const SpinSection = memo(() => {
           updateCurrentEmitter({ angularVelocityOverLifetime: curve })
         }
         curvePresetKey="angularVelocity"
+        allowRangeToggle={true}
       />
     </SettingsSection>
   );

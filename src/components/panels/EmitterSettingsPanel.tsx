@@ -134,8 +134,9 @@ const EmissionSettings = memo(() => {
       {/* Start Delay */}
       <LabeledNumber
         label="Start Delay (sec)"
-        value={em.startDelay}
-        onChange={(v) => updateCurrentEmitter({ startDelay: v })}
+        value={roundToDecimals(em.startDelay)}
+        onChange={(v) => updateCurrentEmitter({ startDelay: roundToDecimals(v) })}
+        min={0}
         max={5}
         step={0.1}
       />
@@ -163,8 +164,9 @@ const EmissionSettings = memo(() => {
           />
           <LabeledNumber
             label="Burst Interval (sec)"
-            value={em.burstInterval}
-            onChange={(v) => updateCurrentEmitter({ burstInterval: v })}
+            value={roundToDecimals(em.burstInterval)}
+            onChange={(v) => updateCurrentEmitter({ burstInterval: roundToDecimals(v) })}
+            min={0}
             max={5}
             step={0.1}
           />
@@ -176,15 +178,17 @@ const EmissionSettings = memo(() => {
           <TwoColumn>
             <LabeledNumber
               label="Start (sec)"
-              value={em.durationStart}
-              onChange={(v) => updateCurrentEmitter({ durationStart: v })}
+              value={roundToDecimals(em.durationStart)}
+              onChange={(v) => updateCurrentEmitter({ durationStart: roundToDecimals(v) })}
+              min={0}
               max={settings.duration}
               step={0.1}
             />
             <LabeledNumber
               label="End (sec)"
-              value={em.durationEnd}
-              onChange={(v) => updateCurrentEmitter({ durationEnd: v })}
+              value={roundToDecimals(em.durationEnd)}
+              onChange={(v) => updateCurrentEmitter({ durationEnd: roundToDecimals(v) })}
+              min={0}
               max={settings.duration}
               step={0.1}
             />
@@ -204,7 +208,9 @@ const EmissionSettings = memo(() => {
             label="Rate (per sec)"
             value={em.rate}
             onChange={(v) => updateCurrentEmitter({ rate: v })}
-            max={200}
+            min={0}
+            max={100}
+            integer={true}
           />
           <CurveEditorNew
             label="Rate Multiplier"
@@ -268,7 +274,9 @@ const ShapeSettings = memo(() => {
             label="Length"
             value={em.lineLength}
             onChange={(v) => updateCurrentEmitter({ lineLength: v })}
+            min={0}
             max={2000}
+            integer={true}
           />
           <LabeledNumber
             label="Spread Cone Rotation (°)"
@@ -276,6 +284,7 @@ const ShapeSettings = memo(() => {
             onChange={(v) => updateCurrentEmitter({ lineSpreadRotation: v })}
             min={-180}
             max={180}
+            integer={true}
           />
         </>
       )}
@@ -286,7 +295,9 @@ const ShapeSettings = memo(() => {
             label="Radius"
             value={em.shapeRadius}
             onChange={(v) => updateCurrentEmitter({ shapeRadius: v })}
+            min={0}
             max={1000}
+            integer={true}
           />
           <TwoColumn>
             <LabeledNumber
@@ -295,6 +306,7 @@ const ShapeSettings = memo(() => {
               onChange={(v) => updateCurrentEmitter({ circleArc: v })}
               min={0}
               max={360}
+              integer={true}
             />
             <LabeledNumber
               label="Emitter Rotation (°)"
@@ -302,6 +314,7 @@ const ShapeSettings = memo(() => {
               onChange={(v) => updateCurrentEmitter({ shapeRotation: v })}
               min={-180}
               max={180}
+              integer={true}
             />
           </TwoColumn>
           {em.emissionMode === "edge" && (
@@ -323,13 +336,17 @@ const ShapeSettings = memo(() => {
               label="Width"
               value={em.shapeWidth}
               onChange={(v) => updateCurrentEmitter({ shapeWidth: v })}
+              min={0}
               max={2000}
+              integer={true}
             />
             <LabeledNumber
               label="Height"
               value={em.shapeHeight}
               onChange={(v) => updateCurrentEmitter({ shapeHeight: v })}
+              min={0}
               max={2000}
+              integer={true}
             />
           </TwoColumn>
           <TwoColumn>
@@ -339,6 +356,7 @@ const ShapeSettings = memo(() => {
               onChange={(v) => updateCurrentEmitter({ shapeRotation: v })}
               min={-180}
               max={180}
+              integer={true}
             />
             {em.emissionMode === "edge" && (
               <LabeledNumber
@@ -347,6 +365,7 @@ const ShapeSettings = memo(() => {
                 onChange={(v) => updateCurrentEmitter({ rectangleArc: v })}
                 min={0}
                 max={360}
+                integer={true}
               />
             )}
           </TwoColumn>
@@ -367,7 +386,9 @@ const ShapeSettings = memo(() => {
           label="Corner Radius"
           value={em.roundRadius}
           onChange={(v) => updateCurrentEmitter({ roundRadius: v })}
+          min={0}
           max={Math.min(90, em.shapeWidth / 2, em.shapeHeight / 2)}
+          integer={true}
         />
       )}
 
@@ -376,13 +397,17 @@ const ShapeSettings = memo(() => {
           label="Emission Angle"
           value={em.angle}
           onChange={(v) => updateCurrentEmitter({ angle: v })}
+          min={-180}
           max={180}
+          integer={true}
         />
         <LabeledNumber
           label="Emission Spread"
           value={em.angleSpread}
           onChange={(v) => updateCurrentEmitter({ angleSpread: v })}
+          min={0}
           max={360}
+          integer={true}
         />
       </TwoColumn>
     </InlineCollapsible>

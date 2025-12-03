@@ -9,7 +9,7 @@ import { DEFAULT_CURVE_PRESETS } from "../../types";
 import { copyCurve } from "../../utils";
 import { NumericInput } from "../NumericInput";
 import { RangeInput } from "../RangeInput";
-import { CurveEditor } from "../CurveEditor";
+import { CurveEditorNew } from "../CurveEditorNew";
 
 // ============================================================
 // COMMON STYLE CONSTANTS
@@ -31,11 +31,12 @@ interface LabeledNumberProps {
   min?: number;
   max?: number;
   step?: number;
+  integer?: boolean;
   className?: string;
 }
 
 export const LabeledNumber = memo<LabeledNumberProps>(
-  ({ label, value, onChange, min, max, step, className }) => (
+  ({ label, value, onChange, min, max, step, integer, className }) => (
     <label className="block">
       <span className={LABEL_CLASS}>{label}</span>
       <NumericInput
@@ -44,6 +45,7 @@ export const LabeledNumber = memo<LabeledNumberProps>(
         min={min}
         max={max}
         step={step}
+        integer={integer}
         className={className || INPUT_CLASS}
       />
     </label>
@@ -132,6 +134,7 @@ interface RangeCurveComboProps {
   curveValue: Curve;
   onCurveChange: (curve: Curve) => void;
   curvePresetKey: keyof typeof DEFAULT_CURVE_PRESETS;
+  allowRangeToggle?: boolean;
 }
 
 export const RangeCurveCombo = memo<RangeCurveComboProps>(
@@ -144,6 +147,7 @@ export const RangeCurveCombo = memo<RangeCurveComboProps>(
     curveValue,
     onCurveChange,
     curvePresetKey,
+    allowRangeToggle = false,
   }) => {
     const handleReset = useCallback(() => {
       onCurveChange(copyCurve(DEFAULT_CURVE_PRESETS[curvePresetKey]));
@@ -157,7 +161,7 @@ export const RangeCurveCombo = memo<RangeCurveComboProps>(
           range={rangeValue}
           onChange={onRangeChange}
         />
-        <CurveEditor
+        <CurveEditorNew
           label={curveLabel}
           curve={curveValue}
           onChange={onCurveChange}
@@ -165,6 +169,7 @@ export const RangeCurveCombo = memo<RangeCurveComboProps>(
           min={-1}
           max={1}
           autoScale={false}
+          allowRangeToggle={allowRangeToggle}
         />
       </>
     );
