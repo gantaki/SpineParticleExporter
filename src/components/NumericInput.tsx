@@ -1,9 +1,10 @@
 /**
  * NumericInput component for Particle Spine Exporter
  * Text input that handles numeric values with proper parsing and clamping
+ * Features Value Scrubbing: drag left/right to decrease/increase value
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { parseDecimal } from './helpers';
 
 type NumericInputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> & {
@@ -22,6 +23,10 @@ export const NumericInput: React.FC<NumericInputProps> = ({
   ...rest
 }) => {
   const [text, setText] = useState<string>(Number.isFinite(value) ? String(value) : '');
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const scrubStartXRef = useRef<number>(0);
+  const scrubStartValueRef = useRef<number>(0);
 
   const parsedMin = min !== undefined ? parseDecimal(String(min)) : undefined;
   const parsedMax = max !== undefined ? parseDecimal(String(max)) : undefined;
@@ -71,8 +76,63 @@ export const NumericInput: React.FC<NumericInputProps> = ({
     onBlur?.(e);
   };
 
+  // Value Scrubbing: drag left/right to change value
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLInputElement>) => {
+    // Only start scrubbing on left mouse button
+    if (e.button !== 0) return;
+
+    // Don't scrub if input is focused (user is typing)
+    if (document.activeElement === inputRef.current) return;
+
+    e.preventDefault();
+    setIsScrubbing(true);
+    scrubStartXRef.current = e.clientX;
+    scrubStartValueRef.current = value;
+  }, [value]);
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isScrubbing) return;
+
+    const deltaX = e.clientX - scrubStartXRef.current;
+
+    // Calculate step size based on step prop or intelligent default
+    const stepSize = step !== undefined ? parseDecimal(String(step)) :
+                     Math.abs(scrubStartValueRef.current) < 1 ? 0.01 : 0.1;
+
+    const delta = deltaX * (Number.isNaN(stepSize) ? 0.1 : stepSize);
+    const newValue = clampValue(scrubStartValueRef.current + delta);
+
+    onValueChange(newValue);
+  }, [isScrubbing, step, clampValue, onValueChange]);
+
+  const handleMouseUp = useCallback(() => {
+    if (isScrubbing) {
+      setIsScrubbing(false);
+    }
+  }, [isScrubbing]);
+
+  // Set up global mouse tracking for scrubbing
+  useEffect(() => {
+    if (!isScrubbing) return;
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    // Prevent text selection during scrubbing
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'ew-resize';
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+    };
+  }, [isScrubbing, handleMouseMove, handleMouseUp]);
+
   return (
     <input
+      ref={inputRef}
       type="text"
       inputMode="decimal"
       value={text}
@@ -81,7 +141,9 @@ export const NumericInput: React.FC<NumericInputProps> = ({
       step={step}
       onChange={handleChange}
       onBlur={handleBlur}
+      onMouseDown={handleMouseDown}
       className={className}
+      style={{ cursor: isScrubbing ? 'ew-resize' : 'text' }}
       {...rest}
     />
   );

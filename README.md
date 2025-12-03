@@ -1,4 +1,4 @@
-# Spine Particle Exporter v104
+# Spine Particle Exporter v105
 
 A React/TypeScript application for converting particle system animations into Spine 4.2 skeletal animation format. Features a clean, layered architecture with FSM-based state management and Observer pattern for high-performance rendering.
 
@@ -182,7 +182,20 @@ See [`src/export/EXPORT.md`](src/export/EXPORT.md) for detailed documentation on
 
 ## Version History
 
-### v104 (Current)
+### v105 (Current)
+
+UI/UX improvements release:
+
+- **Value Scrubbing for Numeric Inputs**: All numeric input fields now support drag-to-adjust functionality
+  - Drag right to increase value, drag left to decrease
+  - Intelligent step sizing based on current value magnitude
+  - Visual feedback with cursor change during scrubbing
+- **Unified Curve Editor**: All curve sections now use the enhanced CurveEditorNew component
+  - Consistent curve editing experience across all panels
+  - Bezier handles, zoom, and preset support everywhere
+- **Code Quality**: Updated CurveEditorNew to use centralized `roundToDecimals` utility function (DRY principle)
+
+### v104
 
 Major release focusing on Emitter Settings Panel improvements and advanced curve editing:
 

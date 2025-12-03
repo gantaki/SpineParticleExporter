@@ -9,7 +9,7 @@ import { DEFAULT_CURVE_PRESETS } from "../../types";
 import { copyCurve } from "../../utils";
 import { NumericInput } from "../NumericInput";
 import { RangeInput } from "../RangeInput";
-import { CurveEditor } from "../CurveEditor";
+import { CurveEditorNew } from "../CurveEditorNew";
 
 // ============================================================
 // COMMON STYLE CONSTANTS
@@ -157,7 +157,7 @@ export const RangeCurveCombo = memo<RangeCurveComboProps>(
           range={rangeValue}
           onChange={onRangeChange}
         />
-        <CurveEditor
+        <CurveEditorNew
           label={curveLabel}
           curve={curveValue}
           onChange={onCurveChange}

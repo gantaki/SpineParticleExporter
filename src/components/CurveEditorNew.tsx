@@ -6,7 +6,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { RefreshCw, Trash2, Maximize2, Minimize2 } from 'lucide-react';
 import type { Curve, PointWithHandles } from '../types';
-import { evaluateCurve } from '../utils';
+import { evaluateCurve, roundToDecimals } from '../utils';
 import { parseDecimal } from './helpers';
 
 interface CurveEditorNewProps {
@@ -64,8 +64,6 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
   const min = rangeMode === '0-1' ? 0 : -1;
   const max = rangeMode === '0-1' ? 1 : 1;
 
-  const roundToTwo = useCallback((val: number) => Math.round(val * 100) / 100, []);
-
   // Clamp value to current range mode
   const clampToRange = useCallback((value: number): number => {
     const currentMin = rangeMode === '0-1' ? 0 : -1;
@@ -103,7 +101,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     // Clamp all point values to new range
     const clampedPoints = curve.points.map(point => ({
       ...point,
-      value: roundToTwo(Math.max(newMin, Math.min(1, point.value)))
+      value: roundToDecimals(Math.max(newMin, Math.min(1, point.value)))
     }));
 
     onChange({ ...curve, points: clampedPoints });
@@ -211,8 +209,8 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     const point = curve.points[selectedPoint];
     if (!point) return;
 
-    const formattedTime = Number.isFinite(point.time) ? roundToTwo(point.time).toString() : '';
-    const formattedValue = Number.isFinite(point.value) ? roundToTwo(point.value).toString() : '';
+    const formattedTime = Number.isFinite(point.time) ? roundToDecimals(point.time).toString() : '';
+    const formattedValue = Number.isFinite(point.value) ? roundToDecimals(point.value).toString() : '';
 
     const parsedTime = parseDecimal(timeInput);
     const parsedValue = parseDecimal(valueInput);
@@ -293,8 +291,8 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     // Don't add new point if clicked on existing point
     if (clickedPoint !== -1) return;
 
-    const newTime = roundToTwo(xToTime(x));
-    const newValue = roundToTwo(yToValue(y));
+    const newTime = roundToDecimals(xToTime(x));
+    const newValue = roundToDecimals(yToValue(y));
 
     const newPoint = { time: newTime, value: newValue };
     const newPoints = [...curve.points, newPoint]
@@ -344,9 +342,9 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
 
   // Memoized function to process point dragging
   const processDragPoint = useCallback((x: number, y: number, pointIndex: number) => {
-    let newTime = roundToTwo(xToTime(x));
+    let newTime = roundToDecimals(xToTime(x));
     const proposed = yToValue(y);
-    const newValue = roundToTwo(autoScale ? proposed : clampToRange(proposed));
+    const newValue = roundToDecimals(autoScale ? proposed : clampToRange(proposed));
 
     const newPoints = [...curve.points];
 
@@ -370,7 +368,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
     }
 
     onChange({ ...curve, points: newPoints });
-  }, [curve.points, autoScale, roundToTwo, xToTime, yToValue, clampToRange, onChange]);
+  }, [curve.points, autoScale, xToTime, yToValue, clampToRange, onChange]);
 
   // Prevent text selection during drag
   useEffect(() => {
@@ -803,7 +801,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
               if (Number.isNaN(parsed)) return;
 
               const newPoints = [...curve.points];
-              const clampedTime = roundToTwo(Math.max(0, Math.min(1, parsed)));
+              const clampedTime = roundToDecimals(Math.max(0, Math.min(1, parsed)));
               const nextTime = selectedPoint === 0 ? 0 : selectedPoint === newPoints.length - 1 ? 1 : clampedTime;
 
               newPoints[selectedPoint] = { ...newPoints[selectedPoint], time: nextTime };
@@ -824,7 +822,7 @@ export const CurveEditorNew: React.FC<CurveEditorNewProps> = ({
               const parsed = parseDecimal(raw);
               if (Number.isNaN(parsed)) return;
 
-              const clampedValue = roundToTwo(autoScale ? parsed : clampToRange(parsed));
+              const clampedValue = roundToDecimals(autoScale ? parsed : clampToRange(parsed));
               const newPoints = [...curve.points];
               newPoints[selectedPoint] = { ...newPoints[selectedPoint], value: clampedValue };
               onChange({ ...curve, points: newPoints });
