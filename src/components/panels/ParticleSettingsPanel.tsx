@@ -13,6 +13,7 @@ import {
   TwoColumn,
 } from "../fields";
 import { useSettings } from "../../context/SettingsContext";
+import { roundToDecimals } from "../../utils";
 import type { EmitterInstance } from "../../types";
 
 // ============================================================
@@ -51,16 +52,16 @@ const LifetimeSettings = memo(() => {
     <TwoColumn>
       <LabeledNumber
         label="Life Min (s)"
-        value={em.lifeTimeMin}
-        onChange={(v) => updateCurrentEmitter({ lifeTimeMin: v })}
+        value={roundToDecimals(em.lifeTimeMin)}
+        onChange={(v) => updateCurrentEmitter({ lifeTimeMin: roundToDecimals(v) })}
         min={0}
         max={100}
         step={0.1}
       />
       <LabeledNumber
         label="Life Max (s)"
-        value={em.lifeTimeMax}
-        onChange={(v) => updateCurrentEmitter({ lifeTimeMax: v })}
+        value={roundToDecimals(em.lifeTimeMax)}
+        onChange={(v) => updateCurrentEmitter({ lifeTimeMax: roundToDecimals(v) })}
         min={0}
         max={100}
         step={0.1}
@@ -143,6 +144,7 @@ const SpawnAngleSettings = memo(() => {
           label="Spawn Angle (°)"
           value={em.spawnAngle}
           onChange={(v) => updateCurrentEmitter({ spawnAngle: v })}
+          min={0}
           max={360}
           integer={true}
         />
