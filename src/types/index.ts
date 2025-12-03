@@ -102,6 +102,9 @@ interface EmitterInstanceSettings {
   dragRange: RangeValue;
 
   // Size and scaling
+  separateSize: boolean; // Toggle between uniform (false) and separate X/Y (true) size modes
+  sizeRange: RangeValue; // Uniform size range (used when separateSize=false)
+  sizeOverLifetime: Curve; // Uniform size curve (used when separateSize=false)
   sizeXOverLifetime: Curve;
   sizeXRange: RangeValue;
   sizeYOverLifetime: Curve;
@@ -257,6 +260,13 @@ interface AtlasRegion {
 // ========== Default Presets ==========
 
 const DEFAULT_CURVE_PRESETS: { [key: string]: Curve } = {
+  size: {
+    points: [
+      { time: 0, value: 1.0 },
+      { time: 1, value: 0.2 },
+    ],
+    interpolation: "linear",
+  },
   sizeX: {
     points: [
       { time: 0, value: 1.0 },
@@ -393,6 +403,9 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     dragRange: { min: 1, max: 1 },
 
     // Size and scaling
+    separateSize: false, // Start in uniform size mode
+    sizeRange: { min: 1, max: 1 }, // Uniform size range
+    sizeOverLifetime: DEFAULT_CURVE_PRESETS.size, // Uniform size curve
     sizeXOverLifetime: DEFAULT_CURVE_PRESETS.sizeX,
     sizeXRange: { min: 1, max: 1 },
     sizeYOverLifetime: DEFAULT_CURVE_PRESETS.sizeY,
