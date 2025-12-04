@@ -328,13 +328,17 @@ function buildAnimations(
     // Duration emitters should always use duration_ prefix, never loop_ or prewarm_
     const isDurationEmitter = emissionType === "duration";
 
+    // For duration emitters, preserve timing (don't normalize to zero)
+    // to keep durationStart delay in the exported animation
+    const shouldNormalizeStart = !emitter.settings.looping && !isDurationEmitter;
+
     const loopData = buildAnimationData(
       frames,
       emitterTracks,
       settings,
       getSpriteName,
       getParticleFromFrame,
-      !emitter.settings.looping || isDurationEmitter
+      shouldNormalizeStart
     );
 
     // Get animation export options for this emitter
