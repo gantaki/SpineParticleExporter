@@ -165,36 +165,6 @@ const VortexForceSection = memo(() => {
 });
 VortexForceSection.displayName = "VortexForceSection";
 
-// ============================================================
-// SPIN SECTION
-// ============================================================
-
-const SpinSection = memo(() => {
-  const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
-
-  if (!em) return null;
-
-  return (
-    <SettingsSection icon="🔄" title="Spin" color="cyan">
-      <RangeCurveCombo
-        rangeLabel="Spin Speed Range (deg/sec)"
-        rangeHelper="Random between two numbers"
-        rangeValue={em.angularVelocityRange}
-        onRangeChange={(range) =>
-          updateCurrentEmitter({ angularVelocityRange: range })
-        }
-        curveLabel="Spin Speed Multiplier (-1 to 1)"
-        curveValue={em.angularVelocityOverLifetime}
-        onCurveChange={(curve) =>
-          updateCurrentEmitter({ angularVelocityOverLifetime: curve })
-        }
-        curvePresetKey="angularVelocity"
-        allowRangeToggle={true}
-      />
-    </SettingsSection>
-  );
-});
-SpinSection.displayName = "SpinSection";
 
 // ============================================================
 // MAIN PANEL COMPONENT
@@ -216,7 +186,6 @@ export const ForcesPanel = memo<ForcesPanelProps>(({ isOpen, onToggle }) => {
         <GravityDragSection />
         <NoiseFieldSection />
         <VortexForceSection />
-        <SpinSection />
       </div>
     </CollapsibleSection>
   );
