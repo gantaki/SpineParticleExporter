@@ -125,7 +125,6 @@ export function generateSpineJSON(
     prewarmFrames,
     settings,
     particleTracks,
-    emitterIndexMap,
     getSpriteName
   );
 
@@ -295,7 +294,6 @@ function buildAnimations(
   prewarmFrames: BakedFrame[],
   settings: ParticleSettings,
   particleTracks: ParticleTrack[],
-  emitterIndexMap: Map<string, number>,
   getSpriteName: (emitterId: string) => string
 ): Record<string, unknown> {
   const animations: Record<string, unknown> = {};
@@ -323,9 +321,8 @@ function buildAnimations(
     const emitterTracks = tracksByEmitter.get(emitter.id) || [];
     if (emitterTracks.length === 0) continue;
 
-    const emitterIndex = emitterIndexMap.get(emitter.id);
-    const emitterNumber =
-      emitterIndex !== undefined ? emitterIndex + 1 : emitter.id;
+    // Use emitter name for animation naming
+    const emitterName = emitter.name;
 
     const loopData = buildAnimationData(
       frames,
@@ -363,16 +360,16 @@ function buildAnimations(
     if (emitter.settings.looping && loopData) {
       const shouldExportLoop = !animOptions || animOptions.exportLoop;
       if (shouldExportLoop) {
-        animations[`loop_${emitterNumber}`] = loopData.animation;
+        animations[`loop_${emitterName}`] = loopData.animation;
       }
     } else if (!emitter.settings.looping && loopData) {
       // Non-looping emitters always export their animation
       const animationName =
         emitter.settings.emissionType === "burst"
-          ? `burst_${emitterNumber}`
+          ? `burst_${emitterName}`
           : emitter.settings.emissionType === "duration"
-          ? `duration_${emitterNumber}`
-          : `animation_${emitterNumber}`;
+          ? `duration_${emitterName}`
+          : `animation_${emitterName}`;
       animations[animationName] = loopData.animation;
     }
 
@@ -382,7 +379,7 @@ function buildAnimations(
     if (prewarmData) {
       const shouldExportPrewarm = !animOptions || animOptions.exportPrewarm;
       if (shouldExportPrewarm) {
-        animations[`prewarm_${emitterNumber}`] = prewarmData.animation;
+        animations[`prewarm_${emitterName}`] = prewarmData.animation;
       }
     }
   }

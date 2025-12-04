@@ -134,19 +134,19 @@ EmitterExportOptions.displayName = "EmitterExportOptions";
 const AnimationExportOptions = memo(() => {
   const { settings, updateAnimationExportOptions } = useSettings();
 
-  // Filter emitters that have looping enabled
-  const loopingEmitters = settings.emitters.filter(
-    (em) => em.enabled && em.settings.looping
+  // Filter emitters that have BOTH looping AND prewarm enabled
+  const loopingPrewarmEmitters = settings.emitters.filter(
+    (em) => em.enabled && em.settings.looping && em.settings.prewarm
   );
 
-  if (loopingEmitters.length === 0) return null;
+  if (loopingPrewarmEmitters.length === 0) return null;
 
   return (
     <div className="space-y-1">
       <div className="text-xs font-semibold text-slate-300 mt-3 mb-1">
         Animations to Export
       </div>
-      {loopingEmitters.map((emitter) => {
+      {loopingPrewarmEmitters.map((emitter) => {
         const options =
           settings.exportSettings.animationExportOptions[emitter.id] || {
             exportLoop: true,
