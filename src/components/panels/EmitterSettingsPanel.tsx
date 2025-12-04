@@ -106,28 +106,14 @@ const EmissionSettings = memo(() => {
 
   return (
     <div className="space-y-2">
-      {/* Looping and Prewarm at the top - only for continuous */}
+      {/* Prewarm and Loop checkbox for continuous mode */}
       {em.emissionType === "continuous" && (
-        <>
-          <LabeledCheckbox
-            label="Looping"
-            checked={em.looping}
-            onChange={(checked) => updateCurrentEmitter({ looping: checked })}
-          />
-          <LabeledCheckbox
-            label="Prewarm"
-            checked={em.prewarm}
-            onChange={(checked) => updateCurrentEmitter({ prewarm: checked })}
-          />
-        </>
-      )}
-
-      {/* Prewarm for duration - independent control at top */}
-      {em.emissionType === "duration" && (
         <LabeledCheckbox
-          label="Prewarm"
-          checked={em.prewarm}
-          onChange={(checked) => updateCurrentEmitter({ prewarm: checked })}
+          label="Prewarm and Loop"
+          checked={em.looping && em.prewarm}
+          onChange={(checked) =>
+            updateCurrentEmitter({ looping: checked, prewarm: checked })
+          }
         />
       )}
 

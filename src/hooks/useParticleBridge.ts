@@ -258,7 +258,6 @@ export function useParticleBridge(): ParticleBridgeAPI {
           maxLife: data.maxLife,
           baseSpeed: data.baseSpeed,
           baseSpinRate: 0,
-          baseAngularVelocity: 0,
           baseGravity: 0,
           baseDrag: 1,
           baseNoiseStrength: 0,

@@ -1,31 +1,70 @@
 /**
- * ForcesPanel
- * Controls gravity, drag, noise, vortex, and angular velocity forces
+ * ForcesPanel v106
+ * Controls gravity, drag, noise, and vortex forces with collapsible subsections
  */
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { CollapsibleSection } from "../CollapsibleSection";
 import { RangeInput } from "../RangeInput";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import {
   LabeledNumber,
   LabeledCheckbox,
   RangeCurveCombo,
-  SettingsSection,
   TwoColumn,
 } from "../fields";
 import { useSettings } from "../../context/SettingsContext";
 
 // ============================================================
-// GRAVITY & DRAG SECTION
+// INLINE COLLAPSIBLE COMPONENT FOR SUB-SECTIONS
 // ============================================================
 
-const GravityDragSection = memo(() => {
+interface InlineCollapsibleProps {
+  title: string;
+  icon?: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+const InlineCollapsible = memo<InlineCollapsibleProps>(
+  ({ title, icon, isOpen, onToggle, children }) => {
+    return (
+      <div className="border border-slate-600 rounded bg-slate-800/20">
+        <button
+          onClick={onToggle}
+          className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-slate-700/30 transition-colors rounded"
+        >
+          <span className="text-xs font-medium text-slate-300 flex items-center gap-1">
+            {icon && <span>{icon}</span>}
+            {title}
+          </span>
+          {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+        {isOpen && <div className="px-2 pb-2 space-y-2">{children}</div>}
+      </div>
+    );
+  }
+);
+InlineCollapsible.displayName = "InlineCollapsible";
+
+// ============================================================
+// GRAVITY SECTION
+// ============================================================
+
+const GravitySection = memo(() => {
   const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [isOpen, setIsOpen] = useState(true);
 
   if (!em) return null;
 
   return (
-    <SettingsSection icon="🌍" title="Gravity & Drag" color="green">
+    <InlineCollapsible
+      title="Gravity"
+      icon="🌍"
+      isOpen={isOpen}
+      onToggle={() => setIsOpen(!isOpen)}
+    >
       <RangeCurveCombo
         rangeLabel="Gravity Base Range"
         rangeHelper="Random between two numbers"
@@ -39,6 +78,28 @@ const GravityDragSection = memo(() => {
         curvePresetKey="gravity"
         allowRangeToggle={true}
       />
+    </InlineCollapsible>
+  );
+});
+GravitySection.displayName = "GravitySection";
+
+// ============================================================
+// DRAG SECTION
+// ============================================================
+
+const DragSection = memo(() => {
+  const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [isOpen, setIsOpen] = useState(true);
+
+  if (!em) return null;
+
+  return (
+    <InlineCollapsible
+      title="Drag"
+      icon="💨"
+      isOpen={isOpen}
+      onToggle={() => setIsOpen(!isOpen)}
+    >
       <RangeCurveCombo
         rangeLabel="Drag Base Range"
         rangeHelper="Random damping factor"
@@ -52,10 +113,10 @@ const GravityDragSection = memo(() => {
         curvePresetKey="drag"
         allowRangeToggle={true}
       />
-    </SettingsSection>
+    </InlineCollapsible>
   );
 });
-GravityDragSection.displayName = "GravityDragSection";
+DragSection.displayName = "DragSection";
 
 // ============================================================
 // NOISE FIELD SECTION
@@ -63,11 +124,17 @@ GravityDragSection.displayName = "GravityDragSection";
 
 const NoiseFieldSection = memo(() => {
   const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [isOpen, setIsOpen] = useState(false);
 
   if (!em) return null;
 
   return (
-    <SettingsSection icon="🌪️" title="Noise Field" color="purple">
+    <InlineCollapsible
+      title="Noise Field"
+      icon="🌪️"
+      isOpen={isOpen}
+      onToggle={() => setIsOpen(!isOpen)}
+    >
       <RangeCurveCombo
         rangeLabel="Noise Strength Range"
         rangeHelper="Base force (random)"
@@ -99,7 +166,7 @@ const NoiseFieldSection = memo(() => {
           onChange={(range) => updateCurrentEmitter({ noiseSpeedRange: range })}
         />
       </TwoColumn>
-    </SettingsSection>
+    </InlineCollapsible>
   );
 });
 NoiseFieldSection.displayName = "NoiseFieldSection";
@@ -110,11 +177,17 @@ NoiseFieldSection.displayName = "NoiseFieldSection";
 
 const VortexForceSection = memo(() => {
   const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [isOpen, setIsOpen] = useState(false);
 
   if (!em) return null;
 
   return (
-    <SettingsSection icon="🌀" title="Vortex Force" color="pink">
+    <InlineCollapsible
+      title="Vortex Force"
+      icon="🌀"
+      isOpen={isOpen}
+      onToggle={() => setIsOpen(!isOpen)}
+    >
       <RangeCurveCombo
         rangeLabel="Vortex Strength Range"
         rangeHelper="Random between two numbers"
@@ -160,41 +233,10 @@ const VortexForceSection = memo(() => {
         }
         className="mt-2"
       />
-    </SettingsSection>
+    </InlineCollapsible>
   );
 });
 VortexForceSection.displayName = "VortexForceSection";
-
-// ============================================================
-// SPIN SECTION
-// ============================================================
-
-const SpinSection = memo(() => {
-  const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
-
-  if (!em) return null;
-
-  return (
-    <SettingsSection icon="🔄" title="Spin" color="cyan">
-      <RangeCurveCombo
-        rangeLabel="Spin Speed Range (deg/sec)"
-        rangeHelper="Random between two numbers"
-        rangeValue={em.angularVelocityRange}
-        onRangeChange={(range) =>
-          updateCurrentEmitter({ angularVelocityRange: range })
-        }
-        curveLabel="Spin Speed Multiplier (-1 to 1)"
-        curveValue={em.angularVelocityOverLifetime}
-        onCurveChange={(curve) =>
-          updateCurrentEmitter({ angularVelocityOverLifetime: curve })
-        }
-        curvePresetKey="angularVelocity"
-        allowRangeToggle={true}
-      />
-    </SettingsSection>
-  );
-});
-SpinSection.displayName = "SpinSection";
 
 // ============================================================
 // MAIN PANEL COMPONENT
@@ -212,11 +254,11 @@ export const ForcesPanel = memo<ForcesPanelProps>(({ isOpen, onToggle }) => {
       isOpen={isOpen}
       onToggle={onToggle}
     >
-      <div className="space-y-3">
-        <GravityDragSection />
+      <div className="space-y-2">
+        <GravitySection />
+        <DragSection />
         <NoiseFieldSection />
         <VortexForceSection />
-        <SpinSection />
       </div>
     </CollapsibleSection>
   );

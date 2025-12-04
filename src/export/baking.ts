@@ -59,13 +59,12 @@ export function bakeParticleAnimation(settings: ParticleSettings): {
     return particlesSnapshot;
   };
 
-  // Check if any emitter has prewarm enabled
-  const hasAnyPrewarm = settings.emitters.some(
-    (e) => e.settings.prewarm && e.settings.looping
-  );
+  // Check if any emitter has looping enabled
+  const hasAnyLooping = settings.emitters.some((e) => e.settings.looping);
 
-  // Apply prewarm if enabled on any emitter
-  if (hasAnyPrewarm) {
+  // Generate prewarm data if any emitter has looping enabled
+  // (allows user to export prewarm animation even if not currently enabled)
+  if (hasAnyLooping) {
     const prewarmSteps = Math.ceil(settings.duration * settings.fps);
 
     // Capture initial warm state
@@ -91,7 +90,6 @@ export function bakeParticleAnimation(settings: ParticleSettings): {
   const frameCount = Math.ceil(duration * settings.fps);
 
   // For looping: simulate extra time to capture wrap-around particles
-  const hasAnyLooping = settings.emitters.some((e) => e.settings.looping);
   const maxLifetime = settings.emitters.reduce(
     (max, e) => Math.max(max, e.settings.lifeTimeMax),
     0

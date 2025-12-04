@@ -26,6 +26,7 @@ import type {
   ColorGradient,
   RangeValue,
   ExportSettings,
+  AnimationExportOptions,
 } from "../types";
 import { DEFAULT_SETTINGS, createEmitterInstance } from "../types";
 import type { SettingsAction } from "../types/editor";
@@ -291,6 +292,10 @@ interface SettingsContextValue {
   setFps: (fps: number) => void;
   setFrameSize: (frameSize: number) => void;
   updateExportSettings: (exportSettings: Partial<ExportSettings>) => void;
+  updateAnimationExportOptions: (
+    emitterId: string,
+    options: Partial<AnimationExportOptions>
+  ) => void;
 
   // Actions - Emitter Management
   addEmitter: () => void;
@@ -402,6 +407,27 @@ export function SettingsProvider({
     (exportSettings: Partial<ExportSettings>) =>
       dispatch({ type: "SET_EXPORT_SETTINGS", exportSettings }),
     []
+  );
+
+  const updateAnimationExportOptions = useCallback(
+    (emitterId: string, options: Partial<AnimationExportOptions>) => {
+      const currentOptions =
+        settings.exportSettings.animationExportOptions[emitterId] || {
+          exportLoop: true,
+          exportPrewarm: true,
+        };
+      const updatedOptions = { ...currentOptions, ...options };
+      dispatch({
+        type: "SET_EXPORT_SETTINGS",
+        exportSettings: {
+          animationExportOptions: {
+            ...settings.exportSettings.animationExportOptions,
+            [emitterId]: updatedOptions,
+          },
+        },
+      });
+    },
+    [settings.exportSettings.animationExportOptions]
   );
 
   // Emitter management
@@ -528,6 +554,7 @@ export function SettingsProvider({
       setFps,
       setFrameSize,
       updateExportSettings,
+      updateAnimationExportOptions,
       addEmitter,
       removeEmitter,
       selectEmitter,
@@ -554,6 +581,7 @@ export function SettingsProvider({
       setFps,
       setFrameSize,
       updateExportSettings,
+      updateAnimationExportOptions,
       addEmitter,
       removeEmitter,
       selectEmitter,

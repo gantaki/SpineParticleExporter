@@ -370,11 +370,6 @@ export class ParticleEngine {
         p.baseSpinRate * clamp01(evaluateCurve(em.spinOverLifetime, t));
       p.rotation += spinSpeed * dt;
 
-      const angularVelocity =
-        p.baseAngularVelocity *
-        clamp01(evaluateCurve(em.angularVelocityOverLifetime, t));
-      p.rotation += angularVelocity * dt;
-
       const colorData = evaluateColorGradient(em.colorOverLifetime, t);
       p.color = { r: colorData.r, g: colorData.g, b: colorData.b, a: 255 };
       p.alpha = colorData.a / 255;
@@ -437,7 +432,6 @@ export class ParticleEngine {
       baseSpeed: speed,
       rotation: initialRotation,
       baseSpinRate: (sampleRange(em.spinRange) * Math.PI) / 180,
-      baseAngularVelocity: (sampleRange(em.angularVelocityRange) * Math.PI) / 180,
       baseGravity: sampleRange(em.gravityRange),
       baseDrag: sampleRange(em.dragRange),
       baseNoiseStrength: sampleRange(em.noiseStrengthRange),

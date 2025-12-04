@@ -1,14 +1,48 @@
 /**
- * CurvesPanel
- * Controls all curve-over-lifetime properties: color, size, speed, weight, attraction, spin
+ * CurvesPanel v106
+ * Controls all curve-over-lifetime properties with collapsible subsections
  */
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { CollapsibleSection } from "../CollapsibleSection";
 import { ColorGradientEditor } from "../ColorGradientEditor";
-import { RangeCurveCombo, SettingsSection, LabeledCheckbox } from "../fields";
+import { ChevronDown, ChevronRight } from "lucide-react";
+import { RangeCurveCombo, LabeledCheckbox } from "../fields";
 import { useSettings } from "../../context/SettingsContext";
 import { copyCurve } from "../../utils";
+
+// ============================================================
+// INLINE COLLAPSIBLE COMPONENT FOR SUB-SECTIONS
+// ============================================================
+
+interface InlineCollapsibleProps {
+  title: string;
+  icon?: string;
+  isOpen: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}
+
+const InlineCollapsible = memo<InlineCollapsibleProps>(
+  ({ title, icon, isOpen, onToggle, children }) => {
+    return (
+      <div className="border border-slate-600 rounded bg-slate-800/20">
+        <button
+          onClick={onToggle}
+          className="w-full flex items-center justify-between px-2 py-1.5 hover:bg-slate-700/30 transition-colors rounded"
+        >
+          <span className="text-xs font-medium text-slate-300 flex items-center gap-1">
+            {icon && <span>{icon}</span>}
+            {title}
+          </span>
+          {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </button>
+        {isOpen && <div className="px-2 pb-2 space-y-2">{children}</div>}
+      </div>
+    );
+  }
+);
+InlineCollapsible.displayName = "InlineCollapsible";
 
 // ============================================================
 // COLOR OVER LIFETIME SECTION
@@ -16,18 +50,24 @@ import { copyCurve } from "../../utils";
 
 const ColorOverLifetimeSection = memo(() => {
   const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [isOpen, setIsOpen] = useState(true);
 
   if (!em) return null;
 
   return (
-    <SettingsSection icon="🎨" title="Color Over Lifetime" color="amber">
+    <InlineCollapsible
+      title="Color Over Lifetime"
+      icon="🎨"
+      isOpen={isOpen}
+      onToggle={() => setIsOpen(!isOpen)}
+    >
       <ColorGradientEditor
         gradient={em.colorOverLifetime}
         onChange={(gradient) =>
           updateCurrentEmitter({ colorOverLifetime: gradient })
         }
       />
-    </SettingsSection>
+    </InlineCollapsible>
   );
 });
 ColorOverLifetimeSection.displayName = "ColorOverLifetimeSection";
@@ -38,6 +78,7 @@ ColorOverLifetimeSection.displayName = "ColorOverLifetimeSection";
 
 const SizeCurvesSection = memo(() => {
   const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [isOpen, setIsOpen] = useState(true);
 
   if (!em) return null;
 
@@ -60,7 +101,12 @@ const SizeCurvesSection = memo(() => {
   };
 
   return (
-    <>
+    <InlineCollapsible
+      title="Size"
+      icon="📏"
+      isOpen={isOpen}
+      onToggle={() => setIsOpen(!isOpen)}
+    >
       <LabeledCheckbox
         label="Separate Size (X/Y)"
         checked={em.separateSize}
@@ -113,22 +159,28 @@ const SizeCurvesSection = memo(() => {
           allowRangeToggle={true}
         />
       )}
-    </>
+    </InlineCollapsible>
   );
 });
 SizeCurvesSection.displayName = "SizeCurvesSection";
 
 // ============================================================
-// MOTION CURVES SECTION
+// SPEED SECTION
 // ============================================================
 
-const MotionCurvesSection = memo(() => {
+const SpeedSection = memo(() => {
   const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [isOpen, setIsOpen] = useState(false);
 
   if (!em) return null;
 
   return (
-    <>
+    <InlineCollapsible
+      title="Speed"
+      icon="⚡"
+      isOpen={isOpen}
+      onToggle={() => setIsOpen(!isOpen)}
+    >
       <RangeCurveCombo
         rangeLabel="Speed Base Range"
         rangeHelper="Random between two numbers"
@@ -142,6 +194,28 @@ const MotionCurvesSection = memo(() => {
         curvePresetKey="speed"
         allowRangeToggle={true}
       />
+    </InlineCollapsible>
+  );
+});
+SpeedSection.displayName = "SpeedSection";
+
+// ============================================================
+// WEIGHT SECTION
+// ============================================================
+
+const WeightSection = memo(() => {
+  const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!em) return null;
+
+  return (
+    <InlineCollapsible
+      title="Weight"
+      icon="⚖️"
+      isOpen={isOpen}
+      onToggle={() => setIsOpen(!isOpen)}
+    >
       <RangeCurveCombo
         rangeLabel="Weight Base Range"
         rangeHelper="Random between two numbers"
@@ -155,6 +229,28 @@ const MotionCurvesSection = memo(() => {
         curvePresetKey="weight"
         allowRangeToggle={true}
       />
+    </InlineCollapsible>
+  );
+});
+WeightSection.displayName = "WeightSection";
+
+// ============================================================
+// ATTRACTION SECTION
+// ============================================================
+
+const AttractionSection = memo(() => {
+  const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!em) return null;
+
+  return (
+    <InlineCollapsible
+      title="Attraction"
+      icon="🧲"
+      isOpen={isOpen}
+      onToggle={() => setIsOpen(!isOpen)}
+    >
       <RangeCurveCombo
         rangeLabel="Attraction Base Range"
         rangeHelper="Random between two numbers"
@@ -170,22 +266,28 @@ const MotionCurvesSection = memo(() => {
         curvePresetKey="attraction"
         allowRangeToggle={true}
       />
-    </>
+    </InlineCollapsible>
   );
 });
-MotionCurvesSection.displayName = "MotionCurvesSection";
+AttractionSection.displayName = "AttractionSection";
 
 // ============================================================
-// SPIN CURVES SECTION
+// SPIN SECTION
 // ============================================================
 
-const SpinCurvesSection = memo(() => {
+const SpinSection = memo(() => {
   const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const [isOpen, setIsOpen] = useState(false);
 
   if (!em) return null;
 
   return (
-    <div className="space-y-2 pt-2 border-t border-slate-700">
+    <InlineCollapsible
+      title="Spin"
+      icon="🔄"
+      isOpen={isOpen}
+      onToggle={() => setIsOpen(!isOpen)}
+    >
       <RangeCurveCombo
         rangeLabel="Spin Base Range (deg/sec)"
         rangeHelper="Random between two numbers"
@@ -199,10 +301,10 @@ const SpinCurvesSection = memo(() => {
         curvePresetKey="spin"
         allowRangeToggle={true}
       />
-    </div>
+    </InlineCollapsible>
   );
 });
-SpinCurvesSection.displayName = "SpinCurvesSection";
+SpinSection.displayName = "SpinSection";
 
 // ============================================================
 // MAIN PANEL COMPONENT
@@ -223,8 +325,10 @@ export const CurvesPanel = memo<CurvesPanelProps>(({ isOpen, onToggle }) => {
       <div className="space-y-2">
         <ColorOverLifetimeSection />
         <SizeCurvesSection />
-        <MotionCurvesSection />
-        <SpinCurvesSection />
+        <SpeedSection />
+        <WeightSection />
+        <AttractionSection />
+        <SpinSection />
       </div>
     </CollapsibleSection>
   );

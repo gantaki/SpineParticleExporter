@@ -122,8 +122,6 @@ interface EmitterInstanceSettings {
   // Rotation
   spinOverLifetime: Curve;
   spinRange: RangeValue;
-  angularVelocityOverLifetime: Curve;
-  angularVelocityRange: RangeValue;
   spawnAngleMode: "alignMotion" | "specific" | "random" | "range";
   spawnAngle: number;
   spawnAngleMin: number;
@@ -170,6 +168,11 @@ interface EmitterInstance {
   visible: boolean; // For viewport visibility
 }
 
+interface AnimationExportOptions {
+  exportLoop: boolean; // Export loop animation
+  exportPrewarm: boolean; // Export prewarm animation
+}
+
 interface ExportSettings {
   exportTranslate: boolean;
   exportRotate: boolean;
@@ -182,6 +185,9 @@ interface ExportSettings {
   colorThreshold: number;
 
   spineVersion: string; // e.g. "4.2.00", "4.3.39-beta"
+
+  // Per-emitter animation export settings (keyed by emitter ID)
+  animationExportOptions: Record<string, AnimationExportOptions>;
 }
 
 // Global particle system settings
@@ -208,7 +214,6 @@ interface Particle {
   baseSpeed: number;
   rotation: number;
   baseSpinRate: number;
-  baseAngularVelocity: number;
   baseGravity: number;
   baseDrag: number;
   baseNoiseStrength: number;
@@ -316,13 +321,6 @@ const DEFAULT_CURVE_PRESETS: { [key: string]: Curve } = {
     ],
     interpolation: "linear",
   },
-  angularVelocity: {
-    points: [
-      { time: 0, value: 0 },
-      { time: 1, value: 0 },
-    ],
-    interpolation: "linear",
-  },
   vortex: {
     points: [
       { time: 0, value: 0 },
@@ -423,8 +421,6 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
     // Rotation
     spinOverLifetime: DEFAULT_CURVE_PRESETS.spin,
     spinRange: { min: 0, max: 0 },
-    angularVelocityOverLifetime: DEFAULT_CURVE_PRESETS.angularVelocity,
-    angularVelocityRange: { min: 0, max: 0 },
     spawnAngleMode: "alignMotion",
     spawnAngle: 0,
     spawnAngleMin: -45,
@@ -493,6 +489,9 @@ const DEFAULT_SETTINGS: ParticleSettings = {
     colorThreshold: 60,
 
     spineVersion: "4.2.00",
+
+    // Default animation export options (will be populated per emitter dynamically)
+    animationExportOptions: {},
   },
 };
 
@@ -508,6 +507,7 @@ export {
   type ColorGradient,
   type EmitterInstanceSettings,
   type EmitterInstance,
+  type AnimationExportOptions,
   type ExportSettings,
   type ParticleSettings,
   type Particle,
