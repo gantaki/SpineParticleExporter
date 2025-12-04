@@ -323,6 +323,14 @@ function buildAnimations(
 
     // Use emitter name for animation naming
     const emitterName = emitter.name;
+    const emissionType = emitter.settings.emissionType;
+
+    // Duration emitters should always use duration_ prefix, never loop_ or prewarm_
+    const isDurationEmitter = emissionType === "duration";
+
+    // For duration emitters, preserve timing (don't normalize to zero)
+    // to keep durationStart delay in the exported animation
+    const shouldNormalizeStart = !emitter.settings.looping && !isDurationEmitter;
 
     const loopData = buildAnimationData(
       frames,
@@ -330,16 +338,19 @@ function buildAnimations(
       settings,
       getSpriteName,
       getParticleFromFrame,
-      !emitter.settings.looping
+      shouldNormalizeStart
     );
 
     // Get animation export options for this emitter
     const animOptions =
       settings.exportSettings.animationExportOptions[emitter.id];
 
-    // For looping emitters, always build prewarm data (if frames available)
+    // For looping continuous emitters only, build prewarm data
+    // Duration and burst emitters should not have prewarm animations
     const prewarmData =
-      emitter.settings.looping && prewarmFrames.length > 0
+      emitter.settings.looping &&
+      emissionType === "continuous" &&
+      prewarmFrames.length > 0
         ? buildAnimationData(
             prewarmFrames,
             emitterTracks,
@@ -350,33 +361,32 @@ function buildAnimations(
           )
         : null;
 
-    if (emitter.settings.looping && loopData && prewarmData) {
+    if (emitter.settings.looping && loopData && prewarmData && !isDurationEmitter) {
       addLoopSeamKeys(emitter.id, loopData, frames, getParticleFromFrame);
     }
 
-    // Export loop animation if:
-    // 1. Emitter has looping enabled AND
-    // 2. Either no export options set (default: export all) OR exportLoop is true
-    if (emitter.settings.looping && loopData) {
-      const shouldExportLoop = !animOptions || animOptions.exportLoop;
-      if (shouldExportLoop) {
-        animations[`loop_${emitterName}`] = loopData.animation;
+    // Export animation based on emission type
+    if (loopData) {
+      if (isDurationEmitter) {
+        // Duration emitters always use duration_ prefix
+        animations[`duration_${emitterName}`] = loopData.animation;
+      } else if (emitter.settings.emissionType === "burst") {
+        // Burst emitters use burst_ prefix
+        animations[`burst_${emitterName}`] = loopData.animation;
+      } else if (emitter.settings.looping) {
+        // Looping continuous emitters use loop_ prefix
+        const shouldExportLoop = !animOptions || animOptions.exportLoop;
+        if (shouldExportLoop) {
+          animations[`loop_${emitterName}`] = loopData.animation;
+        }
+      } else {
+        // Non-looping continuous emitters use animation_ prefix
+        animations[`animation_${emitterName}`] = loopData.animation;
       }
-    } else if (!emitter.settings.looping && loopData) {
-      // Non-looping emitters always export their animation
-      const animationName =
-        emitter.settings.emissionType === "burst"
-          ? `burst_${emitterName}`
-          : emitter.settings.emissionType === "duration"
-          ? `duration_${emitterName}`
-          : `animation_${emitterName}`;
-      animations[animationName] = loopData.animation;
     }
 
-    // Export prewarm animation if:
-    // 1. Prewarm data exists AND
-    // 2. Either no export options set (default: export all) OR exportPrewarm is true
-    if (prewarmData) {
+    // Export prewarm animation only for looping continuous emitters
+    if (prewarmData && !isDurationEmitter) {
       const shouldExportPrewarm = !animOptions || animOptions.exportPrewarm;
       if (shouldExportPrewarm) {
         animations[`prewarm_${emitterName}`] = prewarmData.animation;
