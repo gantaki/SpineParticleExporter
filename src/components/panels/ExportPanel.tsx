@@ -1,6 +1,6 @@
 /**
  * ExportPanel
- * Controls export settings, thresholds, and handles the export action
+ * Controls export settings, thresholds, animation selection, and handles the export action
  */
 
 import { memo, useCallback } from "react";
@@ -92,6 +92,77 @@ const EmitterExportOptions = memo(() => {
   );
 });
 EmitterExportOptions.displayName = "EmitterExportOptions";
+
+// ============================================================
+// ANIMATION EXPORT OPTIONS (FOR LOOPING EMITTERS)
+// ============================================================
+
+const AnimationExportOptions = memo(() => {
+  const { settings, updateAnimationExportOptions } = useSettings();
+
+  // Filter emitters that have looping enabled
+  const loopingEmitters = settings.emitters.filter(
+    (em) => em.enabled && em.settings.looping
+  );
+
+  if (loopingEmitters.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      <div className="text-xs font-semibold text-slate-300 mt-3 mb-1">
+        Animations to Export
+      </div>
+      <div className="text-[10px] text-slate-400 mb-2">
+        For looping emitters, choose which animation variants to export
+      </div>
+      {loopingEmitters.map((emitter) => {
+        const options =
+          settings.exportSettings.animationExportOptions[emitter.id] || {
+            exportLoop: true,
+            exportPrewarm: true,
+          };
+
+        return (
+          <div
+            key={emitter.id}
+            className="border border-slate-600 rounded bg-slate-800/20 p-2 space-y-1"
+          >
+            <div className="text-xs font-medium text-slate-200 mb-1">
+              {emitter.name}
+            </div>
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <input
+                type="checkbox"
+                checked={options.exportLoop}
+                onChange={(e) =>
+                  updateAnimationExportOptions(emitter.id, {
+                    exportLoop: e.target.checked,
+                  })
+                }
+                className="rounded"
+              />
+              <span>Loop Animation</span>
+            </label>
+            <label className="flex items-center gap-2 text-xs cursor-pointer">
+              <input
+                type="checkbox"
+                checked={options.exportPrewarm}
+                onChange={(e) =>
+                  updateAnimationExportOptions(emitter.id, {
+                    exportPrewarm: e.target.checked,
+                  })
+                }
+                className="rounded"
+              />
+              <span>Prewarm Animation</span>
+            </label>
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+AnimationExportOptions.displayName = "AnimationExportOptions";
 
 // ============================================================
 // KEYFRAME THRESHOLDS
@@ -261,6 +332,7 @@ export const ExportPanel = memo<ExportPanelProps>(
 
           <TimelineExportOptions />
           <EmitterExportOptions />
+          <AnimationExportOptions />
           <KeyframeThresholds />
 
           {exportStatus && (

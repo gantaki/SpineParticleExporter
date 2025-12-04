@@ -336,8 +336,13 @@ function buildAnimations(
       !emitter.settings.looping
     );
 
+    // Get animation export options for this emitter
+    const animOptions =
+      settings.exportSettings.animationExportOptions[emitter.id];
+
+    // For looping emitters, always build prewarm data (if frames available)
     const prewarmData =
-      emitter.settings.prewarm && emitter.settings.looping
+      emitter.settings.looping && prewarmFrames.length > 0
         ? buildAnimationData(
             prewarmFrames,
             emitterTracks,
@@ -352,9 +357,16 @@ function buildAnimations(
       addLoopSeamKeys(emitter.id, loopData, frames, getParticleFromFrame);
     }
 
+    // Export loop animation if:
+    // 1. Emitter has looping enabled AND
+    // 2. Either no export options set (default: export all) OR exportLoop is true
     if (emitter.settings.looping && loopData) {
-      animations[`loop_${emitterNumber}`] = loopData.animation;
+      const shouldExportLoop = !animOptions || animOptions.exportLoop;
+      if (shouldExportLoop) {
+        animations[`loop_${emitterNumber}`] = loopData.animation;
+      }
     } else if (!emitter.settings.looping && loopData) {
+      // Non-looping emitters always export their animation
       const animationName =
         emitter.settings.emissionType === "burst"
           ? `burst_${emitterNumber}`
@@ -364,8 +376,14 @@ function buildAnimations(
       animations[animationName] = loopData.animation;
     }
 
+    // Export prewarm animation if:
+    // 1. Prewarm data exists AND
+    // 2. Either no export options set (default: export all) OR exportPrewarm is true
     if (prewarmData) {
-      animations[`prewarm_${emitterNumber}`] = prewarmData.animation;
+      const shouldExportPrewarm = !animOptions || animOptions.exportPrewarm;
+      if (shouldExportPrewarm) {
+        animations[`prewarm_${emitterNumber}`] = prewarmData.animation;
+      }
     }
   }
 

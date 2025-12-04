@@ -168,6 +168,11 @@ interface EmitterInstance {
   visible: boolean; // For viewport visibility
 }
 
+interface AnimationExportOptions {
+  exportLoop: boolean; // Export loop animation
+  exportPrewarm: boolean; // Export prewarm animation
+}
+
 interface ExportSettings {
   exportTranslate: boolean;
   exportRotate: boolean;
@@ -180,6 +185,9 @@ interface ExportSettings {
   colorThreshold: number;
 
   spineVersion: string; // e.g. "4.2.00", "4.3.39-beta"
+
+  // Per-emitter animation export settings (keyed by emitter ID)
+  animationExportOptions: Record<string, AnimationExportOptions>;
 }
 
 // Global particle system settings
@@ -481,6 +489,9 @@ const DEFAULT_SETTINGS: ParticleSettings = {
     colorThreshold: 60,
 
     spineVersion: "4.2.00",
+
+    // Default animation export options (will be populated per emitter dynamically)
+    animationExportOptions: {},
   },
 };
 
@@ -496,6 +507,7 @@ export {
   type ColorGradient,
   type EmitterInstanceSettings,
   type EmitterInstance,
+  type AnimationExportOptions,
   type ExportSettings,
   type ParticleSettings,
   type Particle,
