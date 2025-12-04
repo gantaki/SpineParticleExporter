@@ -6,8 +6,9 @@
 import { memo } from "react";
 import { CollapsibleSection } from "../CollapsibleSection";
 import { ColorGradientEditor } from "../ColorGradientEditor";
-import { RangeCurveCombo, SettingsSection } from "../fields";
+import { RangeCurveCombo, SettingsSection, LabeledCheckbox } from "../fields";
 import { useSettings } from "../../context/SettingsContext";
+import { copyCurve } from "../../utils";
 
 // ============================================================
 // COLOR OVER LIFETIME SECTION
@@ -40,34 +41,78 @@ const SizeCurvesSection = memo(() => {
 
   if (!em) return null;
 
+  const handleSeparateSizeToggle = (checked: boolean) => {
+    if (checked) {
+      // Switching to separate mode - copy uniform values to both X and Y
+      updateCurrentEmitter({
+        separateSize: true,
+        sizeXRange: { ...em.sizeRange },
+        sizeYRange: { ...em.sizeRange },
+        sizeXOverLifetime: copyCurve(em.sizeOverLifetime),
+        sizeYOverLifetime: copyCurve(em.sizeOverLifetime),
+      });
+    } else {
+      // Switching to uniform mode
+      updateCurrentEmitter({
+        separateSize: false,
+      });
+    }
+  };
+
   return (
     <>
-      <RangeCurveCombo
-        rangeLabel="Size X Base Range"
-        rangeHelper="Random between two numbers"
-        rangeValue={em.sizeXRange}
-        onRangeChange={(range) => updateCurrentEmitter({ sizeXRange: range })}
-        curveLabel="Size X Multiplier (-1 to 1)"
-        curveValue={em.sizeXOverLifetime}
-        onCurveChange={(curve) =>
-          updateCurrentEmitter({ sizeXOverLifetime: curve })
-        }
-        curvePresetKey="sizeX"
-        allowRangeToggle={true}
+      <LabeledCheckbox
+        label="Separate Size (X/Y)"
+        checked={em.separateSize}
+        onChange={handleSeparateSizeToggle}
       />
-      <RangeCurveCombo
-        rangeLabel="Size Y Base Range"
-        rangeHelper="Random between two numbers"
-        rangeValue={em.sizeYRange}
-        onRangeChange={(range) => updateCurrentEmitter({ sizeYRange: range })}
-        curveLabel="Size Y Multiplier (-1 to 1)"
-        curveValue={em.sizeYOverLifetime}
-        onCurveChange={(curve) =>
-          updateCurrentEmitter({ sizeYOverLifetime: curve })
-        }
-        curvePresetKey="sizeY"
-        allowRangeToggle={true}
-      />
+
+      {em.separateSize ? (
+        // Separate mode - show Size X and Size Y
+        <>
+          <RangeCurveCombo
+            rangeLabel="Size X Base Range"
+            rangeHelper="Random between two numbers"
+            rangeValue={em.sizeXRange}
+            onRangeChange={(range) => updateCurrentEmitter({ sizeXRange: range })}
+            curveLabel="Size X Multiplier (-1 to 1)"
+            curveValue={em.sizeXOverLifetime}
+            onCurveChange={(curve) =>
+              updateCurrentEmitter({ sizeXOverLifetime: curve })
+            }
+            curvePresetKey="sizeX"
+            allowRangeToggle={true}
+          />
+          <RangeCurveCombo
+            rangeLabel="Size Y Base Range"
+            rangeHelper="Random between two numbers"
+            rangeValue={em.sizeYRange}
+            onRangeChange={(range) => updateCurrentEmitter({ sizeYRange: range })}
+            curveLabel="Size Y Multiplier (-1 to 1)"
+            curveValue={em.sizeYOverLifetime}
+            onCurveChange={(curve) =>
+              updateCurrentEmitter({ sizeYOverLifetime: curve })
+            }
+            curvePresetKey="sizeY"
+            allowRangeToggle={true}
+          />
+        </>
+      ) : (
+        // Uniform mode - show single Size
+        <RangeCurveCombo
+          rangeLabel="Size Base Range"
+          rangeHelper="Random between two numbers"
+          rangeValue={em.sizeRange}
+          onRangeChange={(range) => updateCurrentEmitter({ sizeRange: range })}
+          curveLabel="Size Multiplier (-1 to 1)"
+          curveValue={em.sizeOverLifetime}
+          onCurveChange={(curve) =>
+            updateCurrentEmitter({ sizeOverLifetime: curve })
+          }
+          curvePresetKey="size"
+          allowRangeToggle={true}
+        />
+      )}
     </>
   );
 });

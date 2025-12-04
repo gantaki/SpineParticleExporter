@@ -284,11 +284,19 @@ export class ParticleEngine {
 
       const t = 1 - p.life / p.maxLife;
 
-      const sizeXMultiplier = clamp01(evaluateCurve(em.sizeXOverLifetime, t));
-      const sizeYMultiplier = clamp01(evaluateCurve(em.sizeYOverLifetime, t));
-
-      p.scaleX = p.baseSizeX * sizeXMultiplier * em.scaleRatioX;
-      p.scaleY = p.baseSizeY * sizeYMultiplier * em.scaleRatioY;
+      // Size scaling - use uniform or separate modes
+      if (em.separateSize) {
+        // Separate mode - use individual X and Y curves
+        const sizeXMultiplier = clamp01(evaluateCurve(em.sizeXOverLifetime, t));
+        const sizeYMultiplier = clamp01(evaluateCurve(em.sizeYOverLifetime, t));
+        p.scaleX = p.baseSizeX * sizeXMultiplier * em.scaleRatioX;
+        p.scaleY = p.baseSizeY * sizeYMultiplier * em.scaleRatioY;
+      } else {
+        // Uniform mode - use single size curve for both axes
+        const sizeMultiplier = clamp01(evaluateCurve(em.sizeOverLifetime, t));
+        p.scaleX = p.baseSizeX * sizeMultiplier * em.scaleRatioX;
+        p.scaleY = p.baseSizeY * sizeMultiplier * em.scaleRatioY;
+      }
       p.scale = (p.scaleX + p.scaleY) / 2;
 
       const speedMultiplier = clamp01(evaluateCurve(em.speedOverLifetime, t));
@@ -439,14 +447,29 @@ export class ParticleEngine {
       baseVortexStrength: sampleRange(em.vortexStrengthRange),
       baseSpeedScale: sampleRange(em.speedRange),
       baseWeight: sampleRange(em.weightRange),
-      baseSizeX: sampleRange(em.sizeXRange),
-      baseSizeY: sampleRange(em.sizeYRange),
+      // Size - use uniform or separate modes
+      // In uniform mode, both axes must use the same sampled value for proportional scaling
+      baseSizeX: 0, // Will be set below
+      baseSizeY: 0, // Will be set below
       scale: 1,
       scaleX: 1,
       scaleY: 1,
       color: { r: 255, g: 255, b: 255, a: 255 },
       alpha: 1,
     };
+
+    // Set size values based on mode
+    if (em.separateSize) {
+      // Separate mode - sample X and Y independently
+      particle.baseSizeX = sampleRange(em.sizeXRange);
+      particle.baseSizeY = sampleRange(em.sizeYRange);
+    } else {
+      // Uniform mode - sample once and use for both axes (proportional scaling)
+      const uniformSize = sampleRange(em.sizeRange);
+      particle.baseSizeX = uniformSize;
+      particle.baseSizeY = uniformSize;
+    }
+
     particle.maxLife = particle.life;
 
     this.particles.push(particle);
