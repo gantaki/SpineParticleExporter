@@ -63,9 +63,58 @@ export class ParticleEngine {
   // Observer pattern: callbacks for stats updates
   private statsCallbacks: Set<ParticleStatsCallback> = new Set();
 
+  // Performance optimization: Reusable canvas pool for particle colorization
+  // Avoids creating new canvas DOM elements on every frame
+  private tempCanvasPool: HTMLCanvasElement[] = [];
+  private readonly CANVAS_POOL_SIZE = 5;
+
   constructor(settings: ParticleSettings) {
     this.settings = settings;
     this.initializeEmitterStates();
+    this.initializeCanvasPool();
+  }
+
+  // ============================================================
+  // CANVAS POOL MANAGEMENT (Performance Optimization)
+  // ============================================================
+
+  /**
+   * Initialize the canvas pool with pre-created canvases
+   * This avoids DOM element creation during rendering
+   */
+  private initializeCanvasPool(): void {
+    const size = 32; // Default sprite size (16 * 2)
+    for (let i = 0; i < this.CANVAS_POOL_SIZE; i++) {
+      const canvas = document.createElement("canvas");
+      canvas.width = size;
+      canvas.height = size;
+      this.tempCanvasPool.push(canvas);
+    }
+  }
+
+  /**
+   * Get a temporary canvas from the pool for colorization
+   * If pool is empty, creates a new one (fallback)
+   */
+  private getTempCanvas(): HTMLCanvasElement {
+    if (this.tempCanvasPool.length > 0) {
+      return this.tempCanvasPool.pop()!;
+    }
+    // Fallback: create new canvas if pool exhausted
+    const canvas = document.createElement("canvas");
+    canvas.width = 32;
+    canvas.height = 32;
+    return canvas;
+  }
+
+  /**
+   * Return a canvas to the pool for reuse
+   */
+  private returnTempCanvas(canvas: HTMLCanvasElement): void {
+    // Only return to pool if not exceeding max size
+    if (this.tempCanvasPool.length < this.CANVAS_POOL_SIZE) {
+      this.tempCanvasPool.push(canvas);
+    }
   }
 
   // ============================================================
@@ -815,7 +864,8 @@ export class ParticleEngine {
 
         if (spriteCanvas) {
           const size = 16;
-          const tempCanvas = document.createElement("canvas");
+          // Get canvas from pool instead of creating new one
+          const tempCanvas = this.getTempCanvas();
           tempCanvas.width = size * 2;
           tempCanvas.height = size * 2;
           const tempCtx = tempCanvas.getContext("2d")!;
@@ -828,6 +878,9 @@ export class ParticleEngine {
           // Compensate for inverted Y axis when drawing sprite images
           ctx.scale(1, -1);
           ctx.drawImage(tempCanvas, -size, -size, size * 2, size * 2);
+
+          // Return canvas to pool for reuse
+          this.returnTempCanvas(tempCanvas);
         } else {
           const size = 8;
           ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
