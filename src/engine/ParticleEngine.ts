@@ -75,6 +75,10 @@ export class ParticleEngine {
   // Performance optimization: Cache 2D contexts for canvas pool
   private canvasContextCache: Map<HTMLCanvasElement, CanvasRenderingContext2D> = new Map();
 
+  // Performance optimization: Avoid sorting particles every frame
+  // Group particles by emitter for efficient rendering
+  private particlesByEmitter: Map<string, Particle[]> = new Map();
+
   constructor(settings: ParticleSettings) {
     this.settings = settings;
     this.initializeEmitterStates();
@@ -113,24 +117,33 @@ export class ParticleEngine {
   private rebuildEmitterCache(): void {
     this.emitterCache.clear();
     this.particleCountPerEmitter.clear();
+    this.particlesByEmitter.clear();
     for (const emitter of this.settings.emitters) {
       this.emitterCache.set(emitter.id, emitter);
       this.particleCountPerEmitter.set(emitter.id, 0);
+      this.particlesByEmitter.set(emitter.id, []);
     }
   }
 
   /**
    * Get a temporary canvas from the pool for colorization
    * If pool is empty, creates a new one (fallback)
+   * Size parameter allows reuse without resize if already correct
    */
-  private getTempCanvas(): HTMLCanvasElement {
+  private getTempCanvas(width: number, height: number): HTMLCanvasElement {
     if (this.tempCanvasPool.length > 0) {
-      return this.tempCanvasPool.pop()!;
+      const canvas = this.tempCanvasPool.pop()!;
+      // Only resize if necessary (resize is expensive - clears internal buffer!)
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      return canvas;
     }
     // Fallback: create new canvas if pool exhausted
     const canvas = document.createElement("canvas");
-    canvas.width = 32;
-    canvas.height = 32;
+    canvas.width = width;
+    canvas.height = height;
     // Cache context for new canvas
     const ctx = canvas.getContext("2d");
     if (ctx) {
@@ -209,6 +222,11 @@ export class ParticleEngine {
     this.particles = [];
     this.time = 0;
     this.initializeEmitterStates();
+
+    // Clear grouped particles
+    for (const emitterParticles of this.particlesByEmitter.values()) {
+      emitterParticles.length = 0;
+    }
 
     // Prewarm each emitter if enabled
     for (const emitter of this.settings.emitters) {
@@ -371,6 +389,12 @@ export class ParticleEngine {
           p.emitterId,
           (this.particleCountPerEmitter.get(p.emitterId) || 1) - 1
         );
+        // Remove from grouped particles
+        const emitterParticles = this.particlesByEmitter.get(p.emitterId);
+        if (emitterParticles) {
+          const idx = emitterParticles.indexOf(p);
+          if (idx !== -1) emitterParticles.splice(idx, 1);
+        }
         continue;
       }
 
@@ -384,6 +408,12 @@ export class ParticleEngine {
           p.emitterId,
           (this.particleCountPerEmitter.get(p.emitterId) || 1) - 1
         );
+        // Remove from grouped particles
+        const emitterParticles = this.particlesByEmitter.get(p.emitterId);
+        if (emitterParticles) {
+          const idx = emitterParticles.indexOf(p);
+          if (idx !== -1) emitterParticles.splice(idx, 1);
+        }
         continue;
       }
 
@@ -578,6 +608,12 @@ export class ParticleEngine {
       emitterId,
       (this.particleCountPerEmitter.get(emitterId) || 0) + 1
     );
+
+    // Add to grouped particles for efficient rendering
+    const emitterParticles = this.particlesByEmitter.get(emitterId);
+    if (emitterParticles) {
+      emitterParticles.push(particle);
+    }
   }
 
   private calculateSpawnPosition(
@@ -907,63 +943,60 @@ export class ParticleEngine {
     ctx: CanvasRenderingContext2D,
     spriteCanvases: Record<string, HTMLCanvasElement | null> | null
   ): void {
-    // Group particles by emitter for efficient rendering
-    // Build emitter render order map (lower index = rendered last = on top)
-    const emitterRenderPriority = new Map<string, number>();
-    for (let i = 0; i < this.settings.emitters.length; i++) {
-      emitterRenderPriority.set(this.settings.emitters[i].id, i);
-    }
+    // Render particles grouped by emitter (no sorting needed!)
+    // Render in reverse order so first emitter (index 0) renders last = on top
+    for (let i = this.settings.emitters.length - 1; i >= 0; i--) {
+      const emitter = this.settings.emitters[i];
+      if (!emitter.visible || !emitter.enabled) continue;
 
-    // Sort particles by emitter priority (descending = last emitter first, first emitter last)
-    // This ensures first emitter (index 0) renders on top
-    const sortedParticles = this.particles.slice().sort((a, b) => {
-      const priorityA = emitterRenderPriority.get(a.emitterId) ?? 0;
-      const priorityB = emitterRenderPriority.get(b.emitterId) ?? 0;
-      return priorityB - priorityA;
-    });
-
-    // Render particles in priority order
-    for (const p of sortedParticles) {
-      const emitter = this.emitterCache.get(p.emitterId);
-      if (!emitter || !emitter.visible || !emitter.enabled) continue;
+      const emitterParticles = this.particlesByEmitter.get(emitter.id);
+      if (!emitterParticles || emitterParticles.length === 0) continue;
 
       const spriteCanvas = spriteCanvases ? spriteCanvases[emitter.id] : null;
+      const size = 16;
+      const canvasSize = size * 2;
 
-      ctx.save();
-      ctx.translate(p.x, p.y);
-      ctx.rotate(p.rotation);
-      ctx.scale(p.scaleX, p.scaleY);
-      ctx.globalAlpha = p.alpha;
+      // Render all particles from this emitter
+      for (const p of emitterParticles) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        ctx.scale(p.scaleX, p.scaleY);
+        ctx.globalAlpha = p.alpha;
 
-      if (spriteCanvas) {
-        const size = 16;
-        // Get canvas from pool instead of creating new one
-        const tempCanvas = this.getTempCanvas();
-        tempCanvas.width = size * 2;
-        tempCanvas.height = size * 2;
-        // Use cached context instead of getContext()
-        const tempCtx = this.getCachedContext(tempCanvas);
+        if (spriteCanvas) {
+          // Get canvas from pool with size (avoids resize if already correct)
+          const tempCanvas = this.getTempCanvas(canvasSize, canvasSize);
+          // Use cached context instead of getContext()
+          const tempCtx = this.getCachedContext(tempCanvas);
 
-        tempCtx.drawImage(spriteCanvas, 0, 0, size * 2, size * 2);
-        tempCtx.globalCompositeOperation = "source-in";
-        tempCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-        tempCtx.fillRect(0, 0, size * 2, size * 2);
+          // Clear previous content (cheap compared to resize)
+          tempCtx.clearRect(0, 0, canvasSize, canvasSize);
 
-        // Compensate for inverted Y axis when drawing sprite images
-        ctx.scale(1, -1);
-        ctx.drawImage(tempCanvas, -size, -size, size * 2, size * 2);
+          tempCtx.drawImage(spriteCanvas, 0, 0, canvasSize, canvasSize);
+          tempCtx.globalCompositeOperation = "source-in";
+          tempCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
+          tempCtx.fillRect(0, 0, canvasSize, canvasSize);
 
-        // Return canvas to pool for reuse
-        this.returnTempCanvas(tempCanvas);
-      } else {
-        const size = 8;
-        ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-        ctx.beginPath();
-        ctx.arc(0, 0, size, 0, Math.PI * 2);
-        ctx.fill();
+          // Reset composite operation for next use
+          tempCtx.globalCompositeOperation = "source-over";
+
+          // Compensate for inverted Y axis when drawing sprite images
+          ctx.scale(1, -1);
+          ctx.drawImage(tempCanvas, -size, -size, canvasSize, canvasSize);
+
+          // Return canvas to pool for reuse
+          this.returnTempCanvas(tempCanvas);
+        } else {
+          const circleSize = 8;
+          ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
+          ctx.beginPath();
+          ctx.arc(0, 0, circleSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        ctx.restore();
       }
-
-      ctx.restore();
     }
   }
 
