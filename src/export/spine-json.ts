@@ -3,7 +3,7 @@
  * Converts baked particle animation frames into Spine skeleton JSON format
  */
 
-import type { ParticleSettings, BakedFrame } from "../types";
+import type { ParticleSettings, BakedFrame, EmitterInstance } from "../types";
 import { makeParticleKey, type ParticleSnapshot } from "./baking";
 
 // ============================================================
@@ -289,6 +289,171 @@ function buildSlotsAndSkins(
 // ANIMATION BUILDERS
 // ============================================================
 
+/**
+ * Context object for building emitter animations
+ * Contains all shared data needed by emitter-specific builders
+ */
+interface EmitterAnimationContext {
+  frames: BakedFrame[];
+  prewarmFrames: BakedFrame[];
+  settings: ParticleSettings;
+  emitter: EmitterInstance;
+  emitterTracks: ParticleTrack[];
+  getSpriteName: (emitterId: string) => string;
+  getParticleFromFrame: (
+    frame: BakedFrame,
+    emitterId: string,
+    particleId: number
+  ) => ParticleSnapshot | undefined;
+}
+
+/**
+ * Groups particle tracks by emitter ID
+ */
+function groupTracksByEmitter(
+  particleTracks: ParticleTrack[]
+): Map<string, ParticleTrack[]> {
+  const tracksByEmitter = new Map<string, ParticleTrack[]>();
+  for (const track of particleTracks) {
+    if (!tracksByEmitter.has(track.emitterId)) {
+      tracksByEmitter.set(track.emitterId, []);
+    }
+    tracksByEmitter.get(track.emitterId)!.push(track);
+  }
+  return tracksByEmitter;
+}
+
+/**
+ * Builds animations for Duration-type emitters
+ * Duration emitters always export with 'duration_' prefix and preserve timing
+ */
+function buildDurationEmitterAnimation(
+  ctx: EmitterAnimationContext,
+  animations: Record<string, unknown>
+): void {
+  const { frames, settings, emitter, emitterTracks, getSpriteName, getParticleFromFrame } = ctx;
+
+  // Duration emitters preserve timing (don't normalize to zero)
+  // to keep durationStart delay in the exported animation
+  const loopData = buildAnimationData(
+    frames,
+    emitterTracks,
+    settings,
+    getSpriteName,
+    getParticleFromFrame,
+    false // Never normalize start time for duration emitters
+  );
+
+  if (loopData) {
+    animations[`duration_${emitter.name}`] = loopData.animation;
+  }
+}
+
+/**
+ * Builds animations for Burst-type emitters
+ * Burst emitters always export with 'burst_' prefix
+ */
+function buildBurstEmitterAnimation(
+  ctx: EmitterAnimationContext,
+  animations: Record<string, unknown>
+): void {
+  const { frames, settings, emitter, emitterTracks, getSpriteName, getParticleFromFrame } = ctx;
+
+  // Burst emitters normalize start time for non-looping
+  const shouldNormalizeStart = !emitter.settings.looping;
+
+  const loopData = buildAnimationData(
+    frames,
+    emitterTracks,
+    settings,
+    getSpriteName,
+    getParticleFromFrame,
+    shouldNormalizeStart
+  );
+
+  if (loopData) {
+    animations[`burst_${emitter.name}`] = loopData.animation;
+  }
+}
+
+/**
+ * Builds animations for Continuous-type emitters
+ * Handles both looping and non-looping continuous emitters, including prewarm
+ */
+function buildContinuousEmitterAnimation(
+  ctx: EmitterAnimationContext,
+  animations: Record<string, unknown>
+): void {
+  const {
+    frames,
+    prewarmFrames,
+    settings,
+    emitter,
+    emitterTracks,
+    getSpriteName,
+    getParticleFromFrame
+  } = ctx;
+
+  // Continuous emitters normalize start time for non-looping
+  const shouldNormalizeStart = !emitter.settings.looping;
+
+  const loopData = buildAnimationData(
+    frames,
+    emitterTracks,
+    settings,
+    getSpriteName,
+    getParticleFromFrame,
+    shouldNormalizeStart
+  );
+
+  // Get animation export options for this emitter
+  const animOptions = settings.exportSettings.animationExportOptions[emitter.id];
+
+  // For looping continuous emitters only, build prewarm data
+  const prewarmData =
+    emitter.settings.looping && prewarmFrames.length > 0
+      ? buildAnimationData(
+          prewarmFrames,
+          emitterTracks,
+          settings,
+          getSpriteName,
+          getParticleFromFrame,
+          true
+        )
+      : null;
+
+  // Add loop seam keys for looping emitters
+  if (emitter.settings.looping && loopData && prewarmData) {
+    addLoopSeamKeys(emitter.id, loopData, frames, getParticleFromFrame);
+  }
+
+  // Export main animation
+  if (loopData) {
+    if (emitter.settings.looping) {
+      // Looping continuous emitters use loop_ prefix
+      const shouldExportLoop = !animOptions || animOptions.exportLoop;
+      if (shouldExportLoop) {
+        animations[`loop_${emitter.name}`] = loopData.animation;
+      }
+    } else {
+      // Non-looping continuous emitters use animation_ prefix
+      animations[`animation_${emitter.name}`] = loopData.animation;
+    }
+  }
+
+  // Export prewarm animation (only for looping continuous emitters)
+  if (prewarmData) {
+    const shouldExportPrewarm = !animOptions || animOptions.exportPrewarm;
+    if (shouldExportPrewarm) {
+      animations[`prewarm_${emitter.name}`] = prewarmData.animation;
+    }
+  }
+}
+
+/**
+ * Builds all animations for all enabled emitters
+ * Delegates to type-specific builder functions based on emission type
+ */
 function buildAnimations(
   frames: BakedFrame[],
   prewarmFrames: BakedFrame[],
@@ -299,14 +464,9 @@ function buildAnimations(
   const animations: Record<string, unknown> = {};
 
   // Group tracks by emitter
-  const tracksByEmitter = new Map<string, ParticleTrack[]>();
-  for (const track of particleTracks) {
-    if (!tracksByEmitter.has(track.emitterId)) {
-      tracksByEmitter.set(track.emitterId, []);
-    }
-    tracksByEmitter.get(track.emitterId)!.push(track);
-  }
+  const tracksByEmitter = groupTracksByEmitter(particleTracks);
 
+  // Helper to get particle from frame
   const getParticleFromFrame = (
     frame: BakedFrame,
     emitterId: string,
@@ -316,81 +476,40 @@ function buildAnimations(
       | ParticleSnapshot
       | undefined;
 
+  // Process each enabled emitter
   for (const emitter of settings.emitters) {
     if (!emitter.enabled) continue;
+
     const emitterTracks = tracksByEmitter.get(emitter.id) || [];
     if (emitterTracks.length === 0) continue;
 
-    // Use emitter name for animation naming
-    const emitterName = emitter.name;
-    const emissionType = emitter.settings.emissionType;
-
-    // Duration emitters should always use duration_ prefix, never loop_ or prewarm_
-    const isDurationEmitter = emissionType === "duration";
-
-    // For duration emitters, preserve timing (don't normalize to zero)
-    // to keep durationStart delay in the exported animation
-    const shouldNormalizeStart = !emitter.settings.looping && !isDurationEmitter;
-
-    const loopData = buildAnimationData(
+    // Create context for emitter-specific builders
+    const ctx: EmitterAnimationContext = {
       frames,
-      emitterTracks,
+      prewarmFrames,
       settings,
+      emitter,
+      emitterTracks,
       getSpriteName,
       getParticleFromFrame,
-      shouldNormalizeStart
-    );
+    };
 
-    // Get animation export options for this emitter
-    const animOptions =
-      settings.exportSettings.animationExportOptions[emitter.id];
-
-    // For looping continuous emitters only, build prewarm data
-    // Duration and burst emitters should not have prewarm animations
-    const prewarmData =
-      emitter.settings.looping &&
-      emissionType === "continuous" &&
-      prewarmFrames.length > 0
-        ? buildAnimationData(
-            prewarmFrames,
-            emitterTracks,
-            settings,
-            getSpriteName,
-            getParticleFromFrame,
-            true
-          )
-        : null;
-
-    if (emitter.settings.looping && loopData && prewarmData && !isDurationEmitter) {
-      addLoopSeamKeys(emitter.id, loopData, frames, getParticleFromFrame);
-    }
-
-    // Export animation based on emission type
-    if (loopData) {
-      if (isDurationEmitter) {
-        // Duration emitters always use duration_ prefix
-        animations[`duration_${emitterName}`] = loopData.animation;
-      } else if (emitter.settings.emissionType === "burst") {
-        // Burst emitters use burst_ prefix
-        animations[`burst_${emitterName}`] = loopData.animation;
-      } else if (emitter.settings.looping) {
-        // Looping continuous emitters use loop_ prefix
-        const shouldExportLoop = !animOptions || animOptions.exportLoop;
-        if (shouldExportLoop) {
-          animations[`loop_${emitterName}`] = loopData.animation;
-        }
-      } else {
-        // Non-looping continuous emitters use animation_ prefix
-        animations[`animation_${emitterName}`] = loopData.animation;
-      }
-    }
-
-    // Export prewarm animation only for looping continuous emitters
-    if (prewarmData && !isDurationEmitter) {
-      const shouldExportPrewarm = !animOptions || animOptions.exportPrewarm;
-      if (shouldExportPrewarm) {
-        animations[`prewarm_${emitterName}`] = prewarmData.animation;
-      }
+    // Delegate to type-specific builder (Strategy pattern)
+    const emissionType = emitter.settings.emissionType;
+    switch (emissionType) {
+      case "duration":
+        buildDurationEmitterAnimation(ctx, animations);
+        break;
+      case "burst":
+        buildBurstEmitterAnimation(ctx, animations);
+        break;
+      case "continuous":
+        buildContinuousEmitterAnimation(ctx, animations);
+        break;
+      default:
+        // Exhaustive check - TypeScript will error if a new type is added
+        const _exhaustive: never = emissionType;
+        console.warn(`Unknown emission type: ${_exhaustive}`);
     }
   }
 
@@ -759,69 +878,132 @@ function buildParticleKeyframes(
   };
 }
 
+// ============================================================
+// ANIMATION TRACK UTILITIES (DRY)
+// ============================================================
+
+/**
+ * Type definitions for animation data structure
+ */
+type BoneTrackName = "translate" | "rotate" | "scale";
+type SlotTrackName = "attachment" | "rgba";
+
+type BoneAnimationData = Record<
+  string,
+  Array<{ time: number; x?: number; y?: number; value?: number }>
+>;
+
+type SlotAnimationData = Record<
+  string,
+  Array<{ time: number; name?: string | null; color?: string }>
+>;
+
+/**
+ * Iterates over all bone tracks in animation data
+ * Applies callback to each track (translate, rotate, scale)
+ */
+function forEachBoneTrack(
+  animationData: { bones: Record<string, unknown> },
+  callback: (
+    boneName: string,
+    trackName: BoneTrackName,
+    track: Array<{ time: number; x?: number; y?: number; value?: number }>
+  ) => void
+): void {
+  const trackNames: BoneTrackName[] = ["translate", "rotate", "scale"];
+
+  for (const boneName in animationData.bones) {
+    const bone = animationData.bones[boneName] as BoneAnimationData;
+
+    for (const trackName of trackNames) {
+      const track = bone[trackName];
+      if (track && Array.isArray(track)) {
+        callback(boneName, trackName, track);
+      }
+    }
+  }
+}
+
+/**
+ * Iterates over all slot tracks in animation data
+ * Applies callback to each track (attachment, rgba)
+ */
+function forEachSlotTrack(
+  animationData: { slots: Record<string, unknown> },
+  callback: (
+    slotName: string,
+    trackName: SlotTrackName,
+    track: Array<{ time: number; name?: string | null; color?: string }>
+  ) => void
+): void {
+  const trackNames: SlotTrackName[] = ["attachment", "rgba"];
+
+  for (const slotName in animationData.slots) {
+    const slot = animationData.slots[slotName] as SlotAnimationData;
+
+    for (const trackName of trackNames) {
+      const track = slot[trackName];
+      if (track && Array.isArray(track)) {
+        callback(slotName, trackName, track);
+      }
+    }
+  }
+}
+
+// ============================================================
+// ANIMATION TIME MANIPULATION
+// ============================================================
+
+/**
+ * Normalizes animation times by shifting all keyframes to start at time 0
+ * Finds minimum time across all tracks and subtracts it from all keyframes
+ */
 function normalizeAnimationTimes(animationData: {
   bones: Record<string, unknown>;
   slots: Record<string, unknown>;
 }): void {
   let minTime = Infinity;
 
-  const consider = (keys?: Array<{ time: number }>) => {
-    if (!keys) return;
-    for (const key of keys) {
+  // Find minimum time across all bone tracks
+  forEachBoneTrack(animationData, (_boneName, _trackName, track) => {
+    for (const key of track) {
       if (typeof key.time === "number") {
         minTime = Math.min(minTime, key.time);
       }
     }
-  };
+  });
 
-  for (const boneName in animationData.bones) {
-    const bone = animationData.bones[boneName] as Record<
-      string,
-      Array<{ time: number }>
-    >;
-    consider(bone.translate);
-    consider(bone.rotate);
-    consider(bone.scale);
-  }
+  // Find minimum time across all slot tracks
+  forEachSlotTrack(animationData, (_slotName, _trackName, track) => {
+    for (const key of track) {
+      if (typeof key.time === "number") {
+        minTime = Math.min(minTime, key.time);
+      }
+    }
+  });
 
-  for (const slotName in animationData.slots) {
-    const slot = animationData.slots[slotName] as Record<
-      string,
-      Array<{ time: number }>
-    >;
-    consider(slot.attachment);
-    consider(slot.rgba);
-  }
-
+  // Shift all keyframes if minimum time is greater than 0
   if (isFinite(minTime) && minTime > 0) {
-    const shiftKeys = (keys?: Array<{ time: number }>) => {
-      if (!keys) return;
-      for (const key of keys) {
+    // Shift bone track times
+    forEachBoneTrack(animationData, (_boneName, _trackName, track) => {
+      for (const key of track) {
         key.time = Math.round((key.time - minTime) * 1000) / 1000;
       }
-    };
+    });
 
-    for (const boneName in animationData.bones) {
-      const bone = animationData.bones[boneName] as Record<
-        string,
-        Array<{ time: number }>
-      >;
-      shiftKeys(bone.translate);
-      shiftKeys(bone.rotate);
-      shiftKeys(bone.scale);
-    }
-
-    for (const slotName in animationData.slots) {
-      const slot = animationData.slots[slotName] as Record<
-        string,
-        Array<{ time: number }>
-      >;
-      shiftKeys(slot.attachment);
-      shiftKeys(slot.rgba);
-    }
+    // Shift slot track times
+    forEachSlotTrack(animationData, (_slotName, _trackName, track) => {
+      for (const key of track) {
+        key.time = Math.round((key.time - minTime) * 1000) / 1000;
+      }
+    });
   }
 }
 
+/**
+ * Adds loop seam keys to animation for seamless looping
+ * Duplicates first keyframe at loop end time for all visible particles
+ */
 function addLoopSeamKeys(
   emitterId: string,
   loopData: AnimationResult,
@@ -838,71 +1020,41 @@ function addLoopSeamKeys(
   const loopDuration = frames[frames.length - 1].time;
   const firstFrame = frames[0];
 
-  for (const boneName in loopAnimation.bones) {
-    const bone = loopAnimation.bones[boneName] as Record<
-      string,
-      Array<{ time: number; x?: number; y?: number; value?: number }>
-    >;
-    const track = loopData.trackByBoneName.get(boneName);
-    const firstParticle = track
-      ? getParticleFromFrame(firstFrame, emitterId, track.particleId)
+  // Add seam keys to bone tracks
+  forEachBoneTrack(loopAnimation, (boneName, _trackName, track) => {
+    if (track.length === 0) return;
+
+    // Check if particle is visible in first frame
+    const particleTrack = loopData.trackByBoneName.get(boneName);
+    const firstParticle = particleTrack
+      ? getParticleFromFrame(firstFrame, emitterId, particleTrack.particleId)
       : undefined;
 
     if (firstParticle && isParticleVisible(firstParticle)) {
-      if (bone.translate && bone.translate.length > 0) {
-        const firstKey = bone.translate[0];
-        bone.translate.push({
-          time: Math.round(loopDuration * 1000) / 1000,
-          x: firstKey.x,
-          y: firstKey.y,
-        });
-      }
-
-      if (bone.rotate && bone.rotate.length > 0) {
-        const firstKey = bone.rotate[0];
-        bone.rotate.push({
-          time: Math.round(loopDuration * 1000) / 1000,
-          value: firstKey.value,
-        });
-      }
-
-      if (bone.scale && bone.scale.length > 0) {
-        const firstKey = bone.scale[0];
-        bone.scale.push({
-          time: Math.round(loopDuration * 1000) / 1000,
-          x: firstKey.x,
-          y: firstKey.y,
-        });
-      }
+      const firstKey = track[0];
+      // Create seam key with same properties but at loop end time
+      const seamTime = Math.round(loopDuration * 1000) / 1000;
+      const seamKey = { ...firstKey, time: seamTime };
+      track.push(seamKey);
     }
-  }
+  });
 
-  for (const slotName in loopAnimation.slots) {
-    const slot = loopAnimation.slots[slotName] as Record<
-      string,
-      Array<{ time: number; name?: string | null; color?: string }>
-    >;
-    const track = loopData.trackBySlotName.get(slotName);
-    const firstParticle = track
-      ? getParticleFromFrame(firstFrame, emitterId, track.particleId)
+  // Add seam keys to slot tracks
+  forEachSlotTrack(loopAnimation, (slotName, _trackName, track) => {
+    if (track.length === 0) return;
+
+    // Check if particle is visible in first frame
+    const particleTrack = loopData.trackBySlotName.get(slotName);
+    const firstParticle = particleTrack
+      ? getParticleFromFrame(firstFrame, emitterId, particleTrack.particleId)
       : undefined;
 
     if (firstParticle && isParticleVisible(firstParticle)) {
-      if (slot.attachment && slot.attachment.length > 0) {
-        const firstKey = slot.attachment[0];
-        slot.attachment.push({
-          time: Math.round(loopDuration * 1000) / 1000,
-          name: firstKey.name,
-        });
-      }
-
-      if (slot.rgba && slot.rgba.length > 0) {
-        const firstKey = slot.rgba[0];
-        slot.rgba.push({
-          time: Math.round(loopDuration * 1000) / 1000,
-          color: firstKey.color,
-        });
-      }
+      const firstKey = track[0];
+      // Create seam key with same properties but at loop end time
+      const seamTime = Math.round(loopDuration * 1000) / 1000;
+      const seamKey = { ...firstKey, time: seamTime };
+      track.push(seamKey);
     }
-  }
+  });
 }
