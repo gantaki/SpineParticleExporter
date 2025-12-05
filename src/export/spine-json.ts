@@ -878,69 +878,132 @@ function buildParticleKeyframes(
   };
 }
 
+// ============================================================
+// ANIMATION TRACK UTILITIES (DRY)
+// ============================================================
+
+/**
+ * Type definitions for animation data structure
+ */
+type BoneTrackName = "translate" | "rotate" | "scale";
+type SlotTrackName = "attachment" | "rgba";
+
+type BoneAnimationData = Record<
+  string,
+  Array<{ time: number; x?: number; y?: number; value?: number }>
+>;
+
+type SlotAnimationData = Record<
+  string,
+  Array<{ time: number; name?: string | null; color?: string }>
+>;
+
+/**
+ * Iterates over all bone tracks in animation data
+ * Applies callback to each track (translate, rotate, scale)
+ */
+function forEachBoneTrack(
+  animationData: { bones: Record<string, unknown> },
+  callback: (
+    boneName: string,
+    trackName: BoneTrackName,
+    track: Array<{ time: number; x?: number; y?: number; value?: number }>
+  ) => void
+): void {
+  const trackNames: BoneTrackName[] = ["translate", "rotate", "scale"];
+
+  for (const boneName in animationData.bones) {
+    const bone = animationData.bones[boneName] as BoneAnimationData;
+
+    for (const trackName of trackNames) {
+      const track = bone[trackName];
+      if (track && Array.isArray(track)) {
+        callback(boneName, trackName, track);
+      }
+    }
+  }
+}
+
+/**
+ * Iterates over all slot tracks in animation data
+ * Applies callback to each track (attachment, rgba)
+ */
+function forEachSlotTrack(
+  animationData: { slots: Record<string, unknown> },
+  callback: (
+    slotName: string,
+    trackName: SlotTrackName,
+    track: Array<{ time: number; name?: string | null; color?: string }>
+  ) => void
+): void {
+  const trackNames: SlotTrackName[] = ["attachment", "rgba"];
+
+  for (const slotName in animationData.slots) {
+    const slot = animationData.slots[slotName] as SlotAnimationData;
+
+    for (const trackName of trackNames) {
+      const track = slot[trackName];
+      if (track && Array.isArray(track)) {
+        callback(slotName, trackName, track);
+      }
+    }
+  }
+}
+
+// ============================================================
+// ANIMATION TIME MANIPULATION
+// ============================================================
+
+/**
+ * Normalizes animation times by shifting all keyframes to start at time 0
+ * Finds minimum time across all tracks and subtracts it from all keyframes
+ */
 function normalizeAnimationTimes(animationData: {
   bones: Record<string, unknown>;
   slots: Record<string, unknown>;
 }): void {
   let minTime = Infinity;
 
-  const consider = (keys?: Array<{ time: number }>) => {
-    if (!keys) return;
-    for (const key of keys) {
+  // Find minimum time across all bone tracks
+  forEachBoneTrack(animationData, (_boneName, _trackName, track) => {
+    for (const key of track) {
       if (typeof key.time === "number") {
         minTime = Math.min(minTime, key.time);
       }
     }
-  };
+  });
 
-  for (const boneName in animationData.bones) {
-    const bone = animationData.bones[boneName] as Record<
-      string,
-      Array<{ time: number }>
-    >;
-    consider(bone.translate);
-    consider(bone.rotate);
-    consider(bone.scale);
-  }
+  // Find minimum time across all slot tracks
+  forEachSlotTrack(animationData, (_slotName, _trackName, track) => {
+    for (const key of track) {
+      if (typeof key.time === "number") {
+        minTime = Math.min(minTime, key.time);
+      }
+    }
+  });
 
-  for (const slotName in animationData.slots) {
-    const slot = animationData.slots[slotName] as Record<
-      string,
-      Array<{ time: number }>
-    >;
-    consider(slot.attachment);
-    consider(slot.rgba);
-  }
-
+  // Shift all keyframes if minimum time is greater than 0
   if (isFinite(minTime) && minTime > 0) {
-    const shiftKeys = (keys?: Array<{ time: number }>) => {
-      if (!keys) return;
-      for (const key of keys) {
+    // Shift bone track times
+    forEachBoneTrack(animationData, (_boneName, _trackName, track) => {
+      for (const key of track) {
         key.time = Math.round((key.time - minTime) * 1000) / 1000;
       }
-    };
+    });
 
-    for (const boneName in animationData.bones) {
-      const bone = animationData.bones[boneName] as Record<
-        string,
-        Array<{ time: number }>
-      >;
-      shiftKeys(bone.translate);
-      shiftKeys(bone.rotate);
-      shiftKeys(bone.scale);
-    }
-
-    for (const slotName in animationData.slots) {
-      const slot = animationData.slots[slotName] as Record<
-        string,
-        Array<{ time: number }>
-      >;
-      shiftKeys(slot.attachment);
-      shiftKeys(slot.rgba);
-    }
+    // Shift slot track times
+    forEachSlotTrack(animationData, (_slotName, _trackName, track) => {
+      for (const key of track) {
+        key.time = Math.round((key.time - minTime) * 1000) / 1000;
+      }
+    });
   }
 }
 
+/**
+ * Adds loop seam keys to animation for seamless looping
+ * Duplicates first keyframe at loop end time for all visible particles
+ */
 function addLoopSeamKeys(
   emitterId: string,
   loopData: AnimationResult,
@@ -957,71 +1020,41 @@ function addLoopSeamKeys(
   const loopDuration = frames[frames.length - 1].time;
   const firstFrame = frames[0];
 
-  for (const boneName in loopAnimation.bones) {
-    const bone = loopAnimation.bones[boneName] as Record<
-      string,
-      Array<{ time: number; x?: number; y?: number; value?: number }>
-    >;
-    const track = loopData.trackByBoneName.get(boneName);
-    const firstParticle = track
-      ? getParticleFromFrame(firstFrame, emitterId, track.particleId)
+  // Add seam keys to bone tracks
+  forEachBoneTrack(loopAnimation, (boneName, _trackName, track) => {
+    if (track.length === 0) return;
+
+    // Check if particle is visible in first frame
+    const particleTrack = loopData.trackByBoneName.get(boneName);
+    const firstParticle = particleTrack
+      ? getParticleFromFrame(firstFrame, emitterId, particleTrack.particleId)
       : undefined;
 
     if (firstParticle && isParticleVisible(firstParticle)) {
-      if (bone.translate && bone.translate.length > 0) {
-        const firstKey = bone.translate[0];
-        bone.translate.push({
-          time: Math.round(loopDuration * 1000) / 1000,
-          x: firstKey.x,
-          y: firstKey.y,
-        });
-      }
-
-      if (bone.rotate && bone.rotate.length > 0) {
-        const firstKey = bone.rotate[0];
-        bone.rotate.push({
-          time: Math.round(loopDuration * 1000) / 1000,
-          value: firstKey.value,
-        });
-      }
-
-      if (bone.scale && bone.scale.length > 0) {
-        const firstKey = bone.scale[0];
-        bone.scale.push({
-          time: Math.round(loopDuration * 1000) / 1000,
-          x: firstKey.x,
-          y: firstKey.y,
-        });
-      }
+      const firstKey = track[0];
+      // Create seam key with same properties but at loop end time
+      const seamTime = Math.round(loopDuration * 1000) / 1000;
+      const seamKey = { ...firstKey, time: seamTime };
+      track.push(seamKey);
     }
-  }
+  });
 
-  for (const slotName in loopAnimation.slots) {
-    const slot = loopAnimation.slots[slotName] as Record<
-      string,
-      Array<{ time: number; name?: string | null; color?: string }>
-    >;
-    const track = loopData.trackBySlotName.get(slotName);
-    const firstParticle = track
-      ? getParticleFromFrame(firstFrame, emitterId, track.particleId)
+  // Add seam keys to slot tracks
+  forEachSlotTrack(loopAnimation, (slotName, _trackName, track) => {
+    if (track.length === 0) return;
+
+    // Check if particle is visible in first frame
+    const particleTrack = loopData.trackBySlotName.get(slotName);
+    const firstParticle = particleTrack
+      ? getParticleFromFrame(firstFrame, emitterId, particleTrack.particleId)
       : undefined;
 
     if (firstParticle && isParticleVisible(firstParticle)) {
-      if (slot.attachment && slot.attachment.length > 0) {
-        const firstKey = slot.attachment[0];
-        slot.attachment.push({
-          time: Math.round(loopDuration * 1000) / 1000,
-          name: firstKey.name,
-        });
-      }
-
-      if (slot.rgba && slot.rgba.length > 0) {
-        const firstKey = slot.rgba[0];
-        slot.rgba.push({
-          time: Math.round(loopDuration * 1000) / 1000,
-          color: firstKey.color,
-        });
-      }
+      const firstKey = track[0];
+      // Create seam key with same properties but at loop end time
+      const seamTime = Math.round(loopDuration * 1000) / 1000;
+      const seamKey = { ...firstKey, time: seamTime };
+      track.push(seamKey);
     }
-  }
+  });
 }
