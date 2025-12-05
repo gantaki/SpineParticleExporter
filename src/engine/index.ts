@@ -5,4 +5,5 @@
  */
 
 export { ParticleEngine } from "./ParticleEngine";
-export type { RenderOptions } from "./ParticleEngine";
+export { CanvasParticleRenderer } from "./CanvasParticleRenderer";
+export type { RenderOptions } from "./CanvasParticleRenderer";

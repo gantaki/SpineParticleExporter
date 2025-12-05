@@ -16,7 +16,8 @@
  */
 
 import { useRef, useCallback, useEffect, useMemo } from "react";
-import { ParticleEngine, RenderOptions } from "../engine/ParticleEngine";
+import { ParticleEngine } from "../engine/ParticleEngine";
+import { CanvasParticleRenderer, RenderOptions } from "../engine/CanvasParticleRenderer";
 import { useEditorMachine, EditorMachineAPI } from "../state/EditorMachine";
 import { useSettings } from "../context/SettingsContext";
 import { useViewport } from "../context/ViewportContext";
@@ -102,6 +103,7 @@ export function useParticleBridge(): ParticleBridgeAPI {
   const particleCountRef = useRef<HTMLSpanElement | null>(null);
   const timeDisplayRef = useRef<HTMLSpanElement | null>(null);
   const engineRef = useRef<ParticleEngine | null>(null);
+  const rendererRef = useRef<CanvasParticleRenderer | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const lastFrameTimeRef = useRef<number>(0);
   const bakedSimulationRef = useRef<InternalBakedSimulation | null>(null);
@@ -118,13 +120,18 @@ export function useParticleBridge(): ParticleBridgeAPI {
   // ENGINE INITIALIZATION
   // ============================================================
 
-  // Initialize/update engine when settings change
+  // Initialize/update engine and renderer when settings change
   useEffect(() => {
     if (!engineRef.current) {
       engineRef.current = new ParticleEngine(settings);
     } else {
       engineRef.current.settings = settings;
       engineRef.current.initializeEmitterStates();
+    }
+
+    // Initialize renderer once
+    if (!rendererRef.current) {
+      rendererRef.current = new CanvasParticleRenderer();
     }
 
     // Mark simulation as needing rebake
@@ -273,8 +280,8 @@ export function useParticleBridge(): ParticleBridgeAPI {
       }
 
       const ctx = canvas.getContext("2d");
-      if (ctx) {
-        engine.render(ctx, getRenderOptions());
+      if (ctx && rendererRef.current) {
+        rendererRef.current.render(ctx, engine, settings, getRenderOptions());
       }
 
       // Notify observers (updates Timeline via Observer pattern)
@@ -309,7 +316,9 @@ export function useParticleBridge(): ParticleBridgeAPI {
           engine.time >= settings.duration
         ) {
           engine.time = settings.duration;
-          engine.render(ctx, getRenderOptions());
+          if (rendererRef.current) {
+            rendererRef.current.render(ctx, engine, settings, getRenderOptions());
+          }
           machine.pause();
           machine.setTime(settings.duration);
           return;
@@ -326,7 +335,9 @@ export function useParticleBridge(): ParticleBridgeAPI {
         }
 
         engine.update(appliedDt);
-        engine.render(ctx, getRenderOptions());
+        if (rendererRef.current) {
+          rendererRef.current.render(ctx, engine, settings, getRenderOptions());
+        }
 
         // Check if reached end after update
         const newTime = engine.time;
@@ -349,7 +360,9 @@ export function useParticleBridge(): ParticleBridgeAPI {
       animationFrameRef.current = requestAnimationFrame(animate);
     } else {
       // Render current state when not playing
-      engine.render(ctx, getRenderOptions());
+      if (rendererRef.current) {
+        rendererRef.current.render(ctx, engine, settings, getRenderOptions());
+      }
     }
 
     return () => {
@@ -407,10 +420,10 @@ export function useParticleBridge(): ParticleBridgeAPI {
         engine.reset();
         machine.setTime(0);
 
-        if (canvasRef.current) {
+        if (canvasRef.current && rendererRef.current) {
           const ctx = canvasRef.current.getContext("2d");
           if (ctx) {
-            engine.render(ctx, getRenderOptions());
+            rendererRef.current.render(ctx, engine, settings, getRenderOptions());
           }
         }
       }
@@ -434,13 +447,13 @@ export function useParticleBridge(): ParticleBridgeAPI {
     machine.stop();
     bakedSimulationRef.current = null;
 
-    if (canvasRef.current) {
+    if (canvasRef.current && rendererRef.current) {
       const ctx = canvasRef.current.getContext("2d");
       if (ctx) {
-        engine.render(ctx, getRenderOptions());
+        rendererRef.current.render(ctx, engine, settings, getRenderOptions());
       }
     }
-  }, [machine, getRenderOptions]);
+  }, [machine, settings, getRenderOptions]);
 
   const handlePlaybackRestart = useCallback(() => {
     const engine = engineRef.current;
@@ -449,10 +462,10 @@ export function useParticleBridge(): ParticleBridgeAPI {
     engine.reset();
     machine.setTime(0);
 
-    if (canvasRef.current) {
+    if (canvasRef.current && rendererRef.current) {
       const ctx = canvasRef.current.getContext("2d");
       if (ctx) {
-        engine.render(ctx, getRenderOptions());
+        rendererRef.current.render(ctx, engine, settings, getRenderOptions());
       }
     }
 
@@ -462,7 +475,7 @@ export function useParticleBridge(): ParticleBridgeAPI {
     }
 
     machine.play();
-  }, [machine, bakeSimulation, getRenderOptions]);
+  }, [machine, settings, bakeSimulation, getRenderOptions]);
 
   // ============================================================
   // STATS ACCESSORS

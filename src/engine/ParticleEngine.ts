@@ -1,11 +1,13 @@
 /**
- * ParticleEngine - Refactored ParticleSystem with Observer Pattern
+ * ParticleEngine - Refactored with Separation of Concerns
  *
- * This class encapsulates the core particle simulation logic.
- * Key changes from original ParticleSystem:
+ * This class is responsible ONLY for particle physics and simulation.
+ * All rendering logic has been moved to CanvasParticleRenderer.
+ *
+ * Key changes:
  * 1. Observer pattern for stats updates (bypasses React render cycle)
- * 2. Clean render signature - receives all ephemeral UI data as parameters
- * 3. Separated concerns: simulation vs rendering
+ * 2. Clean separation: simulation vs rendering
+ * 3. DRY: Single removeParticle() method
  */
 
 import type {
@@ -22,19 +24,6 @@ import {
   noise2D,
   clamp01,
 } from "../utils";
-
-// ============================================================
-// RENDER OPTIONS (Ephemeral UI State passed to render)
-// ============================================================
-
-export interface RenderOptions {
-  showEmitter: boolean;
-  zoom: number;
-  spriteCanvases: Record<string, HTMLCanvasElement | null> | null;
-  showGrid: boolean;
-  backgroundImage: HTMLImageElement | null;
-  bgPosition: { x: number; y: number };
-}
 
 // ============================================================
 // EMITTER STATE
@@ -63,52 +52,23 @@ export class ParticleEngine {
   // Observer pattern: callbacks for stats updates
   private statsCallbacks: Set<ParticleStatsCallback> = new Set();
 
-  // Performance optimization: Reusable canvas pool for particle colorization
-  // Avoids creating new canvas DOM elements on every frame
-  private tempCanvasPool: HTMLCanvasElement[] = [];
-  private readonly CANVAS_POOL_SIZE = 5;
-
   // Performance optimization: Cached lookups to avoid repeated searches
   private emitterCache: Map<string, EmitterInstance> = new Map();
   private particleCountPerEmitter: Map<string, number> = new Map();
 
-  // Performance optimization: Cache 2D contexts for canvas pool
-  private canvasContextCache: Map<HTMLCanvasElement, CanvasRenderingContext2D> = new Map();
-
   // Performance optimization: Avoid sorting particles every frame
-  // Group particles by emitter for efficient rendering
+  // Group particles by emitter for efficient rendering (used by renderer)
   private particlesByEmitter: Map<string, Particle[]> = new Map();
 
   constructor(settings: ParticleSettings) {
     this.settings = settings;
     this.initializeEmitterStates();
-    this.initializeCanvasPool();
     this.rebuildEmitterCache();
   }
 
   // ============================================================
-  // CANVAS POOL MANAGEMENT (Performance Optimization)
+  // CACHE MANAGEMENT
   // ============================================================
-
-  /**
-   * Initialize the canvas pool with pre-created canvases
-   * This avoids DOM element creation during rendering
-   */
-  private initializeCanvasPool(): void {
-    const size = 32; // Default sprite size (16 * 2)
-    for (let i = 0; i < this.CANVAS_POOL_SIZE; i++) {
-      const canvas = document.createElement("canvas");
-      canvas.width = size;
-      canvas.height = size;
-      this.tempCanvasPool.push(canvas);
-
-      // Pre-cache 2D context
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        this.canvasContextCache.set(canvas, ctx);
-      }
-    }
-  }
 
   /**
    * Rebuild emitter cache from settings
@@ -125,54 +85,16 @@ export class ParticleEngine {
     }
   }
 
-  /**
-   * Get a temporary canvas from the pool for colorization
-   * If pool is empty, creates a new one (fallback)
-   * Size parameter allows reuse without resize if already correct
-   */
-  private getTempCanvas(width: number, height: number): HTMLCanvasElement {
-    if (this.tempCanvasPool.length > 0) {
-      const canvas = this.tempCanvasPool.pop()!;
-      // Only resize if necessary (resize is expensive - clears internal buffer!)
-      if (canvas.width !== width || canvas.height !== height) {
-        canvas.width = width;
-        canvas.height = height;
-      }
-      return canvas;
-    }
-    // Fallback: create new canvas if pool exhausted
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    // Cache context for new canvas
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      this.canvasContextCache.set(canvas, ctx);
-    }
-    return canvas;
-  }
+  // ============================================================
+  // PUBLIC API FOR RENDERER
+  // ============================================================
 
   /**
-   * Get cached 2D context for a canvas
-   * Avoids repeated getContext() calls
+   * Get grouped particles for efficient rendering
+   * Used by CanvasParticleRenderer to avoid sorting
    */
-  private getCachedContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
-    let ctx = this.canvasContextCache.get(canvas);
-    if (!ctx) {
-      ctx = canvas.getContext("2d")!;
-      this.canvasContextCache.set(canvas, ctx);
-    }
-    return ctx;
-  }
-
-  /**
-   * Return a canvas to the pool for reuse
-   */
-  private returnTempCanvas(canvas: HTMLCanvasElement): void {
-    // Only return to pool if not exceeding max size
-    if (this.tempCanvasPool.length < this.CANVAS_POOL_SIZE) {
-      this.tempCanvasPool.push(canvas);
-    }
+  getParticlesByEmitter(): Map<string, Particle[]> {
+    return this.particlesByEmitter;
   }
 
   // ============================================================
@@ -251,6 +173,34 @@ export class ParticleEngine {
     const state = this.emitterStates.get(emitterId);
     if (state) {
       state.hasPrewarmed = true;
+    }
+  }
+
+  // ============================================================
+  // PARTICLE MANAGEMENT (DRY)
+  // ============================================================
+
+  /**
+   * Remove particle at index and update all caches
+   * DRY: Single place for particle removal logic
+   */
+  private removeParticle(index: number): void {
+    const particle = this.particles[index];
+
+    // Remove from main array
+    this.particles.splice(index, 1);
+
+    // Update cached particle count
+    const currentCount = this.particleCountPerEmitter.get(particle.emitterId) || 1;
+    this.particleCountPerEmitter.set(particle.emitterId, currentCount - 1);
+
+    // Remove from grouped particles
+    const emitterParticles = this.particlesByEmitter.get(particle.emitterId);
+    if (emitterParticles) {
+      const idx = emitterParticles.indexOf(particle);
+      if (idx !== -1) {
+        emitterParticles.splice(idx, 1);
+      }
     }
   }
 
@@ -383,18 +333,7 @@ export class ParticleEngine {
       // Use cached emitter lookup
       const emitter = this.emitterCache.get(p.emitterId);
       if (!emitter || !emitter.enabled) {
-        this.particles.splice(i, 1);
-        // Decrement cached particle count
-        this.particleCountPerEmitter.set(
-          p.emitterId,
-          (this.particleCountPerEmitter.get(p.emitterId) || 1) - 1
-        );
-        // Remove from grouped particles
-        const emitterParticles = this.particlesByEmitter.get(p.emitterId);
-        if (emitterParticles) {
-          const idx = emitterParticles.indexOf(p);
-          if (idx !== -1) emitterParticles.splice(idx, 1);
-        }
+        this.removeParticle(i);
         continue;
       }
 
@@ -402,18 +341,7 @@ export class ParticleEngine {
 
       p.life -= dt;
       if (p.life <= 0) {
-        this.particles.splice(i, 1);
-        // Decrement cached particle count
-        this.particleCountPerEmitter.set(
-          p.emitterId,
-          (this.particleCountPerEmitter.get(p.emitterId) || 1) - 1
-        );
-        // Remove from grouped particles
-        const emitterParticles = this.particlesByEmitter.get(p.emitterId);
-        if (emitterParticles) {
-          const idx = emitterParticles.indexOf(p);
-          if (idx !== -1) emitterParticles.splice(idx, 1);
-        }
+        this.removeParticle(i);
         continue;
       }
 
@@ -839,631 +767,6 @@ export class ParticleEngine {
     return pos;
   }
 
-  // ============================================================
-  // RENDERING (Pure function - no internal state mutation)
-  // ============================================================
-
-  /**
-   * Render the current particle state to canvas
-   * All ephemeral UI data is passed as RenderOptions
-   */
-  render(ctx: CanvasRenderingContext2D, options: RenderOptions): void {
-    const {
-      showEmitter,
-      zoom,
-      spriteCanvases,
-      showGrid,
-      backgroundImage,
-      bgPosition,
-    } = options;
-
-    // Clear entire canvas
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.restore();
-
-    // Calculate zoom transform centered on world origin (0, 0)
-    const centerEmitterX = 0;
-    const centerEmitterY = 0;
-
-    const centerX = ctx.canvas.width / 2;
-    const centerY = ctx.canvas.height / 2;
-    const offsetX = centerX - centerEmitterX * zoom;
-    const offsetY = centerY - centerEmitterY * zoom;
-
-    ctx.save();
-    // Invert Y axis so positive Y goes up (mathematical convention)
-    ctx.setTransform(zoom, 0, 0, -zoom, offsetX, offsetY);
-
-    // Draw background
-    if (backgroundImage && bgPosition) {
-      ctx.save();
-      ctx.globalAlpha = 0.5;
-      // Compensate for inverted Y axis when drawing images
-      ctx.scale(1, -1);
-      ctx.drawImage(backgroundImage, bgPosition.x, -bgPosition.y - backgroundImage.height);
-      ctx.restore();
-    }
-
-    // Draw grid
-    if (showGrid) {
-      this.renderGrid(ctx, zoom, offsetX, offsetY);
-    }
-
-    // Draw particles
-    this.renderParticles(ctx, spriteCanvases);
-
-    // Draw emitters
-    if (showEmitter) {
-      this.renderEmitters(ctx, zoom);
-    }
-
-    ctx.restore();
-  }
-
-  private renderGrid(
-    ctx: CanvasRenderingContext2D,
-    zoom: number,
-    offsetX: number,
-    offsetY: number
-  ): void {
-    ctx.save();
-    ctx.strokeStyle = "rgba(100, 100, 100, 0.3)";
-    ctx.lineWidth = 1 / zoom;
-    const gridStep = 50;
-
-    const visibleLeft = -offsetX / zoom;
-    const visibleRight = (ctx.canvas.width - offsetX) / zoom;
-    const visibleTop = -offsetY / zoom;
-    const visibleBottom = (ctx.canvas.height - offsetY) / zoom;
-
-    const startX = Math.floor(visibleLeft / gridStep) * gridStep;
-    const endX = Math.ceil(visibleRight / gridStep) * gridStep;
-    for (let x = startX; x <= endX; x += gridStep) {
-      ctx.beginPath();
-      ctx.moveTo(x, visibleTop);
-      ctx.lineTo(x, visibleBottom);
-      ctx.stroke();
-    }
-
-    const startY = Math.floor(visibleTop / gridStep) * gridStep;
-    const endY = Math.ceil(visibleBottom / gridStep) * gridStep;
-    for (let y = startY; y <= endY; y += gridStep) {
-      ctx.beginPath();
-      ctx.moveTo(visibleLeft, y);
-      ctx.lineTo(visibleRight, y);
-      ctx.stroke();
-    }
-
-    ctx.restore();
-  }
-
-  private renderParticles(
-    ctx: CanvasRenderingContext2D,
-    spriteCanvases: Record<string, HTMLCanvasElement | null> | null
-  ): void {
-    // Render particles grouped by emitter (no sorting needed!)
-    // Render in reverse order so first emitter (index 0) renders last = on top
-    for (let i = this.settings.emitters.length - 1; i >= 0; i--) {
-      const emitter = this.settings.emitters[i];
-      if (!emitter.visible || !emitter.enabled) continue;
-
-      const emitterParticles = this.particlesByEmitter.get(emitter.id);
-      if (!emitterParticles || emitterParticles.length === 0) continue;
-
-      const spriteCanvas = spriteCanvases ? spriteCanvases[emitter.id] : null;
-      const size = 16;
-      const canvasSize = size * 2;
-
-      // Render all particles from this emitter
-      for (const p of emitterParticles) {
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rotation);
-        ctx.scale(p.scaleX, p.scaleY);
-        ctx.globalAlpha = p.alpha;
-
-        if (spriteCanvas) {
-          // Get canvas from pool with size (avoids resize if already correct)
-          const tempCanvas = this.getTempCanvas(canvasSize, canvasSize);
-          // Use cached context instead of getContext()
-          const tempCtx = this.getCachedContext(tempCanvas);
-
-          // Clear previous content (cheap compared to resize)
-          tempCtx.clearRect(0, 0, canvasSize, canvasSize);
-
-          tempCtx.drawImage(spriteCanvas, 0, 0, canvasSize, canvasSize);
-          tempCtx.globalCompositeOperation = "source-in";
-          tempCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-          tempCtx.fillRect(0, 0, canvasSize, canvasSize);
-
-          // Reset composite operation for next use
-          tempCtx.globalCompositeOperation = "source-over";
-
-          // Compensate for inverted Y axis when drawing sprite images
-          ctx.scale(1, -1);
-          ctx.drawImage(tempCanvas, -size, -size, canvasSize, canvasSize);
-
-          // Return canvas to pool for reuse
-          this.returnTempCanvas(tempCanvas);
-        } else {
-          const circleSize = 8;
-          ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-          ctx.beginPath();
-          ctx.arc(0, 0, circleSize, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        ctx.restore();
-      }
-    }
-  }
-
-  private renderEmitters(ctx: CanvasRenderingContext2D, zoom: number): void {
-    for (const emitter of this.settings.emitters) {
-      if (!emitter.visible || !emitter.enabled) continue;
-
-      const em = emitter.settings;
-      const isCurrentEmitter =
-        emitter.id ===
-        this.settings.emitters[this.settings.currentEmitterIndex]?.id;
-
-      ctx.save();
-
-      const strokeColor = isCurrentEmitter
-        ? em.emissionMode === "edge"
-          ? "rgba(255, 200, 50, 0.9)"
-          : "rgba(50, 255, 50, 0.9)"
-        : em.emissionMode === "edge"
-        ? "rgba(255, 150, 100, 0.5)"
-        : "rgba(100, 255, 100, 0.3)";
-      const fillColor = isCurrentEmitter
-        ? em.emissionMode === "edge"
-          ? "rgba(255, 200, 50, 0.2)"
-          : "rgba(50, 255, 50, 0.2)"
-        : em.emissionMode === "edge"
-        ? "rgba(255, 150, 100, 0.05)"
-        : "rgba(100, 255, 100, 0.1)";
-
-      ctx.strokeStyle = strokeColor;
-      ctx.fillStyle = fillColor;
-      ctx.lineWidth = isCurrentEmitter ? 3 / zoom : 2 / zoom;
-      ctx.setLineDash([5 / zoom, 5 / zoom]);
-
-      this.renderEmitterShape(ctx, em);
-
-      // Direction indicator
-      ctx.setLineDash([]);
-      ctx.strokeStyle = strokeColor;
-      const angleRad =
-        ((em.angle + (em.shape === "line" ? em.lineSpreadRotation : 0)) *
-          Math.PI) /
-        180;
-      const dirLength = 40;
-      ctx.beginPath();
-      ctx.moveTo(em.position.x, em.position.y);
-      ctx.lineTo(
-        em.position.x + Math.cos(angleRad) * dirLength,
-        em.position.y + Math.sin(angleRad) * dirLength
-      );
-      ctx.stroke();
-
-      // Spread cone
-      ctx.globalAlpha = 0.2;
-      ctx.fillStyle = strokeColor;
-      const spread = (Math.abs(em.angleSpread) * Math.PI) / 180;
-      ctx.beginPath();
-      ctx.moveTo(em.position.x, em.position.y);
-      ctx.arc(
-        em.position.x,
-        em.position.y,
-        dirLength,
-        angleRad - spread / 2,
-        angleRad + spread / 2
-      );
-      ctx.closePath();
-      ctx.fill();
-
-      // Vortex visualization
-      if (em.showVortexVisualization) {
-        this.renderVortexVisualization(ctx, em, zoom);
-      }
-
-      ctx.restore();
-    }
-  }
-
-  private renderEmitterShape(
-    ctx: CanvasRenderingContext2D,
-    em: EmitterInstance["settings"]
-  ): void {
-    if (em.shape === "point") {
-      ctx.beginPath();
-      ctx.moveTo(em.position.x - 10, em.position.y);
-      ctx.lineTo(em.position.x + 10, em.position.y);
-      ctx.moveTo(em.position.x, em.position.y - 10);
-      ctx.lineTo(em.position.x, em.position.y + 10);
-      ctx.stroke();
-    } else if (em.shape === "line") {
-      const angleRad = (em.angle * Math.PI) / 180;
-      const halfLength = em.lineLength / 2;
-      const x1 = em.position.x - Math.cos(angleRad) * halfLength;
-      const y1 = em.position.y - Math.sin(angleRad) * halfLength;
-      const x2 = em.position.x + Math.cos(angleRad) * halfLength;
-      const y2 = em.position.y + Math.sin(angleRad) * halfLength;
-
-      ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.lineTo(x2, y2);
-      ctx.stroke();
-
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.arc(x1, y1, 3, 0, Math.PI * 2);
-      ctx.arc(x2, y2, 3, 0, Math.PI * 2);
-      ctx.fill();
-    } else if (em.shape === "circle") {
-      const arcRad = (em.circleArc * Math.PI) / 180;
-      const rotationRad = (em.shapeRotation * Math.PI) / 180;
-      const startAngle = -arcRad / 2 + rotationRad;
-      const endAngle = startAngle + arcRad;
-
-      if (em.emissionMode === "area") {
-        // Area mode: draw filled arc
-        ctx.beginPath();
-        ctx.arc(em.position.x, em.position.y, em.shapeRadius, startAngle, endAngle);
-        // Close path to center if not full circle
-        if (em.circleArc < 360) {
-          ctx.lineTo(em.position.x, em.position.y);
-          ctx.closePath();
-        }
-        ctx.fill();
-        ctx.stroke();
-      } else {
-        // Edge mode: draw arc with thickness visualization
-        const thickness = em.circleThickness;
-        const innerRadius = Math.max(0, em.shapeRadius - thickness / 2);
-        const outerRadius = em.shapeRadius + thickness / 2;
-
-        // Draw outer arc
-        ctx.beginPath();
-        ctx.arc(em.position.x, em.position.y, outerRadius, startAngle, endAngle);
-        ctx.stroke();
-
-        // Draw inner arc if thickness is visible
-        if (innerRadius > 0) {
-          ctx.beginPath();
-          ctx.arc(em.position.x, em.position.y, innerRadius, startAngle, endAngle);
-          ctx.stroke();
-        }
-
-        // Draw connecting lines at arc ends if not full circle
-        if (em.circleArc < 360) {
-          ctx.beginPath();
-          ctx.moveTo(
-            em.position.x + Math.cos(startAngle) * innerRadius,
-            em.position.y + Math.sin(startAngle) * innerRadius
-          );
-          ctx.lineTo(
-            em.position.x + Math.cos(startAngle) * outerRadius,
-            em.position.y + Math.sin(startAngle) * outerRadius
-          );
-          ctx.stroke();
-
-          ctx.beginPath();
-          ctx.moveTo(
-            em.position.x + Math.cos(endAngle) * innerRadius,
-            em.position.y + Math.sin(endAngle) * innerRadius
-          );
-          ctx.lineTo(
-            em.position.x + Math.cos(endAngle) * outerRadius,
-            em.position.y + Math.sin(endAngle) * outerRadius
-          );
-          ctx.stroke();
-        }
-
-        // Draw center line at main radius
-        ctx.beginPath();
-        ctx.arc(em.position.x, em.position.y, em.shapeRadius, startAngle, endAngle);
-        ctx.stroke();
-      }
-    } else if (em.shape === "rectangle") {
-      ctx.save();
-      ctx.translate(em.position.x, em.position.y);
-      ctx.rotate((em.shapeRotation * Math.PI) / 180);
-
-      const x = -em.shapeWidth / 2;
-      const y = -em.shapeHeight / 2;
-      const w = em.shapeWidth;
-      const h = em.shapeHeight;
-
-      if (em.emissionMode === "area") {
-        // Area mode: draw filled rectangle (or partial if arc < 360)
-        ctx.fillRect(x, y, w, h);
-        ctx.strokeRect(x, y, w, h);
-      } else {
-        // Edge mode with crop and thickness visualization
-        const thickness = em.rectangleThickness;
-        const cropFraction = em.rectangleArc / 360;
-
-        // Draw outer rectangle
-        const outerX = x - thickness / 2;
-        const outerY = y - thickness / 2;
-        const outerW = w + thickness;
-        const outerH = h + thickness;
-
-        // Draw inner rectangle
-        const innerX = x + thickness / 2;
-        const innerY = y + thickness / 2;
-        const innerW = w - thickness;
-        const innerH = h - thickness;
-
-        if (cropFraction >= 1) {
-          // Full perimeter
-          ctx.strokeRect(outerX, outerY, outerW, outerH);
-          if (innerW > 0 && innerH > 0) {
-            ctx.strokeRect(innerX, innerY, innerW, innerH);
-          }
-          // Draw center rectangle
-          ctx.strokeRect(x, y, w, h);
-        } else {
-          // Partial perimeter - draw only crop portion
-          // Helper function to draw partial rectangle outline
-          const drawPartialRect = (rx: number, ry: number, rw: number, rh: number) => {
-            // Calculate crop length for this specific rectangle size
-            const rectPerimeter = 2 * (rw + rh);
-            const cropLength = rectPerimeter * cropFraction;
-            let remaining = cropLength;
-
-            ctx.beginPath();
-
-            // Top edge (starting from top-left corner)
-            if (remaining > 0) {
-              const len = Math.min(remaining, rw);
-              ctx.moveTo(rx, ry);
-              ctx.lineTo(rx + len, ry);
-              remaining -= len;
-
-              if (remaining > 0) {
-                // Right edge
-                const len = Math.min(remaining, rh);
-                ctx.lineTo(rx + rw, ry);
-                ctx.lineTo(rx + rw, ry + len);
-                remaining -= len;
-
-                if (remaining > 0) {
-                  // Bottom edge
-                  const len = Math.min(remaining, rw);
-                  ctx.lineTo(rx + rw, ry + rh);
-                  ctx.lineTo(rx + rw - len, ry + rh);
-                  remaining -= len;
-
-                  if (remaining > 0) {
-                    // Left edge
-                    const len = Math.min(remaining, rh);
-                    ctx.lineTo(rx, ry + rh);
-                    ctx.lineTo(rx, ry + rh - len);
-                  }
-                }
-              }
-            }
-            ctx.stroke();
-          };
-
-          drawPartialRect(outerX, outerY, outerW, outerH);
-          if (innerW > 0 && innerH > 0) {
-            drawPartialRect(innerX, innerY, innerW, innerH);
-          }
-          drawPartialRect(x, y, w, h);
-        }
-      }
-
-      ctx.restore();
-    } else if (em.shape === "roundedRect") {
-      ctx.save();
-      ctx.translate(em.position.x, em.position.y);
-      ctx.rotate((em.shapeRotation * Math.PI) / 180);
-
-      const x = -em.shapeWidth / 2;
-      const y = -em.shapeHeight / 2;
-      const w = em.shapeWidth;
-      const h = em.shapeHeight;
-      const r = Math.min(em.roundRadius, w / 2, h / 2);
-
-      if (em.emissionMode === "area") {
-        // Area mode: draw filled rounded rectangle
-        ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.lineTo(x + w - r, y);
-        ctx.arcTo(x + w, y, x + w, y + r, r);
-        ctx.lineTo(x + w, y + h - r);
-        ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
-        ctx.lineTo(x + r, y + h);
-        ctx.arcTo(x, y + h, x, y + h - r, r);
-        ctx.lineTo(x, y + r);
-        ctx.arcTo(x, y, x + r, y, r);
-        ctx.closePath();
-        ctx.fill();
-        ctx.stroke();
-      } else {
-        // Edge mode with crop and thickness visualization
-        const thickness = em.rectangleThickness;
-        const cropFraction = em.rectangleArc / 360;
-
-        // Helper function to draw rounded rectangle outline
-        const drawRoundedRect = (offset: number) => {
-          const ox = x + offset;
-          const oy = y + offset;
-          const ow = w - 2 * offset;
-          const oh = h - 2 * offset;
-          const or = Math.max(0, r + offset);
-
-          if (ow <= 0 || oh <= 0) return;
-
-          if (cropFraction >= 1) {
-            // Full perimeter
-            ctx.beginPath();
-            ctx.moveTo(ox + or, oy);
-            ctx.lineTo(ox + ow - or, oy);
-            ctx.arcTo(ox + ow, oy, ox + ow, oy + or, or);
-            ctx.lineTo(ox + ow, oy + oh - or);
-            ctx.arcTo(ox + ow, oy + oh, ox + ow - or, oy + oh, or);
-            ctx.lineTo(ox + or, oy + oh);
-            ctx.arcTo(ox, oy + oh, ox, oy + oh - or, or);
-            ctx.lineTo(ox, oy + or);
-            ctx.arcTo(ox, oy, ox + or, oy, or);
-            ctx.closePath();
-            ctx.stroke();
-          } else {
-            // Partial perimeter - draw crop portion
-            const straightWidth = ow - 2 * or;
-            const straightHeight = oh - 2 * or;
-            const fullPerimeter = 2 * (straightWidth + straightHeight) + 2 * Math.PI * or;
-            const cropLength = fullPerimeter * cropFraction;
-            let remaining = cropLength;
-
-            ctx.beginPath();
-            // Start from top-left corner after radius
-            const startX = ox + or;
-            const startY = oy;
-            ctx.moveTo(startX, startY);
-
-            // Top edge
-            if (remaining > 0 && straightWidth > 0) {
-              const len = Math.min(remaining, straightWidth);
-              ctx.lineTo(ox + or + len, oy);
-              remaining -= len;
-
-              if (remaining > 0) {
-                // Top-right corner
-                const cornerArc = (Math.PI * or) / 2;
-                if (remaining >= cornerArc) {
-                  ctx.arcTo(ox + ow, oy, ox + ow, oy + or, or);
-                  remaining -= cornerArc;
-
-                  if (remaining > 0 && straightHeight > 0) {
-                    // Right edge
-                    const len = Math.min(remaining, straightHeight);
-                    ctx.lineTo(ox + ow, oy + or + len);
-                    remaining -= len;
-
-                    if (remaining > 0) {
-                      // Bottom-right corner
-                      if (remaining >= cornerArc) {
-                        ctx.arcTo(ox + ow, oy + oh, ox + ow - or, oy + oh, or);
-                        remaining -= cornerArc;
-
-                        if (remaining > 0 && straightWidth > 0) {
-                          // Bottom edge
-                          const len = Math.min(remaining, straightWidth);
-                          ctx.lineTo(ox + ow - or - len, oy + oh);
-                          remaining -= len;
-
-                          if (remaining > 0) {
-                            // Bottom-left corner
-                            if (remaining >= cornerArc) {
-                              ctx.arcTo(ox, oy + oh, ox, oy + oh - or, or);
-                              remaining -= cornerArc;
-
-                              if (remaining > 0 && straightHeight > 0) {
-                                // Left edge
-                                const len = Math.min(remaining, straightHeight);
-                                ctx.lineTo(ox, oy + oh - or - len);
-                              }
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-
-            ctx.stroke();
-          }
-        };
-
-        // Draw three outlines (outer, center, inner)
-        drawRoundedRect(-thickness / 2); // Outer
-        drawRoundedRect(0); // Center
-        drawRoundedRect(thickness / 2); // Inner
-      }
-
-      ctx.restore();
-    }
-  }
-
-  private renderVortexVisualization(
-    ctx: CanvasRenderingContext2D,
-    em: EmitterInstance["settings"],
-    zoom: number
-  ): void {
-    const previewStrength = evaluateCurve(em.vortexStrengthOverLifetime, 0.5);
-    const directionSign =
-      previewStrength === 0 ? 1 : Math.sign(previewStrength);
-    const arrowCount = 8;
-    const radius = 60;
-    const arcSpan = (Math.PI * 2) / arrowCount;
-
-    ctx.save();
-    ctx.setLineDash([]);
-    ctx.lineWidth = 2 / zoom;
-    ctx.strokeStyle =
-      directionSign > 0
-        ? "rgba(137, 207, 240, 0.9)"
-        : "rgba(255, 137, 207, 0.9)";
-    ctx.fillStyle = ctx.strokeStyle;
-
-    for (let i = 0; i < arrowCount; i++) {
-      const startAngle = i * arcSpan;
-      const endAngle = startAngle + arcSpan * 0.75 * directionSign;
-      const anticlockwise = directionSign < 0;
-
-      ctx.beginPath();
-      ctx.arc(
-        em.vortexPoint.x,
-        em.vortexPoint.y,
-        radius,
-        startAngle,
-        endAngle,
-        anticlockwise
-      );
-      ctx.stroke();
-
-      const endX = em.vortexPoint.x + Math.cos(endAngle) * radius;
-      const endY = em.vortexPoint.y + Math.sin(endAngle) * radius;
-      const headAngle =
-        endAngle + (directionSign > 0 ? -Math.PI / 6 : Math.PI / 6);
-
-      ctx.beginPath();
-      ctx.moveTo(endX, endY);
-      ctx.lineTo(
-        endX + Math.cos(headAngle) * 10,
-        endY + Math.sin(headAngle) * 10
-      );
-      ctx.lineTo(
-        endX +
-          Math.cos(
-            headAngle + (directionSign > 0 ? Math.PI / 6 : -Math.PI / 6)
-          ) *
-            10,
-        endY +
-          Math.sin(
-            headAngle + (directionSign > 0 ? Math.PI / 6 : -Math.PI / 6)
-          ) *
-            10
-      );
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    ctx.beginPath();
-    ctx.arc(em.vortexPoint.x, em.vortexPoint.y, 6 / zoom, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.restore();
-  }
 
   // ============================================================
   // UTILITY
