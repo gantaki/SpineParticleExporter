@@ -68,10 +68,18 @@ export class ParticleEngine {
   private tempCanvasPool: HTMLCanvasElement[] = [];
   private readonly CANVAS_POOL_SIZE = 5;
 
+  // Performance optimization: Cached lookups to avoid repeated searches
+  private emitterCache: Map<string, EmitterInstance> = new Map();
+  private particleCountPerEmitter: Map<string, number> = new Map();
+
+  // Performance optimization: Cache 2D contexts for canvas pool
+  private canvasContextCache: Map<HTMLCanvasElement, CanvasRenderingContext2D> = new Map();
+
   constructor(settings: ParticleSettings) {
     this.settings = settings;
     this.initializeEmitterStates();
     this.initializeCanvasPool();
+    this.rebuildEmitterCache();
   }
 
   // ============================================================
@@ -89,6 +97,25 @@ export class ParticleEngine {
       canvas.width = size;
       canvas.height = size;
       this.tempCanvasPool.push(canvas);
+
+      // Pre-cache 2D context
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        this.canvasContextCache.set(canvas, ctx);
+      }
+    }
+  }
+
+  /**
+   * Rebuild emitter cache from settings
+   * Call this whenever settings.emitters changes
+   */
+  private rebuildEmitterCache(): void {
+    this.emitterCache.clear();
+    this.particleCountPerEmitter.clear();
+    for (const emitter of this.settings.emitters) {
+      this.emitterCache.set(emitter.id, emitter);
+      this.particleCountPerEmitter.set(emitter.id, 0);
     }
   }
 
@@ -104,7 +131,25 @@ export class ParticleEngine {
     const canvas = document.createElement("canvas");
     canvas.width = 32;
     canvas.height = 32;
+    // Cache context for new canvas
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      this.canvasContextCache.set(canvas, ctx);
+    }
     return canvas;
+  }
+
+  /**
+   * Get cached 2D context for a canvas
+   * Avoids repeated getContext() calls
+   */
+  private getCachedContext(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+    let ctx = this.canvasContextCache.get(canvas);
+    if (!ctx) {
+      ctx = canvas.getContext("2d")!;
+      this.canvasContextCache.set(canvas, ctx);
+    }
+    return ctx;
   }
 
   /**
@@ -148,6 +193,7 @@ export class ParticleEngine {
 
   initializeEmitterStates(): void {
     this.emitterStates.clear();
+    this.rebuildEmitterCache();
     for (const emitter of this.settings.emitters) {
       this.emitterStates.set(emitter.id, {
         spawnAccumulator: 0,
@@ -211,7 +257,7 @@ export class ParticleEngine {
     dt: number,
     skipTimeReset: boolean = false
   ): void {
-    const emitter = this.settings.emitters.find((e) => e.id === emitterId);
+    const emitter = this.emitterCache.get(emitterId);
     if (!emitter) return;
 
     const em = emitter.settings;
@@ -250,9 +296,8 @@ export class ParticleEngine {
     const getEffectiveRate = () => em.rate * rateMultiplier;
 
     if (isActive) {
-      const emitterParticleCount = this.particles.filter(
-        (p) => p.emitterId === emitterId
-      ).length;
+      // Use cached particle count instead of filter
+      const emitterParticleCount = this.particleCountPerEmitter.get(emitterId) || 0;
 
       if (em.emissionType === "continuous") {
         const effectiveRate = getEffectiveRate();
@@ -317,9 +362,15 @@ export class ParticleEngine {
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
 
-      const emitter = this.settings.emitters.find((e) => e.id === p.emitterId);
+      // Use cached emitter lookup
+      const emitter = this.emitterCache.get(p.emitterId);
       if (!emitter || !emitter.enabled) {
         this.particles.splice(i, 1);
+        // Decrement cached particle count
+        this.particleCountPerEmitter.set(
+          p.emitterId,
+          (this.particleCountPerEmitter.get(p.emitterId) || 1) - 1
+        );
         continue;
       }
 
@@ -328,6 +379,11 @@ export class ParticleEngine {
       p.life -= dt;
       if (p.life <= 0) {
         this.particles.splice(i, 1);
+        // Decrement cached particle count
+        this.particleCountPerEmitter.set(
+          p.emitterId,
+          (this.particleCountPerEmitter.get(p.emitterId) || 1) - 1
+        );
         continue;
       }
 
@@ -516,6 +572,12 @@ export class ParticleEngine {
     particle.maxLife = particle.life;
 
     this.particles.push(particle);
+
+    // Increment cached particle count
+    this.particleCountPerEmitter.set(
+      emitterId,
+      (this.particleCountPerEmitter.get(emitterId) || 0) + 1
+    );
   }
 
   private calculateSpawnPosition(
@@ -845,52 +907,63 @@ export class ParticleEngine {
     ctx: CanvasRenderingContext2D,
     spriteCanvases: Record<string, HTMLCanvasElement | null> | null
   ): void {
-    // Render particles grouped by emitter order (first emitter = top layer, last = bottom layer)
-    // Reverse the array so first emitter (index 0) renders last (on top)
-    for (const emitter of this.settings.emitters.slice().reverse()) {
-      if (!emitter.visible || !emitter.enabled) continue;
+    // Group particles by emitter for efficient rendering
+    // Build emitter render order map (lower index = rendered last = on top)
+    const emitterRenderPriority = new Map<string, number>();
+    for (let i = 0; i < this.settings.emitters.length; i++) {
+      emitterRenderPriority.set(this.settings.emitters[i].id, i);
+    }
+
+    // Sort particles by emitter priority (descending = last emitter first, first emitter last)
+    // This ensures first emitter (index 0) renders on top
+    const sortedParticles = this.particles.slice().sort((a, b) => {
+      const priorityA = emitterRenderPriority.get(a.emitterId) ?? 0;
+      const priorityB = emitterRenderPriority.get(b.emitterId) ?? 0;
+      return priorityB - priorityA;
+    });
+
+    // Render particles in priority order
+    for (const p of sortedParticles) {
+      const emitter = this.emitterCache.get(p.emitterId);
+      if (!emitter || !emitter.visible || !emitter.enabled) continue;
 
       const spriteCanvas = spriteCanvases ? spriteCanvases[emitter.id] : null;
 
-      // Render all particles from this emitter
-      for (const p of this.particles) {
-        if (p.emitterId !== emitter.id) continue;
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      ctx.scale(p.scaleX, p.scaleY);
+      ctx.globalAlpha = p.alpha;
 
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rotation);
-        ctx.scale(p.scaleX, p.scaleY);
-        ctx.globalAlpha = p.alpha;
+      if (spriteCanvas) {
+        const size = 16;
+        // Get canvas from pool instead of creating new one
+        const tempCanvas = this.getTempCanvas();
+        tempCanvas.width = size * 2;
+        tempCanvas.height = size * 2;
+        // Use cached context instead of getContext()
+        const tempCtx = this.getCachedContext(tempCanvas);
 
-        if (spriteCanvas) {
-          const size = 16;
-          // Get canvas from pool instead of creating new one
-          const tempCanvas = this.getTempCanvas();
-          tempCanvas.width = size * 2;
-          tempCanvas.height = size * 2;
-          const tempCtx = tempCanvas.getContext("2d")!;
+        tempCtx.drawImage(spriteCanvas, 0, 0, size * 2, size * 2);
+        tempCtx.globalCompositeOperation = "source-in";
+        tempCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
+        tempCtx.fillRect(0, 0, size * 2, size * 2);
 
-          tempCtx.drawImage(spriteCanvas, 0, 0, size * 2, size * 2);
-          tempCtx.globalCompositeOperation = "source-in";
-          tempCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-          tempCtx.fillRect(0, 0, size * 2, size * 2);
+        // Compensate for inverted Y axis when drawing sprite images
+        ctx.scale(1, -1);
+        ctx.drawImage(tempCanvas, -size, -size, size * 2, size * 2);
 
-          // Compensate for inverted Y axis when drawing sprite images
-          ctx.scale(1, -1);
-          ctx.drawImage(tempCanvas, -size, -size, size * 2, size * 2);
-
-          // Return canvas to pool for reuse
-          this.returnTempCanvas(tempCanvas);
-        } else {
-          const size = 8;
-          ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-          ctx.beginPath();
-          ctx.arc(0, 0, size, 0, Math.PI * 2);
-          ctx.fill();
-        }
-
-        ctx.restore();
+        // Return canvas to pool for reuse
+        this.returnTempCanvas(tempCanvas);
+      } else {
+        const size = 8;
+        ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
+        ctx.beginPath();
+        ctx.arc(0, 0, size, 0, Math.PI * 2);
+        ctx.fill();
       }
+
+      ctx.restore();
     }
   }
 
