@@ -105,7 +105,7 @@ const ParticleEditor: React.FC = () => {
         {/* Header */}
         <header className="mb-4">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-           Whirlwind
+           BoneGyre
           </h1>
           <p className="text-xs text-slate-400">
             (alpha_v106)
