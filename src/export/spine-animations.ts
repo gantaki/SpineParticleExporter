@@ -101,43 +101,44 @@ export function buildAnimationData(
     trackBySlotName.set(track.slotName, track);
   }
 
-  const POSITION_THRESHOLD = settings.exportSettings.positionThreshold;
-  const ROTATION_THRESHOLD = settings.exportSettings.rotationThreshold;
-  const SCALE_THRESHOLD = settings.exportSettings.scaleThreshold;
-  const COLOR_THRESHOLD = settings.exportSettings.colorThreshold;
-
   for (const track of tracks) {
     const { boneName, slotName } = track;
     const spriteName = getSpriteName(track.emitterId);
 
+    // Get per-emitter export settings
+    const emitter = settings.emitters.find((e) => e.id === track.emitterId);
+    if (!emitter) continue;
+
+    const exportSettings = emitter.exportSettings;
+
     const keyframes = buildParticleKeyframes(
       sourceFrames,
       track,
-      settings,
       spriteName,
       getParticleFromFrame,
-      POSITION_THRESHOLD,
-      ROTATION_THRESHOLD,
-      SCALE_THRESHOLD,
-      COLOR_THRESHOLD
+      exportSettings.positionThreshold,
+      exportSettings.rotationThreshold,
+      exportSettings.scaleThreshold,
+      exportSettings.colorThreshold,
+      exportSettings
     );
 
     if (keyframes.hasAppeared) {
       const boneAnimation: Record<string, unknown> = {};
       if (
-        settings.exportSettings.exportTranslate &&
+        exportSettings.exportTranslate &&
         keyframes.translateKeys.length > 0
       ) {
         boneAnimation.translate = keyframes.translateKeys;
       }
       if (
-        settings.exportSettings.exportRotate &&
+        exportSettings.exportRotate &&
         keyframes.rotateKeys.length > 0
       ) {
         boneAnimation.rotate = keyframes.rotateKeys;
       }
       if (
-        settings.exportSettings.exportScale &&
+        exportSettings.exportScale &&
         keyframes.scaleKeys.length > 0
       ) {
         boneAnimation.scale = keyframes.scaleKeys;
@@ -152,7 +153,7 @@ export function buildAnimationData(
         slotAnimation.attachment = keyframes.attachmentKeys;
       }
       if (
-        settings.exportSettings.exportColor &&
+        exportSettings.exportColor &&
         keyframes.colorKeys.length > 0
       ) {
         slotAnimation.rgba = keyframes.colorKeys;

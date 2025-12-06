@@ -123,6 +123,8 @@ import type {
   RangeValue,
   Vec2,
   ExportSettings,
+  GlobalExportSettings,
+  EmitterExportSettings,
 } from "./index";
 
 /**
@@ -134,6 +136,10 @@ export type SettingsAction =
   | { type: "SET_FPS"; fps: number }
   | { type: "SET_FRAME_SIZE"; frameSize: number }
   | { type: "SET_EXPORT_SETTINGS"; exportSettings: Partial<ExportSettings> }
+  | {
+      type: "SET_GLOBAL_EXPORT_SETTINGS";
+      exportSettings: Partial<GlobalExportSettings>;
+    }
 
   // Emitter management
   | { type: "ADD_EMITTER"; emitter: EmitterInstance }
@@ -149,6 +155,17 @@ export type SettingsAction =
   | {
       type: "UPDATE_CURRENT_EMITTER";
       updates: Partial<EmitterInstanceSettings>;
+    }
+
+  // Per-emitter export settings
+  | {
+      type: "UPDATE_EMITTER_EXPORT_SETTINGS";
+      emitterId: string;
+      exportSettings: Partial<EmitterExportSettings>;
+    }
+  | {
+      type: "UPDATE_CURRENT_EMITTER_EXPORT_SETTINGS";
+      exportSettings: Partial<EmitterExportSettings>;
     }
 
   // Specific deep updates for curves and gradients

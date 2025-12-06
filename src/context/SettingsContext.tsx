@@ -26,6 +26,8 @@ import type {
   ColorGradient,
   RangeValue,
   ExportSettings,
+  GlobalExportSettings,
+  EmitterExportSettings,
   AnimationExportOptions,
 } from "../types";
 import { DEFAULT_SETTINGS, createEmitterInstance } from "../types";
@@ -55,6 +57,43 @@ function settingsReducer(
         ...state,
         exportSettings: { ...state.exportSettings, ...action.exportSettings },
       };
+
+    case "SET_GLOBAL_EXPORT_SETTINGS":
+      return {
+        ...state,
+        exportSettings: { ...state.exportSettings, ...action.exportSettings },
+      };
+
+    // Per-emitter export settings
+    case "UPDATE_EMITTER_EXPORT_SETTINGS":
+      return {
+        ...state,
+        emitters: state.emitters.map((e) =>
+          e.id === action.emitterId
+            ? {
+                ...e,
+                exportSettings: { ...e.exportSettings, ...action.exportSettings },
+              }
+            : e
+        ),
+      };
+
+    case "UPDATE_CURRENT_EMITTER_EXPORT_SETTINGS": {
+      const currentIndex = state.currentEmitterIndex;
+      if (currentIndex < 0 || currentIndex >= state.emitters.length)
+        return state;
+
+      const updatedEmitters = [...state.emitters];
+      updatedEmitters[currentIndex] = {
+        ...updatedEmitters[currentIndex],
+        exportSettings: {
+          ...updatedEmitters[currentIndex].exportSettings,
+          ...action.exportSettings,
+        },
+      };
+
+      return { ...state, emitters: updatedEmitters };
+    }
 
     // Emitter management
     case "ADD_EMITTER":
@@ -161,6 +200,7 @@ function settingsReducer(
         id: newId,
         name: newName,
         settings: { ...emitterToDuplicate.settings },
+        exportSettings: { ...emitterToDuplicate.exportSettings },
       };
 
       const newEmitters = [...state.emitters];
@@ -292,9 +332,21 @@ interface SettingsContextValue {
   setFps: (fps: number) => void;
   setFrameSize: (frameSize: number) => void;
   updateExportSettings: (exportSettings: Partial<ExportSettings>) => void;
+  updateGlobalExportSettings: (
+    exportSettings: Partial<GlobalExportSettings>
+  ) => void;
   updateAnimationExportOptions: (
     emitterId: string,
     options: Partial<AnimationExportOptions>
+  ) => void;
+
+  // Actions - Per-Emitter Export Settings
+  updateEmitterExportSettings: (
+    emitterId: string,
+    exportSettings: Partial<EmitterExportSettings>
+  ) => void;
+  updateCurrentEmitterExportSettings: (
+    exportSettings: Partial<EmitterExportSettings>
   ) => void;
 
   // Actions - Emitter Management
@@ -409,6 +461,12 @@ export function SettingsProvider({
     []
   );
 
+  const updateGlobalExportSettings = useCallback(
+    (exportSettings: Partial<GlobalExportSettings>) =>
+      dispatch({ type: "SET_GLOBAL_EXPORT_SETTINGS", exportSettings }),
+    []
+  );
+
   const updateAnimationExportOptions = useCallback(
     (emitterId: string, options: Partial<AnimationExportOptions>) => {
       const currentOptions =
@@ -502,6 +560,26 @@ export function SettingsProvider({
     []
   );
 
+  // Per-emitter export settings
+  const updateEmitterExportSettings = useCallback(
+    (emitterId: string, exportSettings: Partial<EmitterExportSettings>) =>
+      dispatch({
+        type: "UPDATE_EMITTER_EXPORT_SETTINGS",
+        emitterId,
+        exportSettings,
+      }),
+    []
+  );
+
+  const updateCurrentEmitterExportSettings = useCallback(
+    (exportSettings: Partial<EmitterExportSettings>) =>
+      dispatch({
+        type: "UPDATE_CURRENT_EMITTER_EXPORT_SETTINGS",
+        exportSettings,
+      }),
+    []
+  );
+
   // Deep updates
   const setEmitterCurve = useCallback(
     (
@@ -554,7 +632,10 @@ export function SettingsProvider({
       setFps,
       setFrameSize,
       updateExportSettings,
+      updateGlobalExportSettings,
       updateAnimationExportOptions,
+      updateEmitterExportSettings,
+      updateCurrentEmitterExportSettings,
       addEmitter,
       removeEmitter,
       selectEmitter,
@@ -581,7 +662,10 @@ export function SettingsProvider({
       setFps,
       setFrameSize,
       updateExportSettings,
+      updateGlobalExportSettings,
       updateAnimationExportOptions,
+      updateEmitterExportSettings,
+      updateCurrentEmitterExportSettings,
       addEmitter,
       removeEmitter,
       selectEmitter,
