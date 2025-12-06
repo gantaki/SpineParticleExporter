@@ -1,4 +1,4 @@
-# Spine Particle Exporter v106
+# Spine Particle Exporter v107
 
 A React/TypeScript application for converting particle system animations into Spine 4.2 skeletal animation format. Features a clean, layered architecture with FSM-based state management and Observer pattern for high-performance rendering.
 
@@ -182,7 +182,15 @@ See [`src/export/EXPORT.md`](src/export/EXPORT.md) for detailed documentation on
 
 ## Version History
 
-### v106 (Current)
+### v107 (Current)
+
+Colorize Sprite performance release:
+
+- **Cached tinted sprites**: Colorized rendering now caches tinted sprite variants per emitter and sprite, dramatically reducing per-particle CPU overhead.
+- **Color quantization for cache hits**: Colors are quantized before tinting to reuse cached bitmaps across similar gradient values, lowering recolor frequency during heavy previews.
+- **Preview stability**: Colorize Sprite mode now scales closer to non-colorized performance before FPS drops appear.
+
+### v106
 
 Spine export rotation fixes:
 
