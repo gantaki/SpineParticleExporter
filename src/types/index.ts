@@ -147,6 +147,7 @@ interface EmitterInstanceSettings {
   // Appearance
   colorOverLifetime: ColorGradient;
   alphaOverLifetime: Curve;
+  spriteColorMode: "none" | "tint" | "colorize";
   tintSprite: boolean;
   particleSprite:
     | "circle"
@@ -493,6 +494,7 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
       ],
     },
     alphaOverLifetime: DEFAULT_CURVE_PRESETS.alpha,
+    spriteColorMode: "tint",
     tintSprite: true,
     particleSprite: "circle",
     customSpriteData: null,

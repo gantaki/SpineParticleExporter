@@ -11,6 +11,7 @@ import { RangeCurveCombo, LabeledCheckbox } from "../fields";
 import { CurveEditorNew } from "../CurveEditorNew";
 import { useSettings } from "../../context/SettingsContext";
 import { copyCurve } from "../../utils";
+import type { EmitterInstanceSettings } from "../../types";
 
 // ============================================================
 // INLINE COLLAPSIBLE COMPONENT FOR SUB-SECTIONS
@@ -56,6 +57,9 @@ const ColorOverLifetimeSection = memo(() => {
 
   if (!em) return null;
 
+  const spriteColorMode =
+    em.spriteColorMode ?? (em.tintSprite ? "tint" : "none");
+
   return (
     <InlineCollapsible
       title="Color Over Lifetime"
@@ -86,11 +90,23 @@ const ColorOverLifetimeSection = memo(() => {
             Alpha Over Lifetime
           </button>
         </div>
-        <LabeledCheckbox
-          label="Tint Sprite"
-          checked={em.tintSprite}
-          onChange={(checked) => updateCurrentEmitter({ tintSprite: checked })}
-        />
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-slate-300">Sprite Color</span>
+          <select
+            className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-[11px] text-slate-100"
+            value={spriteColorMode}
+            onChange={(e) =>
+              updateCurrentEmitter({
+                spriteColorMode: e.target.value as EmitterInstanceSettings["spriteColorMode"],
+                tintSprite: e.target.value !== "none",
+              })
+            }
+          >
+            <option value="tint">Tint Sprite</option>
+            <option value="colorize">Colorize Sprite</option>
+            <option value="none">No Tint</option>
+          </select>
+        </div>
       </div>
 
       {activeTab === "color" ? (

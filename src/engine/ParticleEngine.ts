@@ -435,8 +435,9 @@ export class ParticleEngine {
 
       const colorData = evaluateColorGradient(em.colorOverLifetime, t);
       const alphaMultiplier = clamp01(evaluateCurve(em.alphaOverLifetime, t));
+      const spriteColorMode = em.spriteColorMode ?? (em.tintSprite ? "tint" : "none");
 
-      p.color = em.tintSprite
+      p.color = spriteColorMode !== "none"
         ? { r: colorData.r, g: colorData.g, b: colorData.b, a: 255 }
         : { r: 255, g: 255, b: 255, a: 255 };
       p.alpha = (colorData.a / 255) * alphaMultiplier;
