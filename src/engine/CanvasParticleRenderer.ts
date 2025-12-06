@@ -31,6 +31,8 @@ export interface RenderOptions {
     backgroundB: string;
     step: number;
     showAxes: boolean;
+    axisColor: string;
+    axisOpacity: number;
   };
 }
 
@@ -167,13 +169,30 @@ export class CanvasParticleRenderer {
     const offsetX = centerX + pan.x * zoom;
     const offsetY = centerY + pan.y * zoom;
 
+    const visibleCorners = [
+      { x: 0, y: 0 },
+      { x: ctx.canvas.width, y: 0 },
+      { x: 0, y: ctx.canvas.height },
+      { x: ctx.canvas.width, y: ctx.canvas.height },
+    ].map(({ x, y }) => ({
+      x: (x - offsetX) / zoom,
+      y: (offsetY - y) / zoom,
+    }));
+
+    const visibleBounds = {
+      left: Math.min(...visibleCorners.map((p) => p.x)),
+      right: Math.max(...visibleCorners.map((p) => p.x)),
+      top: Math.max(...visibleCorners.map((p) => p.y)),
+      bottom: Math.min(...visibleCorners.map((p) => p.y)),
+    };
+
     ctx.save();
     // Invert Y axis so positive Y goes up (mathematical convention)
     ctx.setTransform(zoom, 0, 0, -zoom, offsetX, offsetY);
 
     // Draw grid
     if (showGrid) {
-      this.renderGrid(ctx, zoom, offsetX, offsetY, gridSettings);
+      this.renderGrid(ctx, zoom, offsetX, offsetY, gridSettings, visibleBounds);
     }
 
     // Draw background above grid
@@ -187,7 +206,7 @@ export class CanvasParticleRenderer {
     }
 
     if (showGrid && gridSettings.showAxes) {
-      this.renderAxes(ctx, zoom, settings);
+      this.renderAxes(ctx, zoom, settings, gridSettings, visibleBounds);
     }
 
     // Draw particles
@@ -210,20 +229,31 @@ export class CanvasParticleRenderer {
     zoom: number,
     offsetX: number,
     offsetY: number,
-    gridSettings: RenderOptions["gridSettings"]
+    gridSettings: RenderOptions["gridSettings"],
+    visibleBounds: { left: number; right: number; top: number; bottom: number }
   ): void {
     ctx.save();
     const gridStep = Math.max(8, gridSettings.step);
 
-    const visibleLeft = -offsetX / zoom;
-    const visibleRight = (ctx.canvas.width - offsetX) / zoom;
-    const visibleTop = -offsetY / zoom;
-    const visibleBottom = (ctx.canvas.height - offsetY) / zoom;
+    const visibleCorners = [
+      { x: 0, y: 0 },
+      { x: ctx.canvas.width, y: 0 },
+      { x: 0, y: ctx.canvas.height },
+      { x: ctx.canvas.width, y: ctx.canvas.height },
+    ].map(({ x, y }) => ({
+      x: (x - offsetX) / zoom,
+      y: (offsetY - y) / zoom,
+    }));
+
+    const visibleLeft = Math.min(visibleBounds.left, ...visibleCorners.map((p) => p.x));
+    const visibleRight = Math.max(visibleBounds.right, ...visibleCorners.map((p) => p.x));
+    const visibleTop = Math.max(visibleBounds.top, ...visibleCorners.map((p) => p.y));
+    const visibleBottom = Math.min(visibleBounds.bottom, ...visibleCorners.map((p) => p.y));
 
     const startX = Math.floor(visibleLeft / gridStep) * gridStep;
     const endX = Math.ceil(visibleRight / gridStep) * gridStep;
-    const startY = Math.floor(visibleTop / gridStep) * gridStep;
-    const endY = Math.ceil(visibleBottom / gridStep) * gridStep;
+    const startY = Math.floor(visibleBottom / gridStep) * gridStep;
+    const endY = Math.ceil(visibleTop / gridStep) * gridStep;
 
     for (let y = startY; y <= endY; y += gridStep) {
       for (let x = startX; x <= endX; x += gridStep) {
@@ -241,26 +271,33 @@ export class CanvasParticleRenderer {
   private renderAxes(
     ctx: CanvasRenderingContext2D,
     zoom: number,
-    settings: ParticleSettings
+    settings: ParticleSettings,
+    gridSettings: RenderOptions["gridSettings"],
+    visibleBounds: { left: number; right: number; top: number; bottom: number }
   ): void {
     ctx.save();
     ctx.lineWidth = 2 / zoom;
+    ctx.strokeStyle = gridSettings.axisColor;
+    ctx.globalAlpha = gridSettings.axisOpacity;
 
-    const halfWidth = settings.frame.width / 2;
-    const halfHeight = settings.frame.height / 2;
-
-    ctx.strokeStyle = "#6b7280";
+    const maxSpan = Math.max(
+      settings.frame.width,
+      settings.frame.height,
+      visibleBounds.right - visibleBounds.left,
+      visibleBounds.top - visibleBounds.bottom
+    );
+    const halfSpan = maxSpan * 1.5;
 
     // X axis
     ctx.beginPath();
-    ctx.moveTo(-halfWidth, 0);
-    ctx.lineTo(halfWidth, 0);
+    ctx.moveTo(-halfSpan, 0);
+    ctx.lineTo(halfSpan, 0);
     ctx.stroke();
 
     // Y axis
     ctx.beginPath();
-    ctx.moveTo(0, -halfHeight);
-    ctx.lineTo(0, halfHeight);
+    ctx.moveTo(0, -halfSpan);
+    ctx.lineTo(0, halfSpan);
     ctx.stroke();
 
     ctx.restore();

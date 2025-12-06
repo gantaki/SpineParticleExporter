@@ -101,6 +101,8 @@ export const INITIAL_VIEWPORT_STATE: ViewportState = {
     backgroundB: "#0b1220",
     step: 50,
     showAxes: true,
+    axisColor: "#6b7280",
+    axisOpacity: 0.75,
   },
 };
 
@@ -109,6 +111,8 @@ export interface GridSettings {
   backgroundB: string;
   step: number;
   showAxes: boolean;
+  axisColor: string;
+  axisOpacity: number;
 }
 
 // ============================================================

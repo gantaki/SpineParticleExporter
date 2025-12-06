@@ -261,9 +261,12 @@ export const Viewport = memo(() => {
 
       if (dragMode === "pan") {
         const currentZoom = zoomRef.current;
-        const deltaX = (e.clientX - dragStart.x) / currentZoom;
-        const deltaY = (e.clientY - dragStart.y) / currentZoom;
-        setPan({ x: panStart.x + deltaX, y: panStart.y - deltaY });
+        const rect = canvasRef.current.getBoundingClientRect();
+        const scaleX = frameWidth / rect.width;
+        const scaleY = frameHeight / rect.height;
+        const deltaX = ((e.clientX - dragStart.x) * scaleX) / currentZoom;
+        const deltaY = ((e.clientY - dragStart.y) * scaleY) / currentZoom;
+        setPan({ x: panStart.x + deltaX, y: panStart.y + deltaY });
       } else if (dragMode === "background") {
         setBgPosition({ x: world.x - dragStart.x, y: world.y - dragStart.y });
       } else if (dragMode === "emitter" && currentEmitterSettings) {

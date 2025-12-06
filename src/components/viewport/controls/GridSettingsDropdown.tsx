@@ -58,6 +58,15 @@ export const GridSettingsDropdown = memo(
                   className="px-2 py-1 rounded border border-slate-600 bg-slate-800 text-xs"
                 />
               </label>
+              <label className="flex flex-col gap-1">
+                Axes color
+                <input
+                  type="color"
+                  value={settings.axisColor}
+                  onChange={(e) => onChange({ axisColor: e.target.value })}
+                  className="h-8 w-full rounded border border-slate-600 bg-slate-800"
+                />
+              </label>
               <label className="flex items-center gap-2 text-[11px] mt-5">
                 <input
                   type="checkbox"
@@ -66,6 +75,19 @@ export const GridSettingsDropdown = memo(
                   className="h-3 w-3 accent-blue-500"
                 />
                 Show axes
+              </label>
+              <label className="flex flex-col gap-1">
+                Axes opacity
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={settings.axisOpacity}
+                  onChange={(e) => onChange({ axisOpacity: Number(e.target.value) })}
+                  className="w-full accent-blue-500"
+                />
+                <span className="text-right text-[10px] text-slate-400">{Math.round(settings.axisOpacity * 100)}%</span>
               </label>
             </div>
           </div>
