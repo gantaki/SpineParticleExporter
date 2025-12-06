@@ -30,5 +30,8 @@ export {
 // Spine JSON generation
 export { generateSpineJSON } from "./spine-json";
 
+// Keyframe optimization
+export { decimateKeyframes, analyzeKeyframeDensity } from "./keyframe-decimation";
+
 // ZIP utilities
 export { SimpleZip, downloadBlob } from "./zip";

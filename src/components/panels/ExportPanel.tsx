@@ -237,6 +237,33 @@ const OptimizeExportFiles = memo(() => {
         step={0.1}
         max={50}
       />
+
+      {/* Translate Decimation - reduces keyframes in high-density areas */}
+      <div className="mt-2 pt-2 border-t border-slate-600">
+        <LabeledCheckbox
+          label="Translate Decimation (Reduce Dense Keys)"
+          checked={settings.exportSettings.translateDecimationEnabled}
+          onChange={(checked) =>
+            updateExportSettings({ translateDecimationEnabled: checked })
+          }
+        />
+        {settings.exportSettings.translateDecimationEnabled && (
+          <LabeledNumber
+            label="Removal % in Dense Regions"
+            value={settings.exportSettings.translateDecimationPercentage}
+            onChange={(v) =>
+              updateExportSettings({
+                translateDecimationPercentage: Math.round(v),
+              })
+            }
+            min={0}
+            step={5}
+            max={95}
+            integer={true}
+          />
+        )}
+      </div>
+
       <LabeledNumber
         label="Rotation Threshold (°)"
         value={roundToDecimals(settings.exportSettings.rotationThreshold)}
