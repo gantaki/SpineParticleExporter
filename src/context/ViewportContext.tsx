@@ -35,6 +35,7 @@ interface ViewportContextValue {
   showGrid: boolean;
   backgroundImage: HTMLImageElement | null;
   bgPosition: { x: number; y: number };
+  pan: { x: number; y: number };
   spriteCanvases: Record<string, HTMLCanvasElement | null>;
   gridSettings: GridSettings;
 
@@ -46,6 +47,7 @@ interface ViewportContextValue {
   setShowGrid: (show: boolean) => void;
   setBackgroundImage: (image: HTMLImageElement | null) => void;
   setBgPosition: (position: { x: number; y: number }) => void;
+  setPan: (pan: { x: number; y: number }) => void;
   setGridSettings: (settings: Partial<GridSettings>) => void;
 
   // Sprite cache management
@@ -90,6 +92,7 @@ export function ViewportProvider({ children }: ViewportProviderProps) {
   const [bgPosition, setBgPositionState] = useState(
     INITIAL_VIEWPORT_STATE.bgPosition
   );
+  const [pan, setPanState] = useState(INITIAL_VIEWPORT_STATE.pan);
 
   // Sprite canvas cache (using ref + state for hybrid access)
   const [spriteCanvases, setSpriteCanvasesState] = useState<
@@ -106,6 +109,7 @@ export function ViewportProvider({ children }: ViewportProviderProps) {
     showGrid,
     backgroundImage,
     bgPosition,
+    pan,
     gridSettings,
   });
 
@@ -117,9 +121,18 @@ export function ViewportProvider({ children }: ViewportProviderProps) {
       showGrid,
       backgroundImage,
       bgPosition,
+      pan,
       gridSettings,
     };
-  }, [zoom, showEmitter, showGrid, backgroundImage, bgPosition, gridSettings]);
+  }, [
+    zoom,
+    showEmitter,
+    showGrid,
+    backgroundImage,
+    bgPosition,
+    pan,
+    gridSettings,
+  ]);
 
   // ============================================================
   // ACTION CREATORS
@@ -156,6 +169,10 @@ export function ViewportProvider({ children }: ViewportProviderProps) {
     setBgPositionState(position);
   }, []);
 
+  const setPan = useCallback((newPan: { x: number; y: number }) => {
+    setPanState(newPan);
+  }, []);
+
   const setGridSettings = useCallback((settings: Partial<GridSettings>) => {
     setGridSettingsState((prev) => ({ ...prev, ...settings }));
   }, []);
@@ -188,6 +205,7 @@ export function ViewportProvider({ children }: ViewportProviderProps) {
       showGrid,
       backgroundImage,
       bgPosition,
+      pan,
       gridSettings,
       spriteCanvases,
       setZoom,
@@ -197,6 +215,7 @@ export function ViewportProvider({ children }: ViewportProviderProps) {
       setShowGrid,
       setBackgroundImage,
       setBgPosition,
+      setPan,
       setGridSettings,
       setSpriteCanvas,
       clearSpriteCanvases,
@@ -217,6 +236,7 @@ export function ViewportProvider({ children }: ViewportProviderProps) {
       setShowGrid,
       setBackgroundImage,
       setBgPosition,
+      setPan,
       setGridSettings,
       setSpriteCanvas,
       clearSpriteCanvases,

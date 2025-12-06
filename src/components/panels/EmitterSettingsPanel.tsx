@@ -17,7 +17,7 @@ import { useSettings } from "../../context/SettingsContext";
 import { DEFAULT_CURVE_PRESETS } from "../../types";
 import { copyCurve, roundToDecimals } from "../../utils";
 
-const POSITION_LIMIT = 1500;
+const POSITION_LIMIT = 2500;
 
 // ============================================================
 // INLINE COLLAPSIBLE COMPONENT FOR SUB-SECTIONS

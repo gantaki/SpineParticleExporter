@@ -25,10 +25,12 @@ export interface RenderOptions {
   showGrid: boolean;
   backgroundImage: HTMLImageElement | null;
   bgPosition: { x: number; y: number };
+  pan: { x: number; y: number };
   gridSettings: {
     backgroundA: string;
     backgroundB: string;
     step: number;
+    showAxes: boolean;
   };
 }
 
@@ -149,6 +151,7 @@ export class CanvasParticleRenderer {
       showGrid,
       backgroundImage,
       bgPosition,
+      pan,
       gridSettings,
     } = options;
 
@@ -161,14 +164,19 @@ export class CanvasParticleRenderer {
     // Calculate zoom transform centered on world origin (0, 0)
     const centerX = ctx.canvas.width / 2;
     const centerY = ctx.canvas.height / 2;
-    const offsetX = centerX;
-    const offsetY = centerY;
+    const offsetX = centerX + pan.x * zoom;
+    const offsetY = centerY + pan.y * zoom;
 
     ctx.save();
     // Invert Y axis so positive Y goes up (mathematical convention)
     ctx.setTransform(zoom, 0, 0, -zoom, offsetX, offsetY);
 
-    // Draw background
+    // Draw grid
+    if (showGrid) {
+      this.renderGrid(ctx, zoom, offsetX, offsetY, gridSettings);
+    }
+
+    // Draw background above grid
     if (backgroundImage && bgPosition) {
       ctx.save();
       ctx.globalAlpha = 0.5;
@@ -178,9 +186,8 @@ export class CanvasParticleRenderer {
       ctx.restore();
     }
 
-    // Draw grid
-    if (showGrid) {
-      this.renderGrid(ctx, zoom, offsetX, offsetY, gridSettings);
+    if (showGrid && gridSettings.showAxes) {
+      this.renderAxes(ctx, zoom, settings);
     }
 
     // Draw particles
@@ -227,6 +234,34 @@ export class CanvasParticleRenderer {
         ctx.fillRect(x, y, gridStep, gridStep);
       }
     }
+
+    ctx.restore();
+  }
+
+  private renderAxes(
+    ctx: CanvasRenderingContext2D,
+    zoom: number,
+    settings: ParticleSettings
+  ): void {
+    ctx.save();
+    ctx.lineWidth = 2 / zoom;
+
+    const halfWidth = settings.frame.width / 2;
+    const halfHeight = settings.frame.height / 2;
+
+    ctx.strokeStyle = "#6b7280";
+
+    // X axis
+    ctx.beginPath();
+    ctx.moveTo(-halfWidth, 0);
+    ctx.lineTo(halfWidth, 0);
+    ctx.stroke();
+
+    // Y axis
+    ctx.beginPath();
+    ctx.moveTo(0, -halfHeight);
+    ctx.lineTo(0, halfHeight);
+    ctx.stroke();
 
     ctx.restore();
   }

@@ -16,7 +16,9 @@ import { ViewportControls } from "./controls/ViewportControls";
 import { ParticleCountDisplay } from "./overlays/ParticleCountDisplay";
 import { LoopIndicator } from "./overlays/LoopIndicator";
 
-const POSITION_LIMIT = 1500;
+const POSITION_LIMIT = 2500;
+const MIN_ZOOM = 0.3;
+const MAX_ZOOM = 3;
 
 export const Viewport = memo(() => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -52,6 +54,8 @@ export const Viewport = memo(() => {
     backgroundImage,
     bgPosition,
     setZoom,
+    pan,
+    setPan,
     toggleEmitterVisibility,
     toggleGrid,
     setBackgroundImage,
@@ -62,24 +66,53 @@ export const Viewport = memo(() => {
 
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
-  const [dragMode, setDragMode] = useState<"emitter" | "background" | null>(null);
+  const [dragMode, setDragMode] = useState<"emitter" | "background" | "pan" | null>(null);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
 
   const isLooping = currentEmitterSettings?.looping ?? false;
   const isPrewarm = currentEmitterSettings?.prewarm ?? false;
 
   const frameWidth = settings.frame.width;
   const frameHeight = settings.frame.height;
+  const clampZoomValue = useCallback(
+    (value: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value)),
+    []
+  );
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.code === "Space") {
+        event.preventDefault();
+        setIsSpacePressed(true);
+      }
+    };
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.code === "Space") {
+        setIsSpacePressed(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown, { passive: false });
+    window.addEventListener("keyup", handleKeyUp);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
 
   const canvasToWorld = useCallback(
     (canvasX: number, canvasY: number) => {
       const halfWidth = frameWidth / 2;
       const halfHeight = frameHeight / 2;
       return {
-        x: canvasX - halfWidth,
-        y: halfHeight - canvasY,
+        x: (canvasX - (halfWidth + pan.x * zoom)) / zoom,
+        y: (halfHeight + pan.y * zoom - canvasY) / zoom,
       };
     },
-    [frameHeight, frameWidth]
+    [frameHeight, frameWidth, pan.x, pan.y, zoom]
   );
 
   const handleImageUpload = useCallback(
@@ -101,9 +134,24 @@ export const Viewport = memo(() => {
     [setBackgroundImage, setBgPosition]
   );
 
+  const handleZoomChange = useCallback(
+    (value: number) => {
+      setZoom(clampZoomValue(value));
+    },
+    [clampZoomValue, setZoom]
+  );
+
   const handleCanvasMouseDown = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       if (!canvasRef.current) return;
+
+      if (isSpacePressed && e.button === 0) {
+        setDragMode("pan");
+        setPanStart(pan);
+        setDragStart({ x: e.clientX, y: e.clientY });
+        setIsDragging(true);
+        return;
+      }
 
       const rect = canvasRef.current.getBoundingClientRect();
       const canvasX = (e.clientX - rect.left) * (frameWidth / rect.width);
@@ -133,6 +181,8 @@ export const Viewport = memo(() => {
       bgPosition,
       currentEmitterSettings,
       canvasToWorld,
+      isSpacePressed,
+      pan,
     ]
   );
 
@@ -145,7 +195,11 @@ export const Viewport = memo(() => {
       const canvasY = (e.clientY - rect.top) * (frameHeight / rect.height);
       const world = canvasToWorld(canvasX, canvasY);
 
-      if (dragMode === "background") {
+      if (dragMode === "pan") {
+        const deltaX = (e.clientX - dragStart.x) / zoom;
+        const deltaY = (e.clientY - dragStart.y) / zoom;
+        setPan({ x: panStart.x + deltaX, y: panStart.y - deltaY });
+      } else if (dragMode === "background") {
         setBgPosition({ x: world.x - dragStart.x, y: world.y - dragStart.y });
       } else if (dragMode === "emitter" && currentEmitterSettings) {
         const clampedX = Math.max(
@@ -171,11 +225,41 @@ export const Viewport = memo(() => {
       frameWidth,
       frameHeight,
       dragStart,
+      panStart,
       setBgPosition,
+      setPan,
       currentEmitterSettings,
       updateCurrentEmitter,
       canvasToWorld,
+      zoom,
     ]
+  );
+
+  const handleCanvasWheel = useCallback(
+    (e: React.WheelEvent<HTMLCanvasElement>) => {
+      if (!canvasRef.current) return;
+
+      e.preventDefault();
+
+      const rect = canvasRef.current.getBoundingClientRect();
+      const canvasX = (e.clientX - rect.left) * (frameWidth / rect.width);
+      const canvasY = (e.clientY - rect.top) * (frameHeight / rect.height);
+
+      const worldPoint = canvasToWorld(canvasX, canvasY);
+      const delta = e.deltaY < 0 ? 1.1 : 0.9;
+      const newZoom = clampZoomValue(zoom * delta);
+
+      const halfWidth = frameWidth / 2;
+      const halfHeight = frameHeight / 2;
+      const newPan = {
+        x: (canvasX - (halfWidth)) / newZoom - worldPoint.x,
+        y: (halfHeight - canvasY) / newZoom - worldPoint.y,
+      };
+
+      setPan(newPan);
+      setZoom(newZoom);
+    },
+    [canvasRef, frameHeight, frameWidth, canvasToWorld, clampZoomValue, zoom, setPan, setZoom]
   );
 
   const handleCanvasMouseUp = useCallback(() => {
@@ -193,7 +277,7 @@ export const Viewport = memo(() => {
           showGrid={showGrid}
           hasBackgroundImage={!!backgroundImage}
           gridSettings={gridSettings}
-          onZoomChange={setZoom}
+          onZoomChange={handleZoomChange}
           onToggleEmitter={toggleEmitterVisibility}
           onToggleGrid={toggleGrid}
           onUploadBackground={() => fileInputRef.current?.click()}
@@ -220,6 +304,8 @@ export const Viewport = memo(() => {
             imageRendering: "pixelated",
             cursor: isDragging
               ? "grabbing"
+              : isSpacePressed
+              ? "grab"
               : currentEmitterSettings && !currentEmitterSettings.positionLocked
               ? "grab"
               : backgroundImage
@@ -232,6 +318,7 @@ export const Viewport = memo(() => {
           onMouseMove={handleCanvasMouseMove}
           onMouseUp={handleCanvasMouseUp}
           onMouseLeave={handleCanvasMouseUp}
+          onWheel={handleCanvasWheel}
         />
 
         <ParticleCountDisplay particleCountRef={particleCountRef} />

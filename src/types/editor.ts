@@ -85,6 +85,7 @@ export interface ViewportState {
   showGrid: boolean;
   backgroundImage: HTMLImageElement | null;
   bgPosition: { x: number; y: number };
+  pan: { x: number; y: number };
   gridSettings: GridSettings;
 }
 
@@ -94,10 +95,12 @@ export const INITIAL_VIEWPORT_STATE: ViewportState = {
   showGrid: false,
   backgroundImage: null,
   bgPosition: { x: 0, y: 0 },
+  pan: { x: 0, y: 0 },
   gridSettings: {
     backgroundA: "#111827",
     backgroundB: "#0b1220",
     step: 50,
+    showAxes: true,
   },
 };
 
@@ -105,6 +108,7 @@ export interface GridSettings {
   backgroundA: string;
   backgroundB: string;
   step: number;
+  showAxes: boolean;
 }
 
 // ============================================================

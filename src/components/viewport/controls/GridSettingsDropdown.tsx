@@ -58,6 +58,15 @@ export const GridSettingsDropdown = memo(
                   className="px-2 py-1 rounded border border-slate-600 bg-slate-800 text-xs"
                 />
               </label>
+              <label className="flex items-center gap-2 text-[11px] mt-5">
+                <input
+                  type="checkbox"
+                  checked={settings.showAxes}
+                  onChange={(e) => onChange({ showAxes: e.target.checked })}
+                  className="h-3 w-3 accent-blue-500"
+                />
+                Show axes
+              </label>
             </div>
           </div>
         )}
