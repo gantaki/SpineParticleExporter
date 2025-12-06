@@ -140,6 +140,10 @@ export function ViewportProvider({ children }: ViewportProviderProps) {
 
   const setZoom = useCallback((newZoom: number) => {
     setZoomState(newZoom);
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      zoom: newZoom,
+    };
   }, []);
 
   const toggleEmitterVisibility = useCallback(() => {
@@ -167,14 +171,29 @@ export function ViewportProvider({ children }: ViewportProviderProps) {
 
   const setBgPosition = useCallback((position: { x: number; y: number }) => {
     setBgPositionState(position);
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      bgPosition: position,
+    };
   }, []);
 
   const setPan = useCallback((newPan: { x: number; y: number }) => {
     setPanState(newPan);
+    viewportStateRef.current = {
+      ...viewportStateRef.current,
+      pan: newPan,
+    };
   }, []);
 
   const setGridSettings = useCallback((settings: Partial<GridSettings>) => {
-    setGridSettingsState((prev) => ({ ...prev, ...settings }));
+    setGridSettingsState((prev) => {
+      const next = { ...prev, ...settings };
+      viewportStateRef.current = {
+        ...viewportStateRef.current,
+        gridSettings: next,
+      };
+      return next;
+    });
   }, []);
 
   // Sprite canvas management
