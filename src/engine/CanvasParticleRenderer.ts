@@ -245,8 +245,9 @@ export class CanvasParticleRenderer {
       if (!emitterParticles || emitterParticles.length === 0) continue;
 
       const spriteCanvas = spriteCanvases ? spriteCanvases[emitter.id] : null;
-      const size = 16;
-      const canvasSize = size * 2;
+      const canvasWidth = spriteCanvas?.width ?? 32;
+      const canvasHeight = spriteCanvas?.height ?? 32;
+      const colorizeSprite = this.shouldColorizeSprite(emitter.settings);
 
       // Render all particles from this emitter
       for (const p of emitterParticles) {
@@ -257,27 +258,47 @@ export class CanvasParticleRenderer {
         ctx.globalAlpha = p.alpha;
 
         if (spriteCanvas) {
-          // Get canvas from pool with size (avoids resize if already correct)
-          const tempCanvas = this.getTempCanvas(canvasSize, canvasSize);
-          const tempCtx = this.getCachedContext(tempCanvas);
+          if (!colorizeSprite) {
+            ctx.scale(1, -1);
+            ctx.drawImage(
+              spriteCanvas,
+              -canvasWidth / 2,
+              -canvasHeight / 2,
+              canvasWidth,
+              canvasHeight
+            );
+          } else {
+            const tempCanvas = this.getTempCanvas(canvasWidth, canvasHeight);
+            const tempCtx = this.getCachedContext(tempCanvas);
 
-          // Clear previous content (cheap compared to resize)
-          tempCtx.clearRect(0, 0, canvasSize, canvasSize);
+            tempCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+            tempCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
 
-          tempCtx.drawImage(spriteCanvas, 0, 0, canvasSize, canvasSize);
-          tempCtx.globalCompositeOperation = "source-in";
-          tempCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-          tempCtx.fillRect(0, 0, canvasSize, canvasSize);
+            const tintCanvas = this.getTempCanvas(canvasWidth, canvasHeight);
+            const tintCtx = this.getCachedContext(tintCanvas);
+            tintCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+            tintCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
+            tintCtx.globalCompositeOperation = "source-in";
+            tintCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
+            tintCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+            tintCtx.globalCompositeOperation = "source-over";
 
-          // Reset composite operation for next use
-          tempCtx.globalCompositeOperation = "source-over";
+            tempCtx.globalAlpha = 0.65;
+            tempCtx.drawImage(tintCanvas, 0, 0, canvasWidth, canvasHeight);
+            tempCtx.globalAlpha = 1;
 
-          // Compensate for inverted Y axis when drawing sprite images
-          ctx.scale(1, -1);
-          ctx.drawImage(tempCanvas, -size, -size, canvasSize, canvasSize);
+            ctx.scale(1, -1);
+            ctx.drawImage(
+              tempCanvas,
+              -canvasWidth / 2,
+              -canvasHeight / 2,
+              canvasWidth,
+              canvasHeight
+            );
 
-          // Return canvas to pool for reuse
-          this.returnTempCanvas(tempCanvas);
+            this.returnTempCanvas(tintCanvas);
+            this.returnTempCanvas(tempCanvas);
+          }
         } else {
           const circleSize = 8;
           ctx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
@@ -289,6 +310,21 @@ export class CanvasParticleRenderer {
         ctx.restore();
       }
     }
+  }
+
+  private shouldColorizeSprite(settings: EmitterInstance["settings"]): boolean {
+    const legacySpriteColorMode = (settings as any).spriteColorMode as
+      | "none"
+      | "colorize"
+      | undefined;
+    const legacyTintFlag = (settings as any).tintSprite as boolean | undefined;
+    if (typeof settings.colorizeSprite === "boolean") {
+      return settings.colorizeSprite;
+    }
+    if (legacySpriteColorMode) {
+      return legacySpriteColorMode === "colorize" || legacyTintFlag === true;
+    }
+    return legacyTintFlag ?? true;
   }
 
   // ============================================================

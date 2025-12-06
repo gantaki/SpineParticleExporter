@@ -8,6 +8,7 @@ import { CollapsibleSection } from "../CollapsibleSection";
 import { ColorGradientEditor } from "../ColorGradientEditor";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { RangeCurveCombo, LabeledCheckbox } from "../fields";
+import { CurveEditorNew } from "../CurveEditorNew";
 import { useSettings } from "../../context/SettingsContext";
 import { copyCurve } from "../../utils";
 
@@ -61,12 +62,32 @@ const ColorOverLifetimeSection = memo(() => {
       isOpen={isOpen}
       onToggle={() => setIsOpen(!isOpen)}
     >
+      <div className="flex items-center justify-between mb-2">
+        <div className="px-2 py-0.5 text-[11px] rounded bg-slate-900/60 text-slate-200">
+          Color Over Lifetime
+        </div>
+        <LabeledCheckbox
+          label="Colorize Sprite"
+          checked={em.colorizeSprite ?? true}
+          onChange={(checked) => updateCurrentEmitter({ colorizeSprite: checked })}
+        />
+      </div>
+
       <ColorGradientEditor
         gradient={em.colorOverLifetime}
-        onChange={(gradient) =>
-          updateCurrentEmitter({ colorOverLifetime: gradient })
-        }
+        onChange={(gradient) => updateCurrentEmitter({ colorOverLifetime: gradient })}
       />
+
+      <div className="mt-3">
+        <CurveEditorNew
+          label="Alpha Multiplier (0 to 1)"
+          curve={em.alphaOverLifetime}
+          onChange={(curve) => updateCurrentEmitter({ alphaOverLifetime: curve })}
+          min={0}
+          max={1}
+          autoScale={false}
+        />
+      </div>
     </InlineCollapsible>
   );
 });
