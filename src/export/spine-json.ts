@@ -74,8 +74,8 @@ export function generateSpineJSON(
     spine: "4.2.00",
     x: 0,
     y: 0,
-    width: settings.frameSize,
-    height: settings.frameSize,
+    width: settings.frame.width,
+    height: settings.frame.height,
   };
 
   // Step 3: Build bone hierarchy (root + emitters)

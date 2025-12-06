@@ -258,12 +258,12 @@ export function renderBakedPreview(
   settings: ParticleSettings
 ): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
-  canvas.width = settings.frameSize;
-  canvas.height = settings.frameSize;
+  canvas.width = settings.frame.width;
+  canvas.height = settings.frame.height;
   const ctx = canvas.getContext("2d")!;
 
-  const centerX = settings.frameSize / 2;
-  const centerY = settings.frameSize / 2;
+  const centerX = settings.frame.width / 2;
+  const centerY = settings.frame.height / 2;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 

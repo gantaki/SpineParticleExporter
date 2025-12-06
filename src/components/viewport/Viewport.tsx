@@ -16,6 +16,8 @@ import { ViewportControls } from "./controls/ViewportControls";
 import { ParticleCountDisplay } from "./overlays/ParticleCountDisplay";
 import { LoopIndicator } from "./overlays/LoopIndicator";
 
+const POSITION_LIMIT = 1500;
+
 export const Viewport = memo(() => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [currentTime, setCurrentTime] = useState(0);
@@ -65,15 +67,19 @@ export const Viewport = memo(() => {
   const isLooping = currentEmitterSettings?.looping ?? false;
   const isPrewarm = currentEmitterSettings?.prewarm ?? false;
 
+  const frameWidth = settings.frame.width;
+  const frameHeight = settings.frame.height;
+
   const canvasToWorld = useCallback(
     (canvasX: number, canvasY: number) => {
-      const halfSize = settings.frameSize / 2;
+      const halfWidth = frameWidth / 2;
+      const halfHeight = frameHeight / 2;
       return {
-        x: canvasX - halfSize,
-        y: halfSize - canvasY,
+        x: canvasX - halfWidth,
+        y: halfHeight - canvasY,
       };
     },
-    [settings.frameSize]
+    [frameHeight, frameWidth]
   );
 
   const handleImageUpload = useCallback(
@@ -100,8 +106,8 @@ export const Viewport = memo(() => {
       if (!canvasRef.current) return;
 
       const rect = canvasRef.current.getBoundingClientRect();
-      const canvasX = (e.clientX - rect.left) * (settings.frameSize / rect.width);
-      const canvasY = (e.clientY - rect.top) * (settings.frameSize / rect.height);
+      const canvasX = (e.clientX - rect.left) * (frameWidth / rect.width);
+      const canvasY = (e.clientY - rect.top) * (frameHeight / rect.height);
       const world = canvasToWorld(canvasX, canvasY);
 
       if (e.shiftKey && backgroundImage) {
@@ -122,7 +128,8 @@ export const Viewport = memo(() => {
     [
       backgroundImage,
       canvasRef,
-      settings.frameSize,
+      frameWidth,
+      frameHeight,
       bgPosition,
       currentEmitterSettings,
       canvasToWorld,
@@ -134,17 +141,25 @@ export const Viewport = memo(() => {
       if (!isDragging || !canvasRef.current || !dragMode) return;
 
       const rect = canvasRef.current.getBoundingClientRect();
-      const canvasX = (e.clientX - rect.left) * (settings.frameSize / rect.width);
-      const canvasY = (e.clientY - rect.top) * (settings.frameSize / rect.height);
+      const canvasX = (e.clientX - rect.left) * (frameWidth / rect.width);
+      const canvasY = (e.clientY - rect.top) * (frameHeight / rect.height);
       const world = canvasToWorld(canvasX, canvasY);
 
       if (dragMode === "background") {
         setBgPosition({ x: world.x - dragStart.x, y: world.y - dragStart.y });
       } else if (dragMode === "emitter" && currentEmitterSettings) {
+        const clampedX = Math.max(
+          -POSITION_LIMIT,
+          Math.min(POSITION_LIMIT, roundToDecimals(world.x - dragStart.x))
+        );
+        const clampedY = Math.max(
+          -POSITION_LIMIT,
+          Math.min(POSITION_LIMIT, roundToDecimals(world.y - dragStart.y))
+        );
         updateCurrentEmitter({
           position: {
-            x: roundToDecimals(world.x - dragStart.x),
-            y: roundToDecimals(world.y - dragStart.y),
+            x: clampedX,
+            y: clampedY,
           },
         });
       }
@@ -153,7 +168,8 @@ export const Viewport = memo(() => {
       isDragging,
       dragMode,
       canvasRef,
-      settings.frameSize,
+      frameWidth,
+      frameHeight,
       dragStart,
       setBgPosition,
       currentEmitterSettings,
@@ -197,9 +213,9 @@ export const Viewport = memo(() => {
       <div className="bg-black rounded overflow-hidden border border-slate-600 relative aspect-video flex items-center justify-center">
         <canvas
           ref={canvasRef as React.RefObject<HTMLCanvasElement>}
-          width={settings.frameSize}
-          height={settings.frameSize}
-          className="max-h-full max-w-full aspect-square"
+          width={frameWidth}
+          height={frameHeight}
+          className="max-h-full max-w-full"
           style={{
             imageRendering: "pixelated",
             cursor: isDragging
@@ -210,7 +226,7 @@ export const Viewport = memo(() => {
               ? "grab"
               : "default",
             height: "100%",
-            width: "auto",
+            width: "100%",
           }}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleCanvasMouseMove}

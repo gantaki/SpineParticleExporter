@@ -98,8 +98,6 @@ export const INITIAL_VIEWPORT_STATE: ViewportState = {
     backgroundA: "#111827",
     backgroundB: "#0b1220",
     step: 50,
-    lineColor: "rgba(148, 163, 184, 0.35)",
-    lineWidth: 1,
   },
 };
 
@@ -107,8 +105,6 @@ export interface GridSettings {
   backgroundA: string;
   backgroundB: string;
   step: number;
-  lineColor: string;
-  lineWidth: number;
 }
 
 // ============================================================
@@ -150,7 +146,7 @@ export type SettingsAction =
   // Global settings
   | { type: "SET_DURATION"; duration: number }
   | { type: "SET_FPS"; fps: number }
-  | { type: "SET_FRAME_SIZE"; frameSize: number }
+  | { type: "SET_FRAME_DIMENSIONS"; width: number; height: number }
   | { type: "SET_EXPORT_SETTINGS"; exportSettings: Partial<ExportSettings> }
   | {
       type: "SET_GLOBAL_EXPORT_SETTINGS";

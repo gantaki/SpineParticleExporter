@@ -29,8 +29,6 @@ export interface RenderOptions {
     backgroundA: string;
     backgroundB: string;
     step: number;
-    lineColor: string;
-    lineWidth: number;
   };
 }
 
@@ -208,7 +206,6 @@ export class CanvasParticleRenderer {
     gridSettings: RenderOptions["gridSettings"]
   ): void {
     ctx.save();
-    ctx.lineWidth = gridSettings.lineWidth / zoom;
     const gridStep = Math.max(8, gridSettings.step);
 
     const visibleLeft = -offsetX / zoom;
@@ -229,22 +226,6 @@ export class CanvasParticleRenderer {
           : gridSettings.backgroundB;
         ctx.fillRect(x, y, gridStep, gridStep);
       }
-    }
-
-    ctx.strokeStyle = gridSettings.lineColor;
-
-    for (let x = startX; x <= endX; x += gridStep) {
-      ctx.beginPath();
-      ctx.moveTo(x, visibleTop);
-      ctx.lineTo(x, visibleBottom);
-      ctx.stroke();
-    }
-
-    for (let y = startY; y <= endY; y += gridStep) {
-      ctx.beginPath();
-      ctx.moveTo(visibleLeft, y);
-      ctx.lineTo(visibleRight, y);
-      ctx.stroke();
     }
 
     ctx.restore();

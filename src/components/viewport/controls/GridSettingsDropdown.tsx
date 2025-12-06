@@ -15,7 +15,6 @@ export const GridSettingsDropdown = memo(
       () => [
         { key: "backgroundA", label: "Cell A" },
         { key: "backgroundB", label: "Cell B" },
-        { key: "lineColor", label: "Lines" },
       ] as const,
       []
     );
@@ -56,17 +55,6 @@ export const GridSettingsDropdown = memo(
                   min={4}
                   value={settings.step}
                   onChange={(e) => onChange({ step: Number(e.target.value) || 0 })}
-                  className="px-2 py-1 rounded border border-slate-600 bg-slate-800 text-xs"
-                />
-              </label>
-              <label className="flex flex-col gap-1">
-                Line width
-                <input
-                  type="number"
-                  min={0.25}
-                  step={0.25}
-                  value={settings.lineWidth}
-                  onChange={(e) => onChange({ lineWidth: Number(e.target.value) || 0 })}
                   className="px-2 py-1 rounded border border-slate-600 bg-slate-800 text-xs"
                 />
               </label>
