@@ -68,7 +68,27 @@ export const Viewport = memo(() => {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragMode, setDragMode] = useState<"emitter" | "background" | "pan" | null>(null);
   const [panStart, setPanStart] = useState({ x: 0, y: 0 });
-  const [isSpacePressed, setIsSpacePressed] = useState(false);
+  const zoomRef = useRef(zoom);
+  const panRef = useRef(pan);
+  const zoomAnimationRef = useRef<number | null>(null);
+  const zoomStartRef = useRef({ zoom, pan });
+  const zoomStartTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
+
+  useEffect(() => {
+    panRef.current = pan;
+  }, [pan]);
+
+  useEffect(() => {
+    return () => {
+      if (zoomAnimationRef.current) {
+        cancelAnimationFrame(zoomAnimationRef.current);
+      }
+    };
+  }, []);
 
   const isLooping = currentEmitterSettings?.looping ?? false;
   const isPrewarm = currentEmitterSettings?.prewarm ?? false;
@@ -80,39 +100,85 @@ export const Viewport = memo(() => {
     []
   );
 
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.code === "Space") {
-        event.preventDefault();
-        setIsSpacePressed(true);
-      }
-    };
-
-    const handleKeyUp = (event: KeyboardEvent) => {
-      if (event.code === "Space") {
-        setIsSpacePressed(false);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown, { passive: false });
-    window.addEventListener("keyup", handleKeyUp);
-
-    return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
-    };
-  }, []);
-
   const canvasToWorld = useCallback(
-    (canvasX: number, canvasY: number) => {
+    (
+      canvasX: number,
+      canvasY: number,
+      zoomValue: number = zoomRef.current,
+      panValue: { x: number; y: number } = panRef.current
+    ) => {
       const halfWidth = frameWidth / 2;
       const halfHeight = frameHeight / 2;
       return {
-        x: (canvasX - (halfWidth + pan.x * zoom)) / zoom,
-        y: (halfHeight + pan.y * zoom - canvasY) / zoom,
+        x: (canvasX - (halfWidth + panValue.x * zoomValue)) / zoomValue,
+        y: (halfHeight + panValue.y * zoomValue - canvasY) / zoomValue,
       };
     },
-    [frameHeight, frameWidth, pan.x, pan.y, zoom]
+    [frameHeight, frameWidth]
+  );
+
+  const applyZoomAtPoint = useCallback(
+    (
+      nextZoom: number,
+      anchor: { canvasX: number; canvasY: number; world: { x: number; y: number } }
+    ) => {
+      const clampedZoom = clampZoomValue(nextZoom);
+      const halfWidth = frameWidth / 2;
+      const halfHeight = frameHeight / 2;
+
+      const newPan = {
+        x: (anchor.canvasX - halfWidth - anchor.world.x * clampedZoom) / clampedZoom,
+        y: (anchor.world.y * clampedZoom + anchor.canvasY - halfHeight) / clampedZoom,
+      };
+
+      setPan(newPan);
+      setZoom(clampedZoom);
+      zoomRef.current = clampedZoom;
+      panRef.current = newPan;
+    },
+    [clampZoomValue, frameHeight, frameWidth, setPan, setZoom]
+  );
+
+  const animateZoomTo = useCallback(
+    (
+      targetZoom: number,
+      anchor: { canvasX: number; canvasY: number; world: { x: number; y: number } }
+    ) => {
+      const clampedTarget = clampZoomValue(targetZoom);
+      zoomStartRef.current = { zoom: zoomRef.current, pan: panRef.current };
+      zoomStartTimeRef.current = null;
+
+      if (zoomAnimationRef.current) {
+        cancelAnimationFrame(zoomAnimationRef.current);
+      }
+
+      const duration = 180;
+
+      const step = (timestamp: number) => {
+        if (zoomStartTimeRef.current === null) {
+          zoomStartTimeRef.current = timestamp;
+        }
+
+        const elapsed = timestamp - zoomStartTimeRef.current;
+        const progress = Math.min(1, elapsed / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const startZoom = zoomStartRef.current.zoom;
+        const nextZoom = startZoom + (clampedTarget - startZoom) * eased;
+
+        applyZoomAtPoint(nextZoom, anchor);
+
+        if (progress < 1 - 1e-4) {
+          zoomAnimationRef.current = requestAnimationFrame(step);
+        } else {
+          zoomAnimationRef.current = null;
+          zoomStartTimeRef.current = null;
+          zoomStartRef.current = { zoom: clampedTarget, pan: panRef.current };
+        }
+      };
+
+      zoomAnimationRef.current = requestAnimationFrame(step);
+    },
+    [applyZoomAtPoint, clampZoomValue]
   );
 
   const handleImageUpload = useCallback(
@@ -145,9 +211,9 @@ export const Viewport = memo(() => {
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       if (!canvasRef.current) return;
 
-      if (isSpacePressed && e.button === 0) {
+      if (e.button === 2) {
         setDragMode("pan");
-        setPanStart(pan);
+        setPanStart(panRef.current);
         setDragStart({ x: e.clientX, y: e.clientY });
         setIsDragging(true);
         return;
@@ -181,8 +247,6 @@ export const Viewport = memo(() => {
       bgPosition,
       currentEmitterSettings,
       canvasToWorld,
-      isSpacePressed,
-      pan,
     ]
   );
 
@@ -196,8 +260,9 @@ export const Viewport = memo(() => {
       const world = canvasToWorld(canvasX, canvasY);
 
       if (dragMode === "pan") {
-        const deltaX = (e.clientX - dragStart.x) / zoom;
-        const deltaY = (e.clientY - dragStart.y) / zoom;
+        const currentZoom = zoomRef.current;
+        const deltaX = (e.clientX - dragStart.x) / currentZoom;
+        const deltaY = (e.clientY - dragStart.y) / currentZoom;
         setPan({ x: panStart.x + deltaX, y: panStart.y - deltaY });
       } else if (dragMode === "background") {
         setBgPosition({ x: world.x - dragStart.x, y: world.y - dragStart.y });
@@ -231,7 +296,6 @@ export const Viewport = memo(() => {
       currentEmitterSettings,
       updateCurrentEmitter,
       canvasToWorld,
-      zoom,
     ]
   );
 
@@ -245,21 +309,20 @@ export const Viewport = memo(() => {
       const canvasX = (e.clientX - rect.left) * (frameWidth / rect.width);
       const canvasY = (e.clientY - rect.top) * (frameHeight / rect.height);
 
-      const worldPoint = canvasToWorld(canvasX, canvasY);
-      const delta = e.deltaY < 0 ? 1.1 : 0.9;
-      const newZoom = clampZoomValue(zoom * delta);
+      const worldPoint = canvasToWorld(canvasX, canvasY, zoomRef.current, panRef.current);
+      const zoomFactor = Math.exp(-e.deltaY * 0.0025);
+      const targetZoom = clampZoomValue(zoomRef.current * zoomFactor);
 
-      const halfWidth = frameWidth / 2;
-      const halfHeight = frameHeight / 2;
-      const newPan = {
-        x: (canvasX - (halfWidth)) / newZoom - worldPoint.x,
-        y: (halfHeight - canvasY) / newZoom - worldPoint.y,
-      };
-
-      setPan(newPan);
-      setZoom(newZoom);
+      animateZoomTo(targetZoom, { canvasX, canvasY, world: worldPoint });
     },
-    [canvasRef, frameHeight, frameWidth, canvasToWorld, clampZoomValue, zoom, setPan, setZoom]
+    [
+      animateZoomTo,
+      canvasRef,
+      canvasToWorld,
+      clampZoomValue,
+      frameHeight,
+      frameWidth,
+    ]
   );
 
   const handleCanvasMouseUp = useCallback(() => {
@@ -302,15 +365,14 @@ export const Viewport = memo(() => {
           className="max-h-full max-w-full"
           style={{
             imageRendering: "pixelated",
-            cursor: isDragging
-              ? "grabbing"
-              : isSpacePressed
-              ? "grab"
-              : currentEmitterSettings && !currentEmitterSettings.positionLocked
-              ? "grab"
-              : backgroundImage
-              ? "grab"
-              : "default",
+            cursor:
+              isDragging
+                ? "grabbing"
+                : currentEmitterSettings && !currentEmitterSettings.positionLocked
+                ? "grab"
+                : backgroundImage
+                ? "grab"
+                : "default",
             height: "100%",
             width: "100%",
           }}
@@ -318,6 +380,7 @@ export const Viewport = memo(() => {
           onMouseMove={handleCanvasMouseMove}
           onMouseUp={handleCanvasMouseUp}
           onMouseLeave={handleCanvasMouseUp}
+          onContextMenu={(e) => e.preventDefault()}
           onWheel={handleCanvasWheel}
         />
 

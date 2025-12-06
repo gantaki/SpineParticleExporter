@@ -176,6 +176,39 @@ export function useParticleBridge(): ParticleBridgeAPI {
     };
   }, [viewport]);
 
+  const {
+    zoom: viewportZoom,
+    showGrid,
+    showEmitter,
+    backgroundImage,
+    bgPosition,
+    pan,
+    gridSettings,
+  } = viewport;
+
+  useEffect(() => {
+    const engine = engineRef.current;
+    const canvas = canvasRef.current;
+    if (!engine || !canvas || !rendererRef.current) return;
+    if (machine.shouldRunLoop) return;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    rendererRef.current.render(ctx, engine, settings, getRenderOptions());
+  }, [
+    backgroundImage,
+    bgPosition,
+    getRenderOptions,
+    gridSettings,
+    machine.shouldRunLoop,
+    pan,
+    settings,
+    showEmitter,
+    showGrid,
+    viewportZoom,
+  ]);
+
   // ============================================================
   // BAKING
   // ============================================================
