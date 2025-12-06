@@ -403,12 +403,12 @@ export const Viewport = memo(() => {
         style={{ display: "none" }}
       />
 
-      <div className="bg-black rounded overflow-hidden border border-slate-600 relative aspect-video">
+      <div className="bg-black rounded overflow-hidden border border-slate-600 relative aspect-video flex items-center justify-center">
         <canvas
           ref={canvasRef as React.RefObject<HTMLCanvasElement>}
           width={settings.frameSize}
           height={settings.frameSize}
-          className="absolute inset-0 h-full w-full"
+          className="max-h-full max-w-full aspect-square"
           style={{
             imageRendering: "pixelated",
             cursor: isDragging
@@ -418,6 +418,8 @@ export const Viewport = memo(() => {
               : backgroundImage
               ? "grab"
               : "default",
+            height: "100%",
+            width: "auto",
           }}
           onMouseDown={handleCanvasMouseDown}
           onMouseMove={handleCanvasMouseMove}

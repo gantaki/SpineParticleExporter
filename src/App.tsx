@@ -243,10 +243,23 @@ const ParticleEditor: React.FC = () => {
         </header>
 
         {/* Main Grid Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
-          {/* Columns 1-2: Wide Preview + Timeline */}
-          <div className="space-y-3 xl:col-span-2">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
+          {/* Columns 1-2: Wide Preview + Timeline + Emitters */}
+          <div className="space-y-4 xl:col-span-2">
             <Viewport />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-3">
+                <EmitterManagementPanel />
+              </div>
+              <div className="space-y-3">
+                <EmitterSettingsPanel
+                  isOpen={panels.emitter.isOpen}
+                  onToggle={panels.emitter.toggle}
+                />
+              </div>
+            </div>
+
             {/* Hidden file input for sprite upload */}
             <input
               ref={sprite.spriteInputRef}
@@ -258,7 +271,7 @@ const ParticleEditor: React.FC = () => {
           </div>
 
           {/* Column 3: Particle Settings & Forces */}
-          <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-8rem)] pr-1">
+          <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-8rem)] pr-1 xl:col-span-1">
             <ParticleSettingsPanel
               isOpen={panels.particle.isOpen}
               onToggle={panels.particle.toggle}
@@ -276,7 +289,7 @@ const ParticleEditor: React.FC = () => {
           </div>
 
           {/* Column 4: Export Settings */}
-          <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-8rem)] pr-1">
+          <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-8rem)] pr-1 xl:col-span-1">
             <ExportPanel
               isOpen={panels.export.isOpen}
               onToggle={panels.export.toggle}
@@ -319,17 +332,6 @@ const ParticleEditor: React.FC = () => {
             >
               Reset All Settings
             </button>
-          </div>
-
-          {/* Row below timeline: Emitters & Emitter Settings */}
-          <div className="space-y-3 xl:col-span-1">
-            <EmitterManagementPanel />
-          </div>
-          <div className="space-y-3 xl:col-span-1">
-            <EmitterSettingsPanel
-              isOpen={panels.emitter.isOpen}
-              onToggle={panels.emitter.toggle}
-            />
           </div>
         </div>
       </div>
