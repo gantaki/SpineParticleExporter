@@ -184,6 +184,10 @@ interface ExportSettings {
   scaleThreshold: number;
   colorThreshold: number;
 
+  // Translate Decimation - reduces keyframes in high-density areas
+  translateDecimationEnabled: boolean;
+  translateDecimationPercentage: number; // 0-100, percentage of keys to remove in dense regions
+
   spineVersion: string; // e.g. "4.2.00", "4.3.39-beta"
 
   // Per-emitter animation export settings (keyed by emitter ID)
@@ -487,6 +491,9 @@ const DEFAULT_SETTINGS: ParticleSettings = {
     rotationThreshold: 20.0,
     scaleThreshold: 0.2,
     colorThreshold: 60,
+
+    translateDecimationEnabled: false,
+    translateDecimationPercentage: 50, // Default to 50% removal in dense areas
 
     spineVersion: "4.2.00",
 

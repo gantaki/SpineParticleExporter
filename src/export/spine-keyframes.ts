@@ -8,6 +8,7 @@ import type { BakedFrame } from "../types";
 import type { ParticleSnapshot } from "./baking";
 import type { ParticleSettings } from "../types";
 import { normalizeAngle, smoothAngles, isParticleVisible } from "./spine-animation-utils";
+import { decimateKeyframes } from "./keyframe-decimation";
 
 // ============================================================
 // TYPE DEFINITIONS
@@ -267,8 +268,21 @@ export function buildParticleKeyframes(
     }
   }
 
+  // Apply decimation to translate keys if enabled
+  // This happens AFTER all keys are written and AFTER Position Threshold filtering
+  let finalTranslateKeys = translateKeys;
+  if (
+    settings.exportSettings.translateDecimationEnabled &&
+    settings.exportSettings.translateDecimationPercentage > 0
+  ) {
+    finalTranslateKeys = decimateKeyframes(
+      translateKeys,
+      settings.exportSettings.translateDecimationPercentage
+    );
+  }
+
   return {
-    translateKeys,
+    translateKeys: finalTranslateKeys,
     rotateKeys,
     scaleKeys,
     attachmentKeys,
