@@ -247,7 +247,7 @@ export class CanvasParticleRenderer {
       const spriteCanvas = spriteCanvases ? spriteCanvases[emitter.id] : null;
       const canvasWidth = spriteCanvas?.width ?? 32;
       const canvasHeight = spriteCanvas?.height ?? 32;
-      const spriteColorMode = this.resolveSpriteColorMode(emitter.settings);
+      const colorizeSprite = this.shouldColorizeSprite(emitter.settings);
 
       // Render all particles from this emitter
       for (const p of emitterParticles) {
@@ -258,7 +258,7 @@ export class CanvasParticleRenderer {
         ctx.globalAlpha = p.alpha;
 
         if (spriteCanvas) {
-          if (spriteColorMode === "none") {
+          if (!colorizeSprite) {
             ctx.scale(1, -1);
             ctx.drawImage(
               spriteCanvas,
@@ -272,35 +272,20 @@ export class CanvasParticleRenderer {
             const tempCtx = this.getCachedContext(tempCanvas);
 
             tempCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+            tempCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
 
-            if (spriteColorMode === "tint") {
-              if (p.color.r !== 255 || p.color.g !== 255 || p.color.b !== 255) {
-                tempCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
-                tempCtx.globalCompositeOperation = "source-in";
-                tempCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-                tempCtx.fillRect(0, 0, canvasWidth, canvasHeight);
-                tempCtx.globalCompositeOperation = "source-over";
-              } else {
-                tempCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
-              }
-            } else {
-              tempCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
+            const tintCanvas = this.getTempCanvas(canvasWidth, canvasHeight);
+            const tintCtx = this.getCachedContext(tintCanvas);
+            tintCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+            tintCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
+            tintCtx.globalCompositeOperation = "source-in";
+            tintCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
+            tintCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+            tintCtx.globalCompositeOperation = "source-over";
 
-              const tintCanvas = this.getTempCanvas(canvasWidth, canvasHeight);
-              const tintCtx = this.getCachedContext(tintCanvas);
-              tintCtx.clearRect(0, 0, canvasWidth, canvasHeight);
-              tintCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
-              tintCtx.globalCompositeOperation = "source-in";
-              tintCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-              tintCtx.fillRect(0, 0, canvasWidth, canvasHeight);
-              tintCtx.globalCompositeOperation = "source-over";
-
-              tempCtx.globalAlpha = 0.65;
-              tempCtx.drawImage(tintCanvas, 0, 0, canvasWidth, canvasHeight);
-              tempCtx.globalAlpha = 1;
-
-              this.returnTempCanvas(tintCanvas);
-            }
+            tempCtx.globalAlpha = 0.65;
+            tempCtx.drawImage(tintCanvas, 0, 0, canvasWidth, canvasHeight);
+            tempCtx.globalAlpha = 1;
 
             ctx.scale(1, -1);
             ctx.drawImage(
@@ -311,6 +296,7 @@ export class CanvasParticleRenderer {
               canvasHeight
             );
 
+            this.returnTempCanvas(tintCanvas);
             this.returnTempCanvas(tempCanvas);
           }
         } else {
@@ -326,10 +312,19 @@ export class CanvasParticleRenderer {
     }
   }
 
-  private resolveSpriteColorMode(
-    settings: EmitterInstance["settings"]
-  ): "none" | "tint" | "colorize" {
-    return settings.spriteColorMode ?? (settings.tintSprite ? "tint" : "none");
+  private shouldColorizeSprite(settings: EmitterInstance["settings"]): boolean {
+    const legacySpriteColorMode = (settings as any).spriteColorMode as
+      | "none"
+      | "colorize"
+      | undefined;
+    const legacyTintFlag = (settings as any).tintSprite as boolean | undefined;
+    if (typeof settings.colorizeSprite === "boolean") {
+      return settings.colorizeSprite;
+    }
+    if (legacySpriteColorMode) {
+      return legacySpriteColorMode === "colorize" || legacyTintFlag === true;
+    }
+    return legacyTintFlag ?? true;
   }
 
   // ============================================================

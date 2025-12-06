@@ -11,7 +11,6 @@ import { RangeCurveCombo, LabeledCheckbox } from "../fields";
 import { CurveEditorNew } from "../CurveEditorNew";
 import { useSettings } from "../../context/SettingsContext";
 import { copyCurve } from "../../utils";
-import type { EmitterInstanceSettings } from "../../types";
 
 // ============================================================
 // INLINE COLLAPSIBLE COMPONENT FOR SUB-SECTIONS
@@ -53,12 +52,8 @@ InlineCollapsible.displayName = "InlineCollapsible";
 const ColorOverLifetimeSection = memo(() => {
   const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
   const [isOpen, setIsOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<"color" | "alpha">("color");
 
   if (!em) return null;
-
-  const spriteColorMode =
-    em.spriteColorMode ?? (em.tintSprite ? "tint" : "none");
 
   return (
     <InlineCollapsible
@@ -68,55 +63,22 @@ const ColorOverLifetimeSection = memo(() => {
       onToggle={() => setIsOpen(!isOpen)}
     >
       <div className="flex items-center justify-between mb-2">
-        <div className="flex gap-1 bg-slate-900/60 rounded p-1">
-          <button
-            className={`px-2 py-0.5 text-[11px] rounded ${
-              activeTab === "color"
-                ? "bg-blue-600 text-white"
-                : "text-slate-300 hover:bg-slate-800"
-            }`}
-            onClick={() => setActiveTab("color")}
-          >
-            Color Over Lifetime
-          </button>
-          <button
-            className={`px-2 py-0.5 text-[11px] rounded ${
-              activeTab === "alpha"
-                ? "bg-blue-600 text-white"
-                : "text-slate-300 hover:bg-slate-800"
-            }`}
-            onClick={() => setActiveTab("alpha")}
-          >
-            Alpha Over Lifetime
-          </button>
+        <div className="px-2 py-0.5 text-[11px] rounded bg-slate-900/60 text-slate-200">
+          Color Over Lifetime
         </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-300">Sprite Color</span>
-          <select
-            className="bg-slate-900 border border-slate-600 rounded px-2 py-1 text-[11px] text-slate-100"
-            value={spriteColorMode}
-            onChange={(e) =>
-              updateCurrentEmitter({
-                spriteColorMode: e.target.value as EmitterInstanceSettings["spriteColorMode"],
-                tintSprite: e.target.value !== "none",
-              })
-            }
-          >
-            <option value="tint">Tint Sprite</option>
-            <option value="colorize">Colorize Sprite</option>
-            <option value="none">No Tint</option>
-          </select>
-        </div>
+        <LabeledCheckbox
+          label="Colorize Sprite"
+          checked={em.colorizeSprite ?? true}
+          onChange={(checked) => updateCurrentEmitter({ colorizeSprite: checked })}
+        />
       </div>
 
-      {activeTab === "color" ? (
-        <ColorGradientEditor
-          gradient={em.colorOverLifetime}
-          onChange={(gradient) =>
-            updateCurrentEmitter({ colorOverLifetime: gradient })
-          }
-        />
-      ) : (
+      <ColorGradientEditor
+        gradient={em.colorOverLifetime}
+        onChange={(gradient) => updateCurrentEmitter({ colorOverLifetime: gradient })}
+      />
+
+      <div className="mt-3">
         <CurveEditorNew
           label="Alpha Multiplier (0 to 1)"
           curve={em.alphaOverLifetime}
@@ -125,7 +87,7 @@ const ColorOverLifetimeSection = memo(() => {
           max={1}
           autoScale={false}
         />
-      )}
+      </div>
     </InlineCollapsible>
   );
 });
