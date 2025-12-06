@@ -146,6 +146,8 @@ interface EmitterInstanceSettings {
 
   // Appearance
   colorOverLifetime: ColorGradient;
+  alphaOverLifetime: Curve;
+  tintSprite: boolean;
   particleSprite:
     | "circle"
     | "star"
@@ -364,6 +366,13 @@ const DEFAULT_CURVE_PRESETS: { [key: string]: Curve } = {
     ],
     interpolation: "linear",
   },
+  alpha: {
+    points: [
+      { time: 0, value: 1 },
+      { time: 1, value: 0 },
+    ],
+    interpolation: "linear",
+  },
 };
 
 // ========== Default Settings ==========
@@ -483,6 +492,8 @@ function createDefaultEmitterSettings(): EmitterInstanceSettings {
         { time: 1, color: { r: 255, g: 255, b: 255, a: 0 } },
       ],
     },
+    alphaOverLifetime: DEFAULT_CURVE_PRESETS.alpha,
+    tintSprite: true,
     particleSprite: "circle",
     customSpriteData: null,
   };

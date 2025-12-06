@@ -8,6 +8,7 @@ import { CollapsibleSection } from "../CollapsibleSection";
 import { ColorGradientEditor } from "../ColorGradientEditor";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { RangeCurveCombo, LabeledCheckbox } from "../fields";
+import { CurveEditorNew } from "../CurveEditorNew";
 import { useSettings } from "../../context/SettingsContext";
 import { copyCurve } from "../../utils";
 
@@ -51,6 +52,7 @@ InlineCollapsible.displayName = "InlineCollapsible";
 const ColorOverLifetimeSection = memo(() => {
   const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
   const [isOpen, setIsOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<"color" | "alpha">("color");
 
   if (!em) return null;
 
@@ -61,12 +63,53 @@ const ColorOverLifetimeSection = memo(() => {
       isOpen={isOpen}
       onToggle={() => setIsOpen(!isOpen)}
     >
-      <ColorGradientEditor
-        gradient={em.colorOverLifetime}
-        onChange={(gradient) =>
-          updateCurrentEmitter({ colorOverLifetime: gradient })
-        }
-      />
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex gap-1 bg-slate-900/60 rounded p-1">
+          <button
+            className={`px-2 py-0.5 text-[11px] rounded ${
+              activeTab === "color"
+                ? "bg-blue-600 text-white"
+                : "text-slate-300 hover:bg-slate-800"
+            }`}
+            onClick={() => setActiveTab("color")}
+          >
+            Color Over Lifetime
+          </button>
+          <button
+            className={`px-2 py-0.5 text-[11px] rounded ${
+              activeTab === "alpha"
+                ? "bg-blue-600 text-white"
+                : "text-slate-300 hover:bg-slate-800"
+            }`}
+            onClick={() => setActiveTab("alpha")}
+          >
+            Alpha Over Lifetime
+          </button>
+        </div>
+        <LabeledCheckbox
+          label="Tint Sprite"
+          checked={em.tintSprite}
+          onChange={(checked) => updateCurrentEmitter({ tintSprite: checked })}
+        />
+      </div>
+
+      {activeTab === "color" ? (
+        <ColorGradientEditor
+          gradient={em.colorOverLifetime}
+          onChange={(gradient) =>
+            updateCurrentEmitter({ colorOverLifetime: gradient })
+          }
+        />
+      ) : (
+        <CurveEditorNew
+          label="Alpha Multiplier (0 to 1)"
+          curve={em.alphaOverLifetime}
+          onChange={(curve) => updateCurrentEmitter({ alphaOverLifetime: curve })}
+          min={0}
+          max={1}
+          autoScale={false}
+        />
+      )}
     </InlineCollapsible>
   );
 });

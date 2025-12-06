@@ -434,8 +434,12 @@ export class ParticleEngine {
       p.rotation += spinSpeed * dt;
 
       const colorData = evaluateColorGradient(em.colorOverLifetime, t);
-      p.color = { r: colorData.r, g: colorData.g, b: colorData.b, a: 255 };
-      p.alpha = colorData.a / 255;
+      const alphaMultiplier = clamp01(evaluateCurve(em.alphaOverLifetime, t));
+
+      p.color = em.tintSprite
+        ? { r: colorData.r, g: colorData.g, b: colorData.b, a: 255 }
+        : { r: 255, g: 255, b: 255, a: 255 };
+      p.alpha = (colorData.a / 255) * alphaMultiplier;
     }
   }
 

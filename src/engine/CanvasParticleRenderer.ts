@@ -245,8 +245,8 @@ export class CanvasParticleRenderer {
       if (!emitterParticles || emitterParticles.length === 0) continue;
 
       const spriteCanvas = spriteCanvases ? spriteCanvases[emitter.id] : null;
-      const size = 16;
-      const canvasSize = size * 2;
+      const canvasWidth = spriteCanvas?.width ?? 32;
+      const canvasHeight = spriteCanvas?.height ?? 32;
 
       // Render all particles from this emitter
       for (const p of emitterParticles) {
@@ -257,26 +257,30 @@ export class CanvasParticleRenderer {
         ctx.globalAlpha = p.alpha;
 
         if (spriteCanvas) {
-          // Get canvas from pool with size (avoids resize if already correct)
-          const tempCanvas = this.getTempCanvas(canvasSize, canvasSize);
+          const tempCanvas = this.getTempCanvas(canvasWidth, canvasHeight);
           const tempCtx = this.getCachedContext(tempCanvas);
 
-          // Clear previous content (cheap compared to resize)
-          tempCtx.clearRect(0, 0, canvasSize, canvasSize);
+          tempCtx.clearRect(0, 0, canvasWidth, canvasHeight);
 
-          tempCtx.drawImage(spriteCanvas, 0, 0, canvasSize, canvasSize);
-          tempCtx.globalCompositeOperation = "source-in";
-          tempCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-          tempCtx.fillRect(0, 0, canvasSize, canvasSize);
+          if (p.color.r !== 255 || p.color.g !== 255 || p.color.b !== 255) {
+            tempCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
+            tempCtx.globalCompositeOperation = "source-in";
+            tempCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
+            tempCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+            tempCtx.globalCompositeOperation = "source-over";
+          } else {
+            tempCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
+          }
 
-          // Reset composite operation for next use
-          tempCtx.globalCompositeOperation = "source-over";
-
-          // Compensate for inverted Y axis when drawing sprite images
           ctx.scale(1, -1);
-          ctx.drawImage(tempCanvas, -size, -size, canvasSize, canvasSize);
+          ctx.drawImage(
+            tempCanvas,
+            -canvasWidth / 2,
+            -canvasHeight / 2,
+            canvasWidth,
+            canvasHeight
+          );
 
-          // Return canvas to pool for reuse
           this.returnTempCanvas(tempCanvas);
         } else {
           const circleSize = 8;
