@@ -71,6 +71,10 @@ export function collectParticlesByEmitter(
 
 /**
  * Builds the bone hierarchy: root bone + emitter bones with position offsets
+ *
+ * NOTE: Emitters are processed in reverse order (bottom-to-top) so that
+ * in Spine's draw order, top emitters render on top of bottom emitters.
+ * Spine draws slots in the order they appear in the JSON.
  */
 export function buildBoneHierarchy(
   settings: ParticleSettings,
@@ -79,7 +83,8 @@ export function buildBoneHierarchy(
   const bones: Array<{ name: string; parent?: string; x?: number; y?: number }> = [{ name: "root" }];
 
   // Create emitter bones with position offset
-  for (const emitter of settings.emitters) {
+  // Reverse order: start from bottom emitter, end with top emitter
+  for (const emitter of [...settings.emitters].reverse()) {
     if (!emitter.enabled || !particlesByEmitter.has(emitter.id)) continue;
 
     const emitterBone: { name: string; parent: string; x?: number; y?: number } = {
@@ -111,6 +116,10 @@ export function buildBoneHierarchy(
 /**
  * Builds slots, skins, and particle bones
  * Returns all components needed for skeleton structure
+ *
+ * NOTE: Emitters are processed in reverse order (bottom-to-top) so that
+ * in Spine's draw order, top emitters render on top of bottom emitters.
+ * Spine draws slots in the order they appear in the JSON.
  */
 export function buildSlotsAndSkins(
   settings: ParticleSettings,
@@ -131,7 +140,8 @@ export function buildSlotsAndSkins(
   const particleTracks: ParticleTrack[] = [];
   const bones: Array<{ name: string; parent: string }> = [];
 
-  for (const emitter of settings.emitters) {
+  // Reverse order: start from bottom emitter, end with top emitter
+  for (const emitter of [...settings.emitters].reverse()) {
     if (!emitter.enabled || !particlesByEmitter.has(emitter.id)) continue;
 
     const particleIds = Array.from(particlesByEmitter.get(emitter.id)!).sort(
