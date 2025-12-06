@@ -403,12 +403,12 @@ export const Viewport = memo(() => {
         style={{ display: "none" }}
       />
 
-      <div className="bg-black rounded overflow-hidden border border-slate-600 relative">
+      <div className="bg-black rounded overflow-hidden border border-slate-600 relative aspect-video">
         <canvas
           ref={canvasRef as React.RefObject<HTMLCanvasElement>}
           width={settings.frameSize}
           height={settings.frameSize}
-          className="w-full h-[400px]"
+          className="absolute inset-0 h-full w-full"
           style={{
             imageRendering: "pixelated",
             cursor: isDragging

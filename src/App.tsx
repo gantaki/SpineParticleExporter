@@ -231,7 +231,7 @@ const ParticleEditor: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-6">
-      <div className="max-w-[1870px] mx-auto">
+      <div className="mx-auto max-w-[min(1870px,100vw-2rem)]">
         {/* Header */}
         <header className="mb-4">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
@@ -243,18 +243,9 @@ const ParticleEditor: React.FC = () => {
         </header>
 
         {/* Main Grid Layout */}
-        <div className="grid grid-cols-1 xl:[grid-template-columns:repeat(4,minmax(352px,1fr))] gap-6 items-start">
-          {/* Column 1: Emitter Management & Settings */}
-          <div className="space-y-3">
-            <EmitterManagementPanel />
-            <EmitterSettingsPanel
-              isOpen={panels.emitter.isOpen}
-              onToggle={panels.emitter.toggle}
-            />
-          </div>
-
-          {/* Column 2: Viewport */}
-          <div className="space-y-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 items-start">
+          {/* Columns 1-2: Wide Preview + Timeline */}
+          <div className="space-y-3 xl:col-span-2">
             <Viewport />
             {/* Hidden file input for sprite upload */}
             <input
@@ -328,6 +319,17 @@ const ParticleEditor: React.FC = () => {
             >
               Reset All Settings
             </button>
+          </div>
+
+          {/* Row below timeline: Emitters & Emitter Settings */}
+          <div className="space-y-3 xl:col-span-1">
+            <EmitterManagementPanel />
+          </div>
+          <div className="space-y-3 xl:col-span-1">
+            <EmitterSettingsPanel
+              isOpen={panels.emitter.isOpen}
+              onToggle={panels.emitter.toggle}
+            />
           </div>
         </div>
       </div>
