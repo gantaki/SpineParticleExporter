@@ -208,6 +208,11 @@ interface ExportSettings extends EmitterExportSettings {
 }
 
 // Global particle system settings
+interface FrameDimensions {
+  width: number;
+  height: number;
+}
+
 interface ParticleSettings {
   emitters: EmitterInstance[]; // Up to 5 emitters
   currentEmitterIndex: number; // Currently selected emitter for editing
@@ -215,7 +220,7 @@ interface ParticleSettings {
   // Global export settings
   duration: number;
   fps: number;
-  frameSize: number;
+  frame: FrameDimensions;
   exportSettings: GlobalExportSettings;
 }
 
@@ -520,7 +525,10 @@ const DEFAULT_SETTINGS: ParticleSettings = {
   // Global settings
   duration: 2.0,
   fps: 30,
-  frameSize: 512,
+  frame: {
+    width: 2560,
+    height: 1440,
+  },
 
   exportSettings: {
     spineVersion: "4.2.00",
@@ -547,6 +555,7 @@ export {
   type GlobalExportSettings,
   type ExportSettings,
   type ParticleSettings,
+  type FrameDimensions,
   type Particle,
   type BakedFrame,
   type AtlasRegion,

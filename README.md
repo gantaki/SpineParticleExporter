@@ -75,61 +75,56 @@ High-level components must depend on abstractions (contexts, interfaces, configu
 ```
 spine-particle-exporter/
 ├── src/
-│   ├── components/           # UI Components
-│   │   ├── fields/           # Reusable form field components
-│   │   │   └── index.tsx     # LabeledNumber, LabeledSelect, RangeCurveCombo, etc.
-│   │   ├── panels/           # Settings panel components
+│   ├── App.tsx                  # Page layout, panel orchestration, preview wiring
+│   ├── main.tsx                 # React root
+│   ├── index.css                # Tailwind + global styles
+│   ├── components/              # UI components
+│   │   ├── viewport/            # Preview workspace modules
+│   │   │   ├── Viewport.tsx     # Preview canvas with timeline controls
+│   │   │   ├── controls/        # Zoom, grid, emitter visibility, background actions
+│   │   │   └── overlays/        # HUD overlays (loop, particle count)
+│   │   ├── Timeline.tsx         # Transport & scrubber UI
+│   │   ├── CurveEditorNew.tsx   # Unified curve editor
+│   │   ├── CurveEditor.tsx      # Legacy curve editor (compatibility)
+│   │   ├── ColorGradientEditor.tsx
+│   │   ├── ColorPicker.tsx
+│   │   ├── RangeInput.tsx       # Shared range/number control
+│   │   ├── fields/              # Reusable form fields (index.tsx)
+│   │   ├── panels/              # Settings and management panels
 │   │   │   ├── EmitterManagementPanel.tsx
 │   │   │   ├── EmitterSettingsPanel.tsx
 │   │   │   ├── ParticleSettingsPanel.tsx
 │   │   │   ├── ForcesPanel.tsx
 │   │   │   ├── CurvesPanel.tsx
 │   │   │   └── ExportPanel.tsx
-│   │   ├── Viewport.tsx      # Canvas rendering component
-│   │   ├── CurveEditor.tsx   # Bezier curve editor
-│   │   ├── ColorGradientEditor.tsx
-│   │   ├── ColorPicker.tsx
-│   │   ├── Timeline.tsx
-│   │   └── ...
-│   │
-│   ├── context/              # React Contexts
-│   │   ├── SettingsContext.tsx   # Particle settings (model state)
-│   │   └── ViewportContext.tsx   # Ephemeral UI state (zoom, grid, etc.)
-│   │
-│   ├── state/                # State Management
-│   │   └── EditorMachine.ts  # FSM reducer for editor states
-│   │
-│   ├── engine/               # Particle Simulation
-│   │   └── ParticleEngine.ts # Core simulation with Observer pattern
-│   │
-│   ├── hooks/                # Custom React Hooks
-│   │   ├── useParticleBridge.ts  # Controller: connects engine to UI
-│   │   └── useSpriteManager.ts   # Sprite loading/caching
-│   │
-│   ├── export/               # Export Functionality
-│   │   ├── sprites.ts        # Procedural sprite generation
-│   │   ├── atlas.ts          # Texture atlas packing
-│   │   ├── baking.ts         # Animation frame capture
-│   │   ├── spine-json.ts     # Spine skeleton JSON generation
-│   │   ├── zip.ts            # ZIP file utilities
-│   │   ├── index.ts          # Barrel exports
-│   │   └── EXPORT.md         # Export system documentation
-│   │
-│   ├── types/                # TypeScript Definitions
-│   │   └── index.ts          # All interfaces and constants
-│   │
-│   ├── utils/                # Utility Functions
-│   │   └── index.ts          # Math, curves, noise, etc.
-│   │
-│   ├── App.tsx               # Main application (layout composition)
-│   ├── main.tsx              # Vite entry point
-│   └── index.css             # Global styles with Tailwind
-│
-├── index.html
-├── vite.config.ts
-├── tsconfig.json
-├── tailwind.config.js
-└── package.json
+│   │   └── helpers.ts           # Shared component utilities
+│   ├── context/                 # React Contexts
+│   │   ├── SettingsContext.tsx  # Particle settings (model state)
+│   │   └── ViewportContext.tsx  # Ephemeral UI state (zoom, grid, etc.)
+│   ├── state/                   # State Management
+│   │   └── EditorMachine.ts     # FSM reducer for editor states
+│   ├── engine/                  # Particle Simulation
+│   │   └── ParticleEngine.ts    # Core simulation with Observer pattern
+│   ├── hooks/                   # Custom React Hooks
+│   │   ├── useParticleBridge.ts # Controller: connects engine to UI
+│   │   └── useSpriteManager.ts  # Sprite loading/caching
+│   ├── export/                  # Export Functionality
+│   │   ├── sprites.ts           # Procedural sprite generation
+│   │   ├── atlas.ts             # Texture atlas packing
+│   │   ├── baking.ts            # Animation frame capture
+│   │   ├── spine-json.ts        # Spine skeleton JSON generation
+│   │   ├── zip.ts               # ZIP file utilities
+│   │   ├── index.ts             # Barrel exports
+│   │   └── EXPORT.md            # Export system documentation
+│   ├── types/                   # TypeScript Definitions
+│   │   └── index.ts             # All interfaces and constants
+│   ├── utils/                   # Utility Functions
+│   │   └── index.ts             # Math, curves, noise, etc.
+├── index.html                   # HTML entry for Vite
+├── vite.config.ts               # Vite configuration
+├── tailwind.config.js           # Tailwind setup
+├── tsconfig.json                # TypeScript compiler options
+└── package.json                 # Scripts and dependencies
 ```
 
 ## Getting Started

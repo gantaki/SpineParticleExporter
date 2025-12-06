@@ -25,6 +25,15 @@ export interface RenderOptions {
   showGrid: boolean;
   backgroundImage: HTMLImageElement | null;
   bgPosition: { x: number; y: number };
+  pan: { x: number; y: number };
+  gridSettings: {
+    backgroundA: string;
+    backgroundB: string;
+    step: number;
+    showAxes: boolean;
+    axisColor: string;
+    axisOpacity: number;
+  };
 }
 
 // ============================================================
@@ -144,6 +153,8 @@ export class CanvasParticleRenderer {
       showGrid,
       backgroundImage,
       bgPosition,
+      pan,
+      gridSettings,
     } = options;
 
     // Clear entire canvas
@@ -155,14 +166,36 @@ export class CanvasParticleRenderer {
     // Calculate zoom transform centered on world origin (0, 0)
     const centerX = ctx.canvas.width / 2;
     const centerY = ctx.canvas.height / 2;
-    const offsetX = centerX;
-    const offsetY = centerY;
+    const offsetX = centerX + pan.x * zoom;
+    const offsetY = centerY + pan.y * zoom;
+
+    const visibleCorners = [
+      { x: 0, y: 0 },
+      { x: ctx.canvas.width, y: 0 },
+      { x: 0, y: ctx.canvas.height },
+      { x: ctx.canvas.width, y: ctx.canvas.height },
+    ].map(({ x, y }) => ({
+      x: (x - offsetX) / zoom,
+      y: (offsetY - y) / zoom,
+    }));
+
+    const visibleBounds = {
+      left: Math.min(...visibleCorners.map((p) => p.x)),
+      right: Math.max(...visibleCorners.map((p) => p.x)),
+      top: Math.max(...visibleCorners.map((p) => p.y)),
+      bottom: Math.min(...visibleCorners.map((p) => p.y)),
+    };
 
     ctx.save();
     // Invert Y axis so positive Y goes up (mathematical convention)
     ctx.setTransform(zoom, 0, 0, -zoom, offsetX, offsetY);
 
-    // Draw background
+    // Draw grid
+    if (showGrid) {
+      this.renderGrid(ctx, zoom, offsetX, offsetY, gridSettings, visibleBounds);
+    }
+
+    // Draw background above grid
     if (backgroundImage && bgPosition) {
       ctx.save();
       ctx.globalAlpha = 0.5;
@@ -172,9 +205,8 @@ export class CanvasParticleRenderer {
       ctx.restore();
     }
 
-    // Draw grid
-    if (showGrid) {
-      this.renderGrid(ctx, zoom, offsetX, offsetY);
+    if (showGrid && gridSettings.showAxes) {
+      this.renderAxes(ctx, zoom, settings, gridSettings, visibleBounds);
     }
 
     // Draw particles
@@ -196,35 +228,77 @@ export class CanvasParticleRenderer {
     ctx: CanvasRenderingContext2D,
     zoom: number,
     offsetX: number,
-    offsetY: number
+    offsetY: number,
+    gridSettings: RenderOptions["gridSettings"],
+    visibleBounds: { left: number; right: number; top: number; bottom: number }
   ): void {
     ctx.save();
-    ctx.strokeStyle = "rgba(100, 100, 100, 0.3)";
-    ctx.lineWidth = 1 / zoom;
-    const gridStep = 50;
+    const gridStep = Math.max(8, gridSettings.step);
 
-    const visibleLeft = -offsetX / zoom;
-    const visibleRight = (ctx.canvas.width - offsetX) / zoom;
-    const visibleTop = -offsetY / zoom;
-    const visibleBottom = (ctx.canvas.height - offsetY) / zoom;
+    const visibleCorners = [
+      { x: 0, y: 0 },
+      { x: ctx.canvas.width, y: 0 },
+      { x: 0, y: ctx.canvas.height },
+      { x: ctx.canvas.width, y: ctx.canvas.height },
+    ].map(({ x, y }) => ({
+      x: (x - offsetX) / zoom,
+      y: (offsetY - y) / zoom,
+    }));
+
+    const visibleLeft = Math.min(visibleBounds.left, ...visibleCorners.map((p) => p.x));
+    const visibleRight = Math.max(visibleBounds.right, ...visibleCorners.map((p) => p.x));
+    const visibleTop = Math.max(visibleBounds.top, ...visibleCorners.map((p) => p.y));
+    const visibleBottom = Math.min(visibleBounds.bottom, ...visibleCorners.map((p) => p.y));
 
     const startX = Math.floor(visibleLeft / gridStep) * gridStep;
     const endX = Math.ceil(visibleRight / gridStep) * gridStep;
-    for (let x = startX; x <= endX; x += gridStep) {
-      ctx.beginPath();
-      ctx.moveTo(x, visibleTop);
-      ctx.lineTo(x, visibleBottom);
-      ctx.stroke();
+    const startY = Math.floor(visibleBottom / gridStep) * gridStep;
+    const endY = Math.ceil(visibleTop / gridStep) * gridStep;
+
+    for (let y = startY; y <= endY; y += gridStep) {
+      for (let x = startX; x <= endX; x += gridStep) {
+        const isEven = ((x / gridStep) + (y / gridStep)) % 2 === 0;
+        ctx.fillStyle = isEven
+          ? gridSettings.backgroundA
+          : gridSettings.backgroundB;
+        ctx.fillRect(x, y, gridStep, gridStep);
+      }
     }
 
-    const startY = Math.floor(visibleTop / gridStep) * gridStep;
-    const endY = Math.ceil(visibleBottom / gridStep) * gridStep;
-    for (let y = startY; y <= endY; y += gridStep) {
-      ctx.beginPath();
-      ctx.moveTo(visibleLeft, y);
-      ctx.lineTo(visibleRight, y);
-      ctx.stroke();
-    }
+    ctx.restore();
+  }
+
+  private renderAxes(
+    ctx: CanvasRenderingContext2D,
+    zoom: number,
+    settings: ParticleSettings,
+    gridSettings: RenderOptions["gridSettings"],
+    visibleBounds: { left: number; right: number; top: number; bottom: number }
+  ): void {
+    ctx.save();
+    ctx.lineWidth = 2 / zoom;
+    ctx.strokeStyle = gridSettings.axisColor;
+    ctx.globalAlpha = gridSettings.axisOpacity;
+
+    const maxSpan = Math.max(
+      settings.frame.width,
+      settings.frame.height,
+      visibleBounds.right - visibleBounds.left,
+      visibleBounds.top - visibleBounds.bottom
+    );
+    const halfSpan = maxSpan * 1.5;
+
+    // X axis
+    ctx.beginPath();
+    ctx.moveTo(-halfSpan, 0);
+    ctx.lineTo(halfSpan, 0);
+    ctx.stroke();
+
+    // Y axis
+    ctx.beginPath();
+    ctx.moveTo(0, -halfSpan);
+    ctx.lineTo(0, halfSpan);
+    ctx.stroke();
 
     ctx.restore();
   }

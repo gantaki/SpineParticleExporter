@@ -85,6 +85,8 @@ export interface ViewportState {
   showGrid: boolean;
   backgroundImage: HTMLImageElement | null;
   bgPosition: { x: number; y: number };
+  pan: { x: number; y: number };
+  gridSettings: GridSettings;
 }
 
 export const INITIAL_VIEWPORT_STATE: ViewportState = {
@@ -93,7 +95,25 @@ export const INITIAL_VIEWPORT_STATE: ViewportState = {
   showGrid: false,
   backgroundImage: null,
   bgPosition: { x: 0, y: 0 },
+  pan: { x: 0, y: 0 },
+  gridSettings: {
+    backgroundA: "#111827",
+    backgroundB: "#0b1220",
+    step: 50,
+    showAxes: true,
+    axisColor: "#6b7280",
+    axisOpacity: 0.75,
+  },
 };
+
+export interface GridSettings {
+  backgroundA: string;
+  backgroundB: string;
+  step: number;
+  showAxes: boolean;
+  axisColor: string;
+  axisOpacity: number;
+}
 
 // ============================================================
 // PARTICLE SYSTEM OBSERVER TYPES
@@ -134,7 +154,7 @@ export type SettingsAction =
   // Global settings
   | { type: "SET_DURATION"; duration: number }
   | { type: "SET_FPS"; fps: number }
-  | { type: "SET_FRAME_SIZE"; frameSize: number }
+  | { type: "SET_FRAME_DIMENSIONS"; width: number; height: number }
   | { type: "SET_EXPORT_SETTINGS"; exportSettings: Partial<ExportSettings> }
   | {
       type: "SET_GLOBAL_EXPORT_SETTINGS";

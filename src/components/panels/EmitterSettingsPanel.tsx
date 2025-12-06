@@ -17,6 +17,8 @@ import { useSettings } from "../../context/SettingsContext";
 import { DEFAULT_CURVE_PRESETS } from "../../types";
 import { copyCurve, roundToDecimals } from "../../utils";
 
+const POSITION_LIMIT = 2500;
+
 // ============================================================
 // INLINE COLLAPSIBLE COMPONENT FOR SUB-SECTIONS
 // ============================================================
@@ -427,31 +429,39 @@ const PositionSettings = memo(() => {
         <LabeledNumber
           label="Position X (px)"
           value={roundToDecimals(em.position.x)}
-          onChange={(v) =>
+          onChange={(v) => {
+            const clampedX = Math.max(
+              -POSITION_LIMIT,
+              Math.min(POSITION_LIMIT, roundToDecimals(v))
+            );
             updateCurrentEmitter({
               position: {
-                x: roundToDecimals(v),
+                x: clampedX,
                 y: em.position.y
               }
-            })
-          }
-          min={-1000}
-          max={1000}
+            });
+          }}
+          min={-POSITION_LIMIT}
+          max={POSITION_LIMIT}
           step={0.01}
         />
         <LabeledNumber
           label="Position Y (px)"
           value={roundToDecimals(em.position.y)}
-          onChange={(v) =>
+          onChange={(v) => {
+            const clampedY = Math.max(
+              -POSITION_LIMIT,
+              Math.min(POSITION_LIMIT, roundToDecimals(v))
+            );
             updateCurrentEmitter({
               position: {
                 x: em.position.x,
-                y: roundToDecimals(v)
+                y: clampedY
               }
-            })
-          }
-          min={-1000}
-          max={1000}
+            });
+          }}
+          min={-POSITION_LIMIT}
+          max={POSITION_LIMIT}
           step={0.01}
         />
       </TwoColumn>

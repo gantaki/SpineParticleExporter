@@ -21,7 +21,7 @@ import { SettingsProvider, useSettings } from "./context/SettingsContext";
 import { ViewportProvider } from "./context/ViewportContext";
 
 // Components
-import { Viewport } from "./components/Viewport";
+import { Viewport } from "./components/viewport";
 import {
   EmitterManagementPanel,
   EmitterSettingsPanel,
@@ -231,7 +231,7 @@ const ParticleEditor: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white p-6">
-      <div className="max-w-[1870px] mx-auto">
+      <div className="mx-auto max-w-[min(1870px,100vw-2rem)]">
         {/* Header */}
         <header className="mb-4">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
@@ -243,19 +243,23 @@ const ParticleEditor: React.FC = () => {
         </header>
 
         {/* Main Grid Layout */}
-        <div className="grid grid-cols-1 xl:[grid-template-columns:repeat(4,minmax(352px,1fr))] gap-6 items-start">
-          {/* Column 1: Emitter Management & Settings */}
-          <div className="space-y-3">
-            <EmitterManagementPanel />
-            <EmitterSettingsPanel
-              isOpen={panels.emitter.isOpen}
-              onToggle={panels.emitter.toggle}
-            />
-          </div>
-
-          {/* Column 2: Viewport */}
-          <div className="space-y-3">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-6 items-start">
+          {/* Columns 1-2: Wide Preview + Timeline + Emitters */}
+          <div className="space-y-4 xl:col-span-2">
             <Viewport />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-3">
+                <EmitterManagementPanel />
+              </div>
+              <div className="space-y-3">
+                <EmitterSettingsPanel
+                  isOpen={panels.emitter.isOpen}
+                  onToggle={panels.emitter.toggle}
+                />
+              </div>
+            </div>
+
             {/* Hidden file input for sprite upload */}
             <input
               ref={sprite.spriteInputRef}
@@ -267,7 +271,7 @@ const ParticleEditor: React.FC = () => {
           </div>
 
           {/* Column 3: Particle Settings & Forces */}
-          <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-8rem)] pr-1">
+          <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-8rem)] pr-1 xl:col-span-1">
             <ParticleSettingsPanel
               isOpen={panels.particle.isOpen}
               onToggle={panels.particle.toggle}
@@ -285,7 +289,7 @@ const ParticleEditor: React.FC = () => {
           </div>
 
           {/* Column 4: Export Settings */}
-          <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-8rem)] pr-1">
+          <div className="space-y-2 overflow-y-auto max-h-[calc(100vh-8rem)] pr-1 xl:col-span-1">
             <ExportPanel
               isOpen={panels.export.isOpen}
               onToggle={panels.export.toggle}

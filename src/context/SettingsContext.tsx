@@ -49,8 +49,8 @@ function settingsReducer(
     case "SET_FPS":
       return { ...state, fps: action.fps };
 
-    case "SET_FRAME_SIZE":
-      return { ...state, frameSize: action.frameSize };
+    case "SET_FRAME_DIMENSIONS":
+      return { ...state, frame: { width: action.width, height: action.height } };
 
     case "SET_EXPORT_SETTINGS":
       return {
@@ -330,7 +330,7 @@ interface SettingsContextValue {
   // Actions - Global
   setDuration: (duration: number) => void;
   setFps: (fps: number) => void;
-  setFrameSize: (frameSize: number) => void;
+  setFrameDimensions: (dimensions: { width: number; height: number }) => void;
   updateExportSettings: (exportSettings: Partial<ExportSettings>) => void;
   updateGlobalExportSettings: (
     exportSettings: Partial<GlobalExportSettings>
@@ -450,8 +450,13 @@ export function SettingsProvider({
     []
   );
 
-  const setFrameSize = useCallback(
-    (frameSize: number) => dispatch({ type: "SET_FRAME_SIZE", frameSize }),
+  const setFrameDimensions = useCallback(
+    (dimensions: { width: number; height: number }) =>
+      dispatch({
+        type: "SET_FRAME_DIMENSIONS",
+        width: dimensions.width,
+        height: dimensions.height,
+      }),
     []
   );
 
@@ -630,7 +635,7 @@ export function SettingsProvider({
       hasLoopingContinuousEmitter,
       setDuration,
       setFps,
-      setFrameSize,
+      setFrameDimensions,
       updateExportSettings,
       updateGlobalExportSettings,
       updateAnimationExportOptions,
@@ -660,7 +665,7 @@ export function SettingsProvider({
       hasLoopingContinuousEmitter,
       setDuration,
       setFps,
-      setFrameSize,
+      setFrameDimensions,
       updateExportSettings,
       updateGlobalExportSettings,
       updateAnimationExportOptions,
