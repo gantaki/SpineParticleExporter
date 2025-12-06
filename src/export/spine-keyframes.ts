@@ -4,9 +4,8 @@
  * Single Responsibility: Transform particle state → keyframe data
  */
 
-import type { BakedFrame } from "../types";
+import type { BakedFrame, EmitterExportSettings } from "../types";
 import type { ParticleSnapshot } from "./baking";
-import type { ParticleSettings } from "../types";
 import { normalizeAngle, smoothAngles, isParticleVisible } from "./spine-animation-utils";
 import { decimateKeyframes } from "./keyframe-decimation";
 
@@ -41,7 +40,6 @@ export interface ParticleTrack {
 export function buildParticleKeyframes(
   sourceFrames: BakedFrame[],
   track: ParticleTrack,
-  settings: ParticleSettings,
   spriteName: string,
   getParticleFromFrame: (
     frame: BakedFrame,
@@ -51,7 +49,8 @@ export function buildParticleKeyframes(
   POSITION_THRESHOLD: number,
   ROTATION_THRESHOLD: number,
   SCALE_THRESHOLD: number,
-  COLOR_THRESHOLD: number
+  COLOR_THRESHOLD: number,
+  emitterExportSettings: EmitterExportSettings
 ): Keyframes {
   const translateKeys: Keyframes["translateKeys"] = [];
   const rotateKeys: Keyframes["rotateKeys"] = [];
@@ -145,7 +144,7 @@ export function buildParticleKeyframes(
           )
         : 0;
       const shouldWriteTranslate =
-        settings.exportSettings.exportTranslate &&
+        emitterExportSettings.exportTranslate &&
         (isFirstFrame ||
           isLastFrame ||
           visibilityChanged ||
@@ -165,7 +164,7 @@ export function buildParticleKeyframes(
       const rotationDelta =
         prevRotation !== null ? normalizedAngle - prevRotation : 0;
       const shouldWriteRotate =
-        settings.exportSettings.exportRotate &&
+        emitterExportSettings.exportRotate &&
         (isFirstFrame ||
           isLastFrame ||
           visibilityChanged ||
@@ -184,7 +183,7 @@ export function buildParticleKeyframes(
 
       // Scale keyframe
       if (
-        settings.exportSettings.exportScale &&
+        emitterExportSettings.exportScale &&
         (isFirstFrame ||
           isLastFrame ||
           visibilityChanged ||
@@ -201,7 +200,7 @@ export function buildParticleKeyframes(
       }
 
       // Color keyframe
-      if (settings.exportSettings.exportColor) {
+      if (emitterExportSettings.exportColor) {
         const colorDeltaSum =
           prevColor === null
             ? Number.POSITIVE_INFINITY
@@ -246,20 +245,20 @@ export function buildParticleKeyframes(
 
       if (visibilityChanged && wasVisible) {
         const time = Math.round(frame.time * 1000) / 1000;
-        if (settings.exportSettings.exportTranslate && prevPos) {
+        if (emitterExportSettings.exportTranslate && prevPos) {
           pushKeyWithCurve(translateKeys, {
             time,
             x: Math.round(prevPos.x * 100) / 100,
             y: Math.round(prevPos.y * 100) / 100,
           });
         }
-        if (settings.exportSettings.exportRotate && prevRotation !== null) {
+        if (emitterExportSettings.exportRotate && prevRotation !== null) {
           pushKeyWithCurve(rotateKeys, {
             time,
             value: Math.round(prevRotation * 100) / 100,
           });
         }
-        if (settings.exportSettings.exportScale && prevScale !== null) {
+        if (emitterExportSettings.exportScale && prevScale !== null) {
           pushKeyWithCurve(scaleKeys, { time, x: 0, y: 0 });
         }
       }
@@ -272,12 +271,12 @@ export function buildParticleKeyframes(
   // This happens AFTER all keys are written and AFTER Position Threshold filtering
   let finalTranslateKeys = translateKeys;
   if (
-    settings.exportSettings.translateDecimationEnabled &&
-    settings.exportSettings.translateDecimationPercentage > 0
+    emitterExportSettings.translateDecimationEnabled &&
+    emitterExportSettings.translateDecimationPercentage > 0
   ) {
     finalTranslateKeys = decimateKeyframes(
       translateKeys,
-      settings.exportSettings.translateDecimationPercentage
+      emitterExportSettings.translateDecimationPercentage
     );
   }
 

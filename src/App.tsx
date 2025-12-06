@@ -34,6 +34,15 @@ import {
 // Hooks
 import { useParticleBridge, useSpriteManager } from "./hooks";
 
+// Export functionality for multi-emitter export
+import {
+  bakeParticleAnimation,
+  generateSpineJSON,
+  renderBakedPreview,
+  SimpleZip,
+  downloadBlob,
+} from "./export";
+
 // ============================================================
 // PANEL STATE HOOK
 // ============================================================
@@ -63,9 +72,11 @@ function usePanelState() {
 
 const ParticleEditor: React.FC = () => {
   const [exportStatus, setExportStatus] = useState("");
+  const [multiExportStatus, setMultiExportStatus] = useState("");
 
   // Context hooks
   const {
+    settings,
     currentEmitter,
     currentEmitterSettings: em,
     resetSettings,
@@ -82,6 +93,125 @@ const ParticleEditor: React.FC = () => {
     resetSettings();
     bridge.handleRestart();
   }, [sprite, resetSettings, bridge]);
+
+  // Multi-emitter export handlers
+  const handleMultiExportJSON = useCallback(async () => {
+    setMultiExportStatus("🔄 Generating JSON for all enabled emitters...");
+    bridge.machine.startExport();
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    try {
+      const { frames, prewarmFrames } = bakeParticleAnimation(settings);
+
+      const spriteNameMap = new Map<string, string>();
+      for (let i = 0; i < settings.emitters.length; i++) {
+        const emitter = settings.emitters[i];
+        if (!emitter.enabled) continue;
+        const spriteName = `sprite_${i + 1}`;
+        spriteNameMap.set(emitter.id, spriteName);
+      }
+
+      const spineJSON = generateSpineJSON(
+        frames,
+        prewarmFrames,
+        settings,
+        spriteNameMap
+      );
+
+      const jsonBlob = new Blob([spineJSON], {
+        type: "application/json",
+      });
+      downloadBlob(jsonBlob, "particle_spine.json");
+
+      setMultiExportStatus(`✅ All Emitters JSON Downloaded!`);
+      bridge.machine.completeExport();
+      setTimeout(() => setMultiExportStatus(""), 3000);
+    } catch (error) {
+      console.error("Export error:", error);
+      setMultiExportStatus(
+        "❌ Error: " + (error instanceof Error ? error.message : "Unknown")
+      );
+      bridge.machine.errorExport(
+        error instanceof Error ? error.message : "Unknown"
+      );
+      setTimeout(() => setMultiExportStatus(""), 3000);
+    }
+  }, [settings, bridge.machine]);
+
+  const handleMultiExportZIP = useCallback(async () => {
+    setMultiExportStatus("🔄 Baking all enabled emitters...");
+    bridge.machine.startExport();
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
+    try {
+      const { frames, prewarmFrames } = bakeParticleAnimation(settings);
+      const uniqueParticles = new Set<number>();
+      for (const frame of frames) {
+        for (const [id] of frame.particles) {
+          uniqueParticles.add(id as number);
+        }
+      }
+      setMultiExportStatus(
+        `✓ ${frames.length} frames, ${uniqueParticles.size} particles`
+      );
+      await new Promise((resolve) => setTimeout(resolve, 50));
+
+      const spriteNameMap = new Map<string, string>();
+      const emitterSprites: Array<{
+        emitterId: string;
+        name: string;
+        canvas: HTMLCanvasElement;
+      }> = [];
+
+      for (let i = 0; i < settings.emitters.length; i++) {
+        const emitter = settings.emitters[i];
+        if (!emitter.enabled) continue;
+
+        const spriteName = `sprite_${i + 1}`;
+        spriteNameMap.set(emitter.id, spriteName);
+
+        const spriteCanvas = await sprite.resolveEmitterSpriteCanvas(emitter);
+        emitterSprites.push({
+          emitterId: emitter.id,
+          name: spriteName,
+          canvas: spriteCanvas,
+        });
+      }
+
+      const spineJSON = generateSpineJSON(
+        frames,
+        prewarmFrames,
+        settings,
+        spriteNameMap
+      );
+      const previewCanvas = renderBakedPreview(frames, settings);
+
+      const zip = new SimpleZip();
+      for (const spr of emitterSprites) {
+        await zip.addCanvasFile(`${spr.name}.png`, spr.canvas);
+      }
+      await zip.addCanvasFile("preview.png", previewCanvas);
+      zip.addFile("particle_spine.json", spineJSON);
+
+      const zipBlob = zip.generate();
+      downloadBlob(zipBlob, "particle_export.zip");
+
+      setMultiExportStatus(`✅ All Emitters Exported!`);
+      bridge.machine.completeExport();
+      setTimeout(() => setMultiExportStatus(""), 3000);
+    } catch (error) {
+      console.error("Export error:", error);
+      setMultiExportStatus(
+        "❌ Error: " + (error instanceof Error ? error.message : "Unknown")
+      );
+      bridge.machine.errorExport(
+        error instanceof Error ? error.message : "Unknown"
+      );
+      setTimeout(() => setMultiExportStatus(""), 3000);
+    }
+  }, [settings, sprite, bridge.machine]);
 
   // Safety check for emission type consistency
   const { updateCurrentEmitter } = useSettings();
@@ -163,6 +293,35 @@ const ParticleEditor: React.FC = () => {
               exportStatus={exportStatus}
               setExportStatus={setExportStatus}
             />
+
+            {/* Multi-Emitter Export Section */}
+            <div className="border border-slate-600 rounded bg-slate-800/30 p-3 space-y-2">
+              <div className="text-xs font-semibold text-slate-300 mb-2">
+                Export All Enabled Emitters
+              </div>
+
+              {multiExportStatus && (
+                <div className="text-xs text-center py-1 bg-slate-800 rounded mb-2">
+                  {multiExportStatus}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleMultiExportJSON}
+                  className="px-3 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 rounded transition-colors text-sm font-semibold"
+                >
+                  📄 Download JSON<br/>(All Emitters)
+                </button>
+                <button
+                  onClick={handleMultiExportZIP}
+                  className="px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded transition-colors text-sm font-semibold"
+                >
+                  📦 Download ZIP<br/>(All Emitters)
+                </button>
+              </div>
+            </div>
+
             <button
               onClick={handleReset}
               className="w-full px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded transition-colors text-xs"

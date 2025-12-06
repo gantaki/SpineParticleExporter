@@ -164,6 +164,7 @@ interface EmitterInstance {
   id: string;
   name: string;
   settings: EmitterInstanceSettings;
+  exportSettings: EmitterExportSettings; // Per-emitter export settings
   enabled: boolean; // For export - can disable individual emitters
   visible: boolean; // For viewport visibility
 }
@@ -173,7 +174,8 @@ interface AnimationExportOptions {
   exportPrewarm: boolean; // Export prewarm animation
 }
 
-interface ExportSettings {
+// Per-emitter export settings (isolated for each emitter)
+interface EmitterExportSettings {
   exportTranslate: boolean;
   exportRotate: boolean;
   exportScale: boolean;
@@ -187,10 +189,19 @@ interface ExportSettings {
   // Translate Decimation - reduces keyframes in high-density areas
   translateDecimationEnabled: boolean;
   translateDecimationPercentage: number; // 0-100, percentage of keys to remove in dense regions
+}
 
+// Global export settings (shared across all emitters)
+interface GlobalExportSettings {
   spineVersion: string; // e.g. "4.2.00", "4.3.39-beta"
 
   // Per-emitter animation export settings (keyed by emitter ID)
+  animationExportOptions: Record<string, AnimationExportOptions>;
+}
+
+// Legacy export settings type for backward compatibility during migration
+interface ExportSettings extends EmitterExportSettings {
+  spineVersion: string;
   animationExportOptions: Record<string, AnimationExportOptions>;
 }
 
@@ -203,7 +214,7 @@ interface ParticleSettings {
   duration: number;
   fps: number;
   frameSize: number;
-  exportSettings: ExportSettings;
+  exportSettings: GlobalExportSettings;
 }
 
 interface Particle {
@@ -357,6 +368,24 @@ const DEFAULT_CURVE_PRESETS: { [key: string]: Curve } = {
 
 // ========== Default Settings ==========
 
+// Function to create default emitter export settings
+function createDefaultEmitterExportSettings(): EmitterExportSettings {
+  return {
+    exportTranslate: true,
+    exportRotate: true,
+    exportScale: true,
+    exportColor: true,
+
+    positionThreshold: 12.0,
+    rotationThreshold: 20.0,
+    scaleThreshold: 0.2,
+    colorThreshold: 60,
+
+    translateDecimationEnabled: false,
+    translateDecimationPercentage: 50, // Default to 50% removal in dense areas
+  };
+}
+
 // Function to create default emitter instance settings
 function createDefaultEmitterSettings(): EmitterInstanceSettings {
   return {
@@ -465,6 +494,7 @@ function createEmitterInstance(id: string, name: string): EmitterInstance {
     id,
     name,
     settings: createDefaultEmitterSettings(),
+    exportSettings: createDefaultEmitterExportSettings(),
     enabled: true,
     visible: true,
   };
@@ -482,19 +512,6 @@ const DEFAULT_SETTINGS: ParticleSettings = {
   frameSize: 512,
 
   exportSettings: {
-    exportTranslate: true,
-    exportRotate: true,
-    exportScale: true,
-    exportColor: true,
-
-    positionThreshold: 12.0,
-    rotationThreshold: 20.0,
-    scaleThreshold: 0.2,
-    colorThreshold: 60,
-
-    translateDecimationEnabled: false,
-    translateDecimationPercentage: 50, // Default to 50% removal in dense areas
-
     spineVersion: "4.2.00",
 
     // Default animation export options (will be populated per emitter dynamically)
@@ -515,6 +532,8 @@ export {
   type EmitterInstanceSettings,
   type EmitterInstance,
   type AnimationExportOptions,
+  type EmitterExportSettings,
+  type GlobalExportSettings,
   type ExportSettings,
   type ParticleSettings,
   type Particle,
@@ -523,6 +542,7 @@ export {
   type BakedParticleKey,
   DEFAULT_CURVE_PRESETS,
   createDefaultEmitterSettings,
+  createDefaultEmitterExportSettings,
   createEmitterInstance,
   DEFAULT_SETTINGS,
 };
