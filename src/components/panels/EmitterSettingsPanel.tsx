@@ -406,10 +406,12 @@ ShapeSettings.displayName = "ShapeSettings";
 // ============================================================
 
 const PositionSettings = memo(() => {
-  const { currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
+  const { settings, currentEmitterSettings: em, updateCurrentEmitter } = useSettings();
   const [positionOpen, setPositionOpen] = useState(false);
 
   if (!em) return null;
+
+  const halfFrame = settings.frameSize / 2;
 
   return (
     <InlineCollapsible
@@ -435,8 +437,8 @@ const PositionSettings = memo(() => {
               }
             })
           }
-          min={-1000}
-          max={1000}
+          min={-halfFrame}
+          max={halfFrame}
           step={0.01}
         />
         <LabeledNumber
@@ -450,8 +452,8 @@ const PositionSettings = memo(() => {
               }
             })
           }
-          min={-1000}
-          max={1000}
+          min={-halfFrame}
+          max={halfFrame}
           step={0.01}
         />
       </TwoColumn>

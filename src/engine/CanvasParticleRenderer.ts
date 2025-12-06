@@ -199,7 +199,7 @@ export class CanvasParticleRenderer {
     offsetY: number
   ): void {
     ctx.save();
-    ctx.strokeStyle = "rgba(100, 100, 100, 0.3)";
+    ctx.strokeStyle = "rgba(82, 82, 82, 0.55)";
     ctx.lineWidth = 1 / zoom;
     const gridStep = 50;
 

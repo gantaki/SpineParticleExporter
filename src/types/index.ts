@@ -520,7 +520,7 @@ const DEFAULT_SETTINGS: ParticleSettings = {
   // Global settings
   duration: 2.0,
   fps: 30,
-  frameSize: 512,
+  frameSize: 2048,
 
   exportSettings: {
     spineVersion: "4.2.00",

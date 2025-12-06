@@ -21,7 +21,7 @@ import { SettingsProvider, useSettings } from "./context/SettingsContext";
 import { ViewportProvider } from "./context/ViewportContext";
 
 // Components
-import { Viewport } from "./components/Viewport";
+import { Viewport } from "./components/viewport";
 import {
   EmitterManagementPanel,
   EmitterSettingsPanel,

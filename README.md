@@ -79,7 +79,10 @@ spine-particle-exporter/
 │   ├── main.tsx                 # React root
 │   ├── index.css                # Tailwind + global styles
 │   ├── components/              # UI components
-│   │   ├── Viewport.tsx         # Preview canvas with timeline controls
+│   │   ├── viewport/            # Preview workspace modules
+│   │   │   ├── Viewport.tsx     # Preview canvas with timeline controls
+│   │   │   ├── controls/        # Zoom, grid, emitter visibility, background actions
+│   │   │   └── overlays/        # HUD overlays (loop, particle count)
 │   │   ├── Timeline.tsx         # Transport & scrubber UI
 │   │   ├── CurveEditorNew.tsx   # Unified curve editor
 │   │   ├── CurveEditor.tsx      # Legacy curve editor (compatibility)
