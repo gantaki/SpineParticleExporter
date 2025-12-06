@@ -171,6 +171,7 @@ export function useParticleBridge(): ParticleBridgeAPI {
       showGrid: viewportState.showGrid,
       backgroundImage: viewportState.backgroundImage,
       bgPosition: viewportState.bgPosition,
+      gridSettings: viewportState.gridSettings,
     };
   }, [viewport]);
 

@@ -54,6 +54,8 @@ export const Viewport = memo(() => {
     toggleGrid,
     setBackgroundImage,
     setBgPosition,
+    gridSettings,
+    setGridSettings,
   } = viewport;
 
   const [isDragging, setIsDragging] = useState(false);
@@ -174,11 +176,13 @@ export const Viewport = memo(() => {
           showEmitter={showEmitter}
           showGrid={showGrid}
           hasBackgroundImage={!!backgroundImage}
+          gridSettings={gridSettings}
           onZoomChange={setZoom}
           onToggleEmitter={toggleEmitterVisibility}
           onToggleGrid={toggleGrid}
           onUploadBackground={() => fileInputRef.current?.click()}
           onRemoveBackground={() => setBackgroundImage(null)}
+          onGridSettingsChange={setGridSettings}
         />
       </div>
 

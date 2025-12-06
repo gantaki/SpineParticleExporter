@@ -25,6 +25,13 @@ export interface RenderOptions {
   showGrid: boolean;
   backgroundImage: HTMLImageElement | null;
   bgPosition: { x: number; y: number };
+  gridSettings: {
+    backgroundA: string;
+    backgroundB: string;
+    step: number;
+    lineColor: string;
+    lineWidth: number;
+  };
 }
 
 // ============================================================
@@ -144,6 +151,7 @@ export class CanvasParticleRenderer {
       showGrid,
       backgroundImage,
       bgPosition,
+      gridSettings,
     } = options;
 
     // Clear entire canvas
@@ -174,7 +182,7 @@ export class CanvasParticleRenderer {
 
     // Draw grid
     if (showGrid) {
-      this.renderGrid(ctx, zoom, offsetX, offsetY);
+      this.renderGrid(ctx, zoom, offsetX, offsetY, gridSettings);
     }
 
     // Draw particles
@@ -196,12 +204,12 @@ export class CanvasParticleRenderer {
     ctx: CanvasRenderingContext2D,
     zoom: number,
     offsetX: number,
-    offsetY: number
+    offsetY: number,
+    gridSettings: RenderOptions["gridSettings"]
   ): void {
     ctx.save();
-    ctx.strokeStyle = "rgba(82, 82, 82, 0.55)";
-    ctx.lineWidth = 1 / zoom;
-    const gridStep = 50;
+    ctx.lineWidth = gridSettings.lineWidth / zoom;
+    const gridStep = Math.max(8, gridSettings.step);
 
     const visibleLeft = -offsetX / zoom;
     const visibleRight = (ctx.canvas.width - offsetX) / zoom;
@@ -210,6 +218,21 @@ export class CanvasParticleRenderer {
 
     const startX = Math.floor(visibleLeft / gridStep) * gridStep;
     const endX = Math.ceil(visibleRight / gridStep) * gridStep;
+    const startY = Math.floor(visibleTop / gridStep) * gridStep;
+    const endY = Math.ceil(visibleBottom / gridStep) * gridStep;
+
+    for (let y = startY; y <= endY; y += gridStep) {
+      for (let x = startX; x <= endX; x += gridStep) {
+        const isEven = ((x / gridStep) + (y / gridStep)) % 2 === 0;
+        ctx.fillStyle = isEven
+          ? gridSettings.backgroundA
+          : gridSettings.backgroundB;
+        ctx.fillRect(x, y, gridStep, gridStep);
+      }
+    }
+
+    ctx.strokeStyle = gridSettings.lineColor;
+
     for (let x = startX; x <= endX; x += gridStep) {
       ctx.beginPath();
       ctx.moveTo(x, visibleTop);
@@ -217,8 +240,6 @@ export class CanvasParticleRenderer {
       ctx.stroke();
     }
 
-    const startY = Math.floor(visibleTop / gridStep) * gridStep;
-    const endY = Math.ceil(visibleBottom / gridStep) * gridStep;
     for (let y = startY; y <= endY; y += gridStep) {
       ctx.beginPath();
       ctx.moveTo(visibleLeft, y);

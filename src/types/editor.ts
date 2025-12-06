@@ -85,6 +85,7 @@ export interface ViewportState {
   showGrid: boolean;
   backgroundImage: HTMLImageElement | null;
   bgPosition: { x: number; y: number };
+  gridSettings: GridSettings;
 }
 
 export const INITIAL_VIEWPORT_STATE: ViewportState = {
@@ -93,7 +94,22 @@ export const INITIAL_VIEWPORT_STATE: ViewportState = {
   showGrid: false,
   backgroundImage: null,
   bgPosition: { x: 0, y: 0 },
+  gridSettings: {
+    backgroundA: "#111827",
+    backgroundB: "#0b1220",
+    step: 50,
+    lineColor: "rgba(148, 163, 184, 0.35)",
+    lineWidth: 1,
+  },
 };
+
+export interface GridSettings {
+  backgroundA: string;
+  backgroundB: string;
+  step: number;
+  lineColor: string;
+  lineWidth: number;
+}
 
 // ============================================================
 // PARTICLE SYSTEM OBSERVER TYPES
