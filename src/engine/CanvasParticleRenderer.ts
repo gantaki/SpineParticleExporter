@@ -36,6 +36,13 @@ export class CanvasParticleRenderer {
   private tempCanvasPool: HTMLCanvasElement[] = [];
   private readonly CANVAS_POOL_SIZE = 5;
 
+  // Cache for tinted sprites to avoid per-particle recoloring
+  private tintedSpriteCache: Map<string, HTMLCanvasElement> = new Map();
+  private tintedCacheOrder: string[] = [];
+  private readonly TINT_CACHE_LIMIT = 128;
+  private spriteCacheIds: WeakMap<HTMLCanvasElement, number> = new WeakMap();
+  private spriteIdCounter = 0;
+
   // Cache 2D contexts (avoid repeated getContext() calls)
   private canvasContextCache: Map<HTMLCanvasElement, CanvasRenderingContext2D> = new Map();
 
@@ -268,36 +275,22 @@ export class CanvasParticleRenderer {
               canvasHeight
             );
           } else {
-            const tempCanvas = this.getTempCanvas(canvasWidth, canvasHeight);
-            const tempCtx = this.getCachedContext(tempCanvas);
-
-            tempCtx.clearRect(0, 0, canvasWidth, canvasHeight);
-            tempCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
-
-            const tintCanvas = this.getTempCanvas(canvasWidth, canvasHeight);
-            const tintCtx = this.getCachedContext(tintCanvas);
-            tintCtx.clearRect(0, 0, canvasWidth, canvasHeight);
-            tintCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
-            tintCtx.globalCompositeOperation = "source-in";
-            tintCtx.fillStyle = `rgba(${p.color.r}, ${p.color.g}, ${p.color.b}, 1)`;
-            tintCtx.fillRect(0, 0, canvasWidth, canvasHeight);
-            tintCtx.globalCompositeOperation = "source-over";
-
-            tempCtx.globalAlpha = 0.65;
-            tempCtx.drawImage(tintCanvas, 0, 0, canvasWidth, canvasHeight);
-            tempCtx.globalAlpha = 1;
+            const tintedSprite = this.getTintedSprite(
+              emitter.id,
+              spriteCanvas,
+              p.color,
+              canvasWidth,
+              canvasHeight
+            );
 
             ctx.scale(1, -1);
             ctx.drawImage(
-              tempCanvas,
+              tintedSprite,
               -canvasWidth / 2,
               -canvasHeight / 2,
               canvasWidth,
               canvasHeight
             );
-
-            this.returnTempCanvas(tintCanvas);
-            this.returnTempCanvas(tempCanvas);
           }
         } else {
           const circleSize = 8;
@@ -325,6 +318,81 @@ export class CanvasParticleRenderer {
       return legacySpriteColorMode === "colorize" || legacyTintFlag === true;
     }
     return legacyTintFlag ?? true;
+  }
+
+  private getTintedSprite(
+    emitterId: string,
+    spriteCanvas: HTMLCanvasElement,
+    color: { r: number; g: number; b: number },
+    canvasWidth: number,
+    canvasHeight: number
+  ): HTMLCanvasElement {
+    const quantizedColor = this.quantizeColor(color);
+    const spriteId = this.getSpriteCacheId(spriteCanvas);
+    const cacheKey = `${emitterId}:${spriteId}:${canvasWidth}x${canvasHeight}:${quantizedColor.r}-${quantizedColor.g}-${quantizedColor.b}`;
+    const cached = this.tintedSpriteCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const tintCanvas = document.createElement("canvas");
+    tintCanvas.width = canvasWidth;
+    tintCanvas.height = canvasHeight;
+    const tintCtx = this.getCachedContext(tintCanvas);
+    tintCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+    tintCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
+    tintCtx.globalCompositeOperation = "source-in";
+    tintCtx.fillStyle = `rgba(${quantizedColor.r}, ${quantizedColor.g}, ${quantizedColor.b}, 1)`;
+    tintCtx.fillRect(0, 0, canvasWidth, canvasHeight);
+    tintCtx.globalCompositeOperation = "source-over";
+
+    const resultCanvas = document.createElement("canvas");
+    resultCanvas.width = canvasWidth;
+    resultCanvas.height = canvasHeight;
+    const resultCtx = this.getCachedContext(resultCanvas);
+    resultCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+    resultCtx.drawImage(spriteCanvas, 0, 0, canvasWidth, canvasHeight);
+    resultCtx.globalAlpha = 0.65;
+    resultCtx.drawImage(tintCanvas, 0, 0, canvasWidth, canvasHeight);
+    resultCtx.globalAlpha = 1;
+
+    this.cacheTintedSprite(cacheKey, resultCanvas);
+    return resultCanvas;
+  }
+
+  private cacheTintedSprite(key: string, canvas: HTMLCanvasElement): void {
+    if (this.tintedSpriteCache.has(key)) return;
+    this.tintedSpriteCache.set(key, canvas);
+    this.tintedCacheOrder.push(key);
+    if (this.tintedCacheOrder.length > this.TINT_CACHE_LIMIT) {
+      const oldestKey = this.tintedCacheOrder.shift();
+      if (oldestKey) {
+        const oldestCanvas = this.tintedSpriteCache.get(oldestKey);
+        this.tintedSpriteCache.delete(oldestKey);
+        if (oldestCanvas) {
+          this.canvasContextCache.delete(oldestCanvas);
+        }
+      }
+    }
+  }
+
+  private quantizeColor(color: { r: number; g: number; b: number }) {
+    const step = 8;
+    return {
+      r: Math.min(255, Math.max(0, Math.round(color.r / step) * step)),
+      g: Math.min(255, Math.max(0, Math.round(color.g / step) * step)),
+      b: Math.min(255, Math.max(0, Math.round(color.b / step) * step)),
+    };
+  }
+
+  private getSpriteCacheId(spriteCanvas: HTMLCanvasElement): number {
+    const existingId = this.spriteCacheIds.get(spriteCanvas);
+    if (existingId !== undefined) {
+      return existingId;
+    }
+    const newId = this.spriteIdCounter++;
+    this.spriteCacheIds.set(spriteCanvas, newId);
+    return newId;
   }
 
   // ============================================================
